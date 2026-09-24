@@ -58,6 +58,318 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
   .mobile-nav button.active{color:var(--navy)}.mobile-nav button.active span{background:#E8F0F8;color:var(--navy)}
 }
 @media (max-width:360px){.cards{grid-template-columns:1fr}.cards .card:nth-child(n+5){grid-column:auto}.mobile-more-grid{grid-template-columns:1fr}}
+
+/* Mobile UI v4 — otimizada para celular */
+@media (max-width:760px){
+  :root{--mobile-pad:12px}
+  html,body{width:100%;overflow-x:hidden}
+  body{
+    background:
+      radial-gradient(circle at 100% 0,rgba(215,169,62,.10),transparent 28%),
+      linear-gradient(180deg,#F4F7FB 0,#EEF3F8 100%);
+  }
+
+  .topbar{
+    min-height:68px;
+    padding:9px var(--mobile-pad);
+    background:linear-gradient(135deg,#0B2E59 0%,#123F73 100%);
+    border-bottom:3px solid var(--gold);
+    box-shadow:0 6px 20px rgba(11,46,89,.16);
+    color:#fff;
+  }
+  .topbar strong{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    max-width:58%;
+    color:#fff;
+  }
+  .topbar-city{
+    display:block!important;
+    font-size:15px;
+    font-weight:900;
+    letter-spacing:.06em;
+    line-height:1.05;
+  }
+  .topbar-system{
+    display:block!important;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:.08em;
+    opacity:.78;
+    line-height:1.1;
+  }
+  .topbar .muted{
+    margin-left:auto;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.16);
+    color:#fff;
+    padding:7px 9px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:800;
+    line-height:1.15;
+    box-shadow:none;
+  }
+
+  .content{
+    padding:16px var(--mobile-pad) calc(94px + env(safe-area-inset-bottom));
+  }
+  .page-head{
+    margin:2px 0 15px;
+  }
+  .page-head h2{
+    font-size:24px;
+    font-weight:900;
+    letter-spacing:-.02em;
+    color:var(--navy);
+  }
+  .page-head p{
+    color:#6D7B88;
+    font-size:12.5px;
+  }
+  .page-head>.pill{
+    display:inline-flex;
+    margin-top:9px;
+    background:#E8EEF5;
+    color:var(--navy);
+    border:1px solid #D6E0E9;
+    font-size:10.5px;
+    font-weight:800;
+    padding:6px 9px;
+    border-radius:999px;
+  }
+
+  .cards{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+  }
+  .card{
+    position:relative;
+    overflow:hidden;
+    min-height:112px;
+    padding:15px 14px;
+    border:1px solid rgba(11,46,89,.08);
+    border-radius:18px;
+    background:rgba(255,255,255,.96);
+    box-shadow:0 7px 20px rgba(11,46,89,.07);
+  }
+  .card .accent{
+    height:5px;
+    margin:-15px -14px 12px;
+    border-radius:0;
+  }
+  .card .label{
+    font-size:9.5px;
+    letter-spacing:.055em;
+    color:#758492;
+  }
+  .card .value{
+    font-size:30px;
+    line-height:1;
+    margin:8px 0 5px;
+    letter-spacing:-.03em;
+  }
+  .card .mini{
+    font-size:11px;
+    line-height:1.25;
+    color:#758492;
+  }
+  .cards .card:nth-child(5){
+    min-height:96px;
+    grid-column:1/-1;
+  }
+
+  .home-grid{
+    display:flex;
+    flex-direction:column;
+    gap:11px;
+    margin-top:11px;
+  }
+  .home-finance-panel{order:-1}
+  .panel{
+    padding:15px;
+    border-radius:18px;
+    border:1px solid rgba(11,46,89,.08);
+    box-shadow:0 6px 20px rgba(11,46,89,.055);
+    background:rgba(255,255,255,.97);
+  }
+  .panel h3{
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.015em;
+  }
+  .panel .sub{color:#778592}
+
+  .home-finance-panel .kpi-line{
+    min-height:42px;
+    align-items:center;
+    padding:9px 2px;
+  }
+  .home-finance-panel .kpi-line b{
+    font-size:14px;
+  }
+  .home-finance-panel .small-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+  }
+  .home-finance-panel .small-actions .btn{
+    min-height:42px;
+    font-size:11px;
+    text-align:center;
+    padding:8px 6px;
+    background:#EDF2F7;
+  }
+
+  /* Atividades recentes viram cartões em vez de tabela horizontal. */
+  .home-recent{
+    border:0;
+    overflow:visible;
+    background:transparent;
+  }
+  .home-recent .table{
+    display:block;
+    min-width:0;
+    background:transparent;
+  }
+  .home-recent thead{display:none}
+  .home-recent tbody{display:flex;flex-direction:column;gap:8px}
+  .home-recent tr{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:3px 10px;
+    padding:11px 12px;
+    border:1px solid #E4EAF0;
+    border-radius:13px;
+    background:#FAFCFE;
+  }
+  .home-recent td{
+    display:block;
+    border:0;
+    padding:0;
+    white-space:normal;
+    font-size:11px;
+  }
+  .home-recent td:nth-child(1){
+    grid-column:1;
+    grid-row:1;
+    color:var(--navy);
+    font-size:10px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .home-recent td:nth-child(2){
+    grid-column:1/-1;
+    grid-row:2;
+    font-size:12px;
+    color:var(--text);
+    font-weight:700;
+  }
+  .home-recent td:nth-child(3){
+    grid-column:2;
+    grid-row:1;
+    color:var(--muted);
+    text-align:right;
+    font-size:10px;
+  }
+  .home-recent td:nth-child(4){
+    grid-column:1/-1;
+    grid-row:3;
+    font-size:10.5px;
+    margin-top:2px;
+  }
+  .home-recent td.empty{
+    grid-column:1/-1;
+    padding:14px 4px;
+    text-align:center;
+    font-size:12px;
+    font-weight:500;
+  }
+
+  .tabs{
+    margin:0 -2px 10px;
+    padding:2px 2px 7px;
+    scroll-snap-type:x proximity;
+  }
+  .tabs button{
+    scroll-snap-align:start;
+    min-height:40px;
+    border-radius:12px;
+    font-size:11.5px;
+    box-shadow:0 2px 8px rgba(11,46,89,.035);
+  }
+
+  .table-wrap:not(.home-recent){
+    box-shadow:inset -14px 0 18px -18px rgba(11,46,89,.35);
+  }
+
+  .mobile-nav{
+    min-height:72px;
+    gap:2px;
+    padding:5px 6px calc(7px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.97);
+    border-top:1px solid rgba(11,46,89,.08);
+    box-shadow:0 -10px 30px rgba(11,46,89,.12);
+  }
+  .mobile-nav button{
+    position:relative;
+    min-height:56px;
+    color:#778592;
+    font-size:9px;
+    transition:background .15s ease,color .15s ease,transform .15s ease;
+  }
+  .mobile-nav button:active{transform:scale(.96)}
+  .mobile-nav button span{
+    width:38px;
+    height:29px;
+    font-size:19px;
+    margin:0 auto 3px;
+  }
+  .mobile-nav button.active{
+    background:transparent;
+    color:var(--navy);
+  }
+  .mobile-nav button.active span{
+    background:#E6EEF7;
+    box-shadow:inset 0 0 0 1px rgba(11,46,89,.05);
+  }
+  .mobile-nav button.active:after{
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:1px;
+    width:18px;
+    height:3px;
+    transform:translateX(-50%);
+    border-radius:999px;
+    background:var(--gold);
+  }
+
+  .modal{
+    border-radius:24px 24px 14px 14px;
+    box-shadow:0 -18px 50px rgba(7,25,45,.22);
+  }
+  .mobile-more-grid .btn{
+    border:1px solid #E2E9F0;
+    background:#F7F9FC;
+    border-radius:14px;
+  }
+}
+
+@media (max-width:390px){
+  :root{--mobile-pad:10px}
+  .topbar-city{font-size:14px}
+  .topbar-system{font-size:8.5px}
+  .topbar .muted{font-size:9.5px;padding:6px 7px}
+  .page-head h2{font-size:22px}
+  .card{padding:13px;min-height:105px}
+  .card .accent{margin:-13px -13px 10px}
+  .card .value{font-size:27px}
+  .panel{padding:13px}
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -328,7 +640,7 @@ function renderPage(){const c=document.getElementById('content');if(!c)return;({
 function card(t,v,m,a='var(--navy)'){return`<div class="card"><div class="accent" style="background:${a}"></div><div class="label">${t}</div><div class="value">${v}</div><div class="mini">${m}</div></div>`}
 function home(c){const openA=db.appointments.filter(x=>!['Concluído','Cancelado'].includes(x.status)).length, pendL=db.licitations.filter(x=>x.status==='Aguardando confirmação').length, emp=db.employees.filter(x=>x.status!=='Inativo').length, ctr=db.contracts.filter(x=>!['Encerrado','Cancelado'].includes(x.status)).length, tr=db.trips.filter(x=>!['Concluída','Cancelada'].includes(x.status)).length;const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0), exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);
   const recent=[...db.appointments.map(x=>({sector:'Agricultura',txt:`${x.producer||'Agendamento'} • ${x.machine||'-'}`,date:x.date,status:x.status,at:x.createdAt})),...db.licitations.map(x=>({sector:'Licitação',txt:x.title||'Sem título',date:x.date,status:x.status,at:x.createdAt})),...db.trips.map(x=>({sector:'Frota',txt:`${x.origin||'-'} → ${x.destination||'-'}`,date:x.date,status:x.status,at:x.createdAt}))].sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,10);
-  c.innerHTML=head('Painel Municipal','Visão geral dos setores e registros.',`Operador: ${esc(db.currentOperator)}`)+`<div class="cards">${card('AGRICULTURA',openA,'serviços em aberto','var(--ok)')}${card('LICITAÇÕES',pendL,'aguardando confirmação','var(--gold)')}${card('RH',emp,'servidores cadastrados','var(--info)')}${card('CONTRATOS',ctr,'ativos / abertos','var(--navy3)')}${card('VIAGENS',tr,'em aberto','var(--warn)')}</div><div class="grid2"><div class="panel"><h3>Atividades recentes</h3><div class="sub">Últimos registros dos principais setores.</div><div class="table-wrap"><table class="table"><thead><tr><th>Setor</th><th>Registro</th><th>Data</th><th>Status</th></tr></thead><tbody>${recent.map(r=>`<tr><td>${esc(r.sector)}</td><td>${esc(r.txt)}</td><td>${esc(r.date||'-')}</td><td class="status ${statusClass(r.status)}">${esc(r.status||'-')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhuma atividade ainda.</td></tr>'}</tbody></table></div></div><div class="panel"><h3>Resumo financeiro</h3><div class="sub">Lançamentos marcados como pagos.</div><div class="kpi-line"><span>Receitas</span><b class="s-ok">${money(rev)}</b></div><div class="kpi-line"><span>Despesas</span><b class="s-bad">${money(exp)}</b></div><div class="kpi-line"><span>Saldo</span><b>${money(rev-exp)}</b></div><div class="sep"></div><div class="small-actions"><button class="btn btn-secondary" onclick="App.go('agri','new')">＋ Agendamento</button><button class="btn btn-secondary" onclick="App.go('licit','send')">＋ Licitação</button><button class="btn btn-secondary" onclick="App.go('finance','new')">＋ Lançamento</button><button class="btn btn-secondary" onclick="App.go('fleet','trip')">＋ Viagem</button></div></div></div>`}
+  c.innerHTML=head('Painel Municipal','Visão geral dos setores e registros.',`Operador: ${esc(db.currentOperator)}`)+`<div class="cards">${card('AGRICULTURA',openA,'serviços em aberto','var(--ok)')}${card('LICITAÇÕES',pendL,'aguardando confirmação','var(--gold)')}${card('RH',emp,'servidores cadastrados','var(--info)')}${card('CONTRATOS',ctr,'ativos / abertos','var(--navy3)')}${card('VIAGENS',tr,'em aberto','var(--warn)')}</div><div class="grid2 home-grid"><div class="panel home-activity-panel"><h3>Atividades recentes</h3><div class="sub">Últimos registros dos principais setores.</div><div class="table-wrap home-recent"><table class="table"><thead><tr><th>Setor</th><th>Registro</th><th>Data</th><th>Status</th></tr></thead><tbody>${recent.map(r=>`<tr><td>${esc(r.sector)}</td><td>${esc(r.txt)}</td><td>${esc(r.date||'-')}</td><td class="status ${statusClass(r.status)}">${esc(r.status||'-')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhuma atividade ainda.</td></tr>'}</tbody></table></div></div><div class="panel home-finance-panel"><h3>Resumo financeiro</h3><div class="sub">Lançamentos marcados como pagos.</div><div class="kpi-line"><span>Receitas</span><b class="s-ok">${money(rev)}</b></div><div class="kpi-line"><span>Despesas</span><b class="s-bad">${money(exp)}</b></div><div class="kpi-line"><span>Saldo</span><b>${money(rev-exp)}</b></div><div class="sep"></div><div class="small-actions"><button class="btn btn-secondary" onclick="App.go('agri','new')">＋ Agendamento</button><button class="btn btn-secondary" onclick="App.go('licit','send')">＋ Licitação</button><button class="btn btn-secondary" onclick="App.go('finance','new')">＋ Lançamento</button><button class="btn btn-secondary" onclick="App.go('fleet','trip')">＋ Viagem</button></div></div></div>`}
 function tabs(items,active){return`<div class="tabs">${items.map(([k,label])=>`<button class="${active===k?'active':''}" onclick="App.go('${page}','${k}')">${label}</button>`).join('')}</div>`}
 function agri(c){const t=sub||'list';c.innerHTML=head('Agricultura','Agendamentos, máquinas e implementos municipais.')+tabs([['list','📋 Agendamentos'],['new','＋ Novo agendamento'],['machines','🚜 Máquinas'],['implements','⚙ Implementos']],t)+`<div id="subview"></div>`; const v=document.getElementById('subview');if(t==='new')agriNew(v);else if(t==='machines')assets(v,'machinery');else if(t==='implements')assets(v,'implements');else agriList(v)}
 function agriList(v){v.innerHTML=`<div class="panel"><div class="row wrap"><input id="agSearch" class="grow" placeholder="Pesquisar produtor, localidade ou máquina" style="padding:10px;border:1px solid var(--border);border-radius:10px"><button class="btn btn-secondary" onclick="App.filterAgri()">Pesquisar</button></div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Data</th><th>Produtor</th><th>Localidade</th><th>Máquina</th><th>Horas</th><th>Operador</th><th>Status</th><th>Ações</th></tr></thead><tbody id="agBody"></tbody></table></div></div>`;filterAgri()}
