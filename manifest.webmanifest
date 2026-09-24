@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "Prefeitura de Bom Regresso",
+  "short_name": "Bom Regresso",
+  "description": "Sistema Municipal Integrado de Bom Regresso",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#EEF3F7",
+  "theme_color": "#0B2E59",
+  "categories": [
+    "productivity",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
