@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v21';
+const CACHE='bom-regresso-pwa-v22';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
 
 try{
@@ -21,7 +21,10 @@ try{
       badge:'./app-icon.svg',
       tag:'bom-regresso-chat',
       renotify:true,
-      data:{type:'chat'}
+      vibrate:[70,45,70],
+      timestamp:Date.now(),
+      data:{type:'chat',url:'./?open=chat'},
+      actions:[{action:'open-chat',title:'Abrir chat'}]
     });
   });
 }catch(err){
@@ -95,8 +98,12 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of list){
-      try{client.postMessage({type:'OPEN_CHAT'});await client.focus();return}catch{}
+      try{
+        client.postMessage({type:'OPEN_CHAT'});
+        if('focus' in client)await client.focus();
+        return
+      }catch{}
     }
-    if(self.clients.openWindow)await self.clients.openWindow('./?open=chat');
+    if(self.clients.openWindow)await self.clients.openWindow(event.notification?.data?.url||'./?open=chat');
   })());
 });
