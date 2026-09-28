@@ -879,6 +879,17 @@ html[data-appearance="dark"] .profile-viewonly-badge{background:#24333F;color:#C
   .public-profile-info{grid-template-columns:1fr}
 }
 
+
+/* Senha exclusiva do perfil RH */
+.rh-lock-card{display:flex;flex-direction:column;gap:10px}
+.rh-lock-icon{font-size:42px;text-align:center;margin:2px 0 4px}
+.rh-login-error{padding:8px 10px;border-radius:10px;background:#FCE8E8;color:#9A2E2E;font-size:12px;font-weight:800}
+.rh-password-badge{display:inline-flex;align-items:center;padding:3px 6px;border-radius:999px;background:#EEF2F6;color:#536676;font-size:9px;font-weight:800;margin-left:6px}
+.rh-profile-security{padding:9px 11px;border:1px solid #D7E2EA;border-radius:11px;background:#F5F8FB;color:#536676;font-size:11px;font-weight:800}
+html[data-appearance="dark"] .rh-login-error{background:#3A2024;color:#FFB5B5}
+html[data-appearance="dark"] .rh-password-badge,
+html[data-appearance="dark"] .rh-profile-security{background:#24333F;color:#C6D3DD;border-color:#334653}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1165,6 +1176,76 @@ function roleOptions(selected=''){return '<option value="">Selecione o cargo</op
 function roleDepartment(role){if(role==='RH')return'RH';if(role==='Secretário da Agricultura')return'Agricultura';if(role==='Motorista')return'Frota / Transportes';if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';return'Geral'}
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
+function isRHProfile(profile){return (profile?.role||'')==='RH'}
+function bytesToBase64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)}
+function base64ToBytes(s){const bin=atob(String(s||''));return Uint8Array.from(bin,ch=>ch.charCodeAt(0))}
+function randomSalt(){const a=new Uint8Array(16);crypto.getRandomValues(a);return bytesToBase64(a)}
+async function deriveRHPassword(password,salt,iterations=120000){
+  if(!window.crypto?.subtle)throw new Error('Criptografia do navegador indisponível.');
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(String(password||'')),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:base64ToBytes(salt),iterations,hash:'SHA-256'},key,256);
+  return bytesToBase64(new Uint8Array(bits))
+}
+async function setRHPasswordForProfile(profile,password){
+  if(!profile||!isRHProfile(profile))throw new Error('Este perfil não é do RH.');
+  const salt=randomSalt(),iterations=120000;
+  profile.rhPasswordSalt=salt;
+  profile.rhPasswordHash=await deriveRHPassword(password,salt,iterations);
+  profile.rhPasswordIterations=iterations;
+  profile.rhPasswordUpdatedAt=nowISO();
+  profile.updatedAt=nowISO();
+  save()
+}
+async function verifyRHPassword(profile,password){
+  if(!profile?.rhPasswordHash||!profile?.rhPasswordSalt)return false;
+  const hash=await deriveRHPassword(password,profile.rhPasswordSalt,profile.rhPasswordIterations||120000);
+  return hash===profile.rhPasswordHash
+}
+function rhPasswordSetupModal(id,enterAfter=false){
+  const p=db.operators.find(x=>x.id===id);if(!p||!isRHProfile(p))return;
+  showModal('Criar senha do RH',`<div class="rh-lock-card"><div class="rh-lock-icon">🔐</div><p>Este perfil é do <b>RH</b>. Crie uma senha para proteger o acesso.</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">Salvar senha</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
+}
+async function saveRHPassword(id,enterAfter=false){
+  const p=db.operators.find(x=>x.id===id),a=val('rhNewPassword'),b=val('rhConfirmPassword');
+  if(!p||!isRHProfile(p))return toast('Perfil do RH não encontrado.');
+  if(String(a).length<4)return toast('A senha precisa ter pelo menos 4 caracteres.');
+  if(a!==b)return toast('As senhas não conferem.');
+  try{
+    await setRHPasswordForProfile(p,a);closeModal();toast('Senha do RH salva.');
+    if(enterAfter)completeRHLogin(p);else loginScreen()
+  }catch(err){console.error(err);toast('Não foi possível salvar a senha.')}
+}
+function rhPasswordLoginModal(id){
+  const p=db.operators.find(x=>x.id===id);if(!p||!isRHProfile(p))return;
+  showModal('Senha do RH',`<div class="rh-lock-card"><div class="rh-lock-icon">🔒</div><p>Digite a senha para entrar no perfil de <b>${esc(p.name)}</b>.</p><div class="field"><label>Senha</label><input id="rhLoginPassword" type="password" autocomplete="current-password" placeholder="Senha do RH" onkeydown="if(event.key==='Enter')App.verifyRHLogin('${id}')"></div><div id="rhLoginError" class="rh-login-error hidden">Senha incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.verifyRHLogin('${id}')">Entrar</button></div></div>`,()=>document.getElementById('rhLoginPassword')?.focus())
+}
+async function verifyRHLogin(id){
+  const p=db.operators.find(x=>x.id===id),password=val('rhLoginPassword');if(!p)return;
+  try{
+    const ok=await verifyRHPassword(p,password);
+    if(!ok){document.getElementById('rhLoginError')?.classList.remove('hidden');document.getElementById('rhLoginPassword')?.select();return}
+    closeModal();completeRHLogin(p)
+  }catch(err){console.error(err);toast('Não foi possível verificar a senha.')}
+}
+function completeRHLogin(p){
+  db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();page='home';sub='';pushAppHistory('home','');render()
+}
+function changeMyRHPassword(){
+  const p=currentProfile();if(!p||!isRHProfile(p))return;
+  showModal('Alterar senha do RH',`<div class="rh-lock-card"><div class="field"><label>Senha atual</label><input id="rhCurrentPassword" type="password" autocomplete="current-password"></div><div class="field"><label>Nova senha</label><input id="rhChangeNew" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar nova senha</label><input id="rhChangeConfirm" type="password" minlength="4" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.saveMyRHPasswordChange()"></div><div id="rhChangeError" class="rh-login-error hidden">Senha atual incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.saveMyRHPasswordChange()">Alterar senha</button></div></div>`,()=>document.getElementById('rhCurrentPassword')?.focus())
+}
+async function saveMyRHPasswordChange(){
+  const p=currentProfile();if(!p||!isRHProfile(p))return;
+  const current=val('rhCurrentPassword'),next=val('rhChangeNew'),confirm=val('rhChangeConfirm');
+  if(String(next).length<4)return toast('A nova senha precisa ter pelo menos 4 caracteres.');
+  if(next!==confirm)return toast('As novas senhas não conferem.');
+  try{
+    if(p.rhPasswordHash&&!(await verifyRHPassword(p,current))){document.getElementById('rhChangeError')?.classList.remove('hidden');return}
+    await setRHPasswordForProfile(p,next);closeModal();toast('Senha do RH alterada.')
+  }catch(err){console.error(err);toast('Não foi possível alterar a senha.')}
+}
+
 function profileAvatarHTML(profile,extraClass=''){
   const p=profile||{},cls=`profile-avatar ${extraClass}`.trim();
   if(p.avatarImage)return `<span class="${cls}"><img src="${esc(p.avatarImage)}" alt=""></span>`;
@@ -1221,7 +1302,7 @@ function applyAvatarCrop(){
 }
 function openMyProfile(){
   const p=currentProfile();if(!p)return;const s=profileStats(p),recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,5);
-  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div><div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyAvatar()">✎ Personalizar foto / emoji</button>${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
+  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isRHProfile(p)?'<div class="rh-profile-security">🔒 Perfil do RH protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyAvatar()">✎ Personalizar foto / emoji</button>${isRHProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
 }
 function users(c){
   c.innerHTML=head('Usuários cadastrados','Visualize os perfis cadastrados no sistema. Esta área é somente para consulta.')+
@@ -1326,15 +1407,12 @@ function syncOperatorEmployee(o,oldName=''){
   else{e.operatorId=o.id;e.name=o.name;e.role=o.role||'Servidor / Outro';e.department=roleDepartment(o.role);if(o.active===false)e.status='Inativo';else if(!e.status||e.status==='Inativo')e.status='Ativo';e.updatedAt=nowISO()}
 }
 function completeRoleModal(id){const o=db.operators.find(x=>x.id===id);if(!o)return;showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'')}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)}
-function saveOperatorRoleAndEnter(id){const o=db.operators.find(x=>x.id===id),role=val('completeRole');if(!o||!role)return toast('Selecione o cargo.');o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);db.currentOperator=o.name;db.currentOperatorId=o.id;save();closeModal();page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')}
-function saveOperator(){
-  if(db.currentOperator&&!isFullAccess())return accessDenied();
-  const name=val('opName'),role=val('opRole');
-  if(!name)return toast('Digite o nome do operador.');
-  if(!role)return toast('Selecione o cargo.');
-  const o={id:uid(),name,role,avatarImage:avatarDraft.image||'',avatarEmoji:avatarDraft.emoji||'',active:true,createdAt:nowISO()};
-  db.operators.push(o);syncOperatorEmployee(o);save();closeModal();loginScreen();
-  toast('Operador cadastrado e incluído no RH.')
+function saveOperatorRoleAndEnter(id){
+  const o=db.operators.find(x=>x.id===id),role=val('completeRole');
+  if(!o||!role)return toast('Selecione o cargo.');
+  o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);save();closeModal();
+  if(isRHProfile(o)&&!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
+  db.currentOperator=o.name;db.currentOperatorId=o.id;page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
 function shade(hex,percent){const h=safeHex(hex,'#0B2E59').slice(1),n=parseInt(h,16),amt=Math.round(2.55*percent),r=Math.max(0,Math.min(255,(n>>16)+amt)),g=Math.max(0,Math.min(255,((n>>8)&255)+amt)),b=Math.max(0,Math.min(255,(n&255)+amt));return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -1484,13 +1562,14 @@ function saveOperator(){
   const name=val('opName'),role=val('opRole');
   if(!name)return toast('Digite o nome do operador.');
   if(!role)return toast('Selecione o cargo.');
-  const o={id:uid(),name,role,active:true,createdAt:nowISO()};
-  db.operators.push(o);syncOperatorEmployee(o);save();closeModal();loginScreen();
-  toast('Operador cadastrado e incluído no RH.')
+  const o={id:uid(),name,role,avatarImage:avatarDraft.image||'',avatarEmoji:avatarDraft.emoji||'',active:true,createdAt:nowISO()};
+  db.operators.push(o);syncOperatorEmployee(o);save();closeModal();
+  if(isRHProfile(o)){rhPasswordSetupModal(o.id,false);return}
+  loginScreen();toast('Operador cadastrado e incluído no RH.')
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span></div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.toggleOperator('${o.id}')">${o.active!==false?'Desativar':'Ativar'}</button></td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isRHProfile(o)?`<span class="rh-password-badge">${o.rhPasswordHash?'🔒 Protegido':'🔓 Sem senha'}</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.toggleOperator('${o.id}')">${o.active!==false?'Desativar':'Ativar'}</button></td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
@@ -1501,12 +1580,21 @@ function saveRenameOperator(id){
   if(!requireFull())return;
   const o=db.operators.find(x=>x.id===id),name=val('renameOp'),role=val('renameRole');
   if(!o||!name)return toast('Digite o nome.');if(!role)return toast('Selecione o cargo.');
-  const old=o.name;o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
+  const old=o.name,oldRole=o.role;o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
+  if(oldRole==='RH'&&role!=='RH'){delete o.rhPasswordSalt;delete o.rhPasswordHash;delete o.rhPasswordIterations;delete o.rhPasswordUpdatedAt}
   if(db.currentOperatorId===o.id||db.currentOperator===old){db.currentOperator=name;db.currentOperatorId=o.id}
   syncOperatorEmployee(o,old);save();closeModal();render();toast('Perfil e cadastro do RH atualizados.')
 }
 function toggleOperator(id){if(!requireFull())return;const o=db.operators.find(x=>x.id===id);if(o){o.active=o.active===false;o.updatedAt=nowISO();syncOperatorEmployee(o);save();manageOperators()}}
-function enter(){const id=val('loginOp'),o=db.operators.find(x=>x.id===id);if(!o)return;if(!o.role){completeRoleModal(o.id);return}db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();page='home';sub='';pushAppHistory('home','');render()}
+function enter(){
+  const id=val('loginOp'),o=db.operators.find(x=>x.id===id);if(!o)return;
+  if(!o.role){completeRoleModal(o.id);return}
+  if(isRHProfile(o)){
+    if(!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
+    rhPasswordLoginModal(o.id);return
+  }
+  db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();page='home';sub='';pushAppHistory('home','');render()
+}
 function logout(){db.currentOperator='';db.currentOperatorId='';persistLocal();history.pushState({brApp:true,view:'login',guard:true},'',location.href);loginScreen()}
 function navItems(){return[
   ['home','⌂','Início'],['users','👤','Usuários cadastrados'],['agri','🌱','Agricultura'],['licit','📨','Licitações'],['hr','👥','RH / Servidores'],['contracts','📄','Contratos'],['finance','💰','Finanças'],['fleet','🚚','Frota e Viagens'],['notes','🧾','Notas e Resumos']
@@ -1981,7 +2069,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,openMyProfile,openUserProfile,filterUsers,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,openMyProfile,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
