@@ -1217,13 +1217,14 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.2.2';
+const APP_VERSION='1.2.3';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
 let avatarDraft={image:'',emoji:''};
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
 const DATA_NAMESPACE='v2';
+const PASSWORD_SCHEMA_VERSION=2;
 const FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
   authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
@@ -1432,7 +1433,7 @@ async function setRHPasswordForProfile(profile,password){
   if(!profileSecretsCollection)throw new Error('Banco de credenciais indisponível.');
   const salt=randomSalt(),iterations=120000,hash=await deriveRHPassword(password,salt,iterations);
   await profileSecretsCollection.doc(profile.id).set({
-    hash,salt,iterations,role:profile.role||'',updatedAt:nowISO()
+    hash,salt,iterations,role:profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()
   },{merge:false});
   clearLegacyPasswordFields(profile);
   profile.passwordConfigured=true;profile.updatedAt=nowISO();
@@ -1441,7 +1442,7 @@ async function setRHPasswordForProfile(profile,password){
 async function verifyRHPassword(profile,password){
   if(!profile?.id)return false;
   const secret=await getProtectedProfileSecret(profile.id);
-  if(!secret?.hash||!secret?.salt)return false;
+  if(!secret?.hash||!secret?.salt||Number(secret.schemaVersion||0)<PASSWORD_SCHEMA_VERSION)return false;
   const hash=await deriveRHPassword(password,secret.salt,secret.iterations||120000);
   return hash===secret.hash
 }
@@ -1454,7 +1455,7 @@ async function getProtectedProfileSecret(profileId){
 }
 async function protectedProfileHasSecret(profileId){
   const s=await getProtectedProfileSecret(profileId);
-  return !!(s?.hash&&s?.salt)
+  return !!(s?.hash&&s?.salt&&Number(s.schemaVersion||0)>=PASSWORD_SCHEMA_VERSION)
 }
 function clearLegacyPasswordFields(profile){
   if(!profile)return;
@@ -1463,7 +1464,7 @@ function clearLegacyPasswordFields(profile){
 
 function rhPasswordSetupModal(id,enterAfter=false,isRecovery=false){
   const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
-  showModal(isRecovery?'Redefinir senha do perfil':'Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">${isRecovery?'🔑':'🔐'}</div><p>${isRecovery?'A proteção de senha foi corrigida nesta atualização. Defina novamente a senha deste perfil. Depois disso, ela ficará salva separadamente e não poderá mais ser trocada por uma sincronização antiga.':`O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.`}</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">${isRecovery?'Definir nova senha':'Salvar senha'}</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
+  showModal(isRecovery?'Redefinir senha do perfil':'Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">${isRecovery?'🔑':'🔐'}</div><p>${isRecovery?`A credencial deste perfil precisa ser redefinida <b>uma única vez</b> após a correção de sincronização. Defina a nova senha de ${esc(p.name)}. Depois disso, a senha ficará isolada dos dados gerais do sistema.`:`O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.`}</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">${isRecovery?'Definir nova senha':'Salvar senha'}</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
 }
 async function saveRHPassword(id,enterAfter=false){
   const p=db.operators.find(x=>x.id===id),a=val('rhNewPassword'),b=val('rhConfirmPassword');
@@ -1487,6 +1488,20 @@ async function verifyRHLogin(id){
     closeModal();completeRHLogin(p)
   }catch(err){console.error(err);toast('Não foi possível verificar a senha.')}
 }
+async function resetProtectedProfilePassword(id){
+  if(!requireFull())return;
+  const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return toast('Este perfil não usa senha.');
+  if(db.currentOperatorId===id)return toast('Para alterar a própria senha, use “Meu perfil → Alterar senha”.');
+  if(!confirm(`Redefinir a senha de ${p.name}? Na próxima entrada, será necessário criar uma nova senha.`))return;
+  try{
+    await profileSecretsCollection?.doc(id).delete();
+    p.passwordConfigured=false;p.updatedAt=nowISO();save();
+    recordActivity('users','Redefinição de senha',`${db.currentOperator} solicitou redefinição da senha do perfil de ${p.name}.`);
+    toast('Senha redefinida. O usuário criará uma nova senha no próximo acesso.');
+    manageOperators()
+  }catch(err){console.error(err);toast('Não foi possível redefinir a senha.')}
+}
+
 function completeRHLogin(p){
   db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();
   page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();
@@ -2350,7 +2365,7 @@ function saveOperator(){
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?'<span class="rh-password-badge">🔒 Protegido</span>':''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">🔒 Protegido</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button>${isPasswordProtectedProfile(o)&&o.id!==db.currentOperatorId?`<button class="btn btn-secondary" onclick="App.resetProtectedProfilePassword('${o.id}')">🔑 Resetar senha</button>`:''}<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
@@ -3116,7 +3131,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
