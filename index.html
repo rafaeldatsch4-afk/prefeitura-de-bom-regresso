@@ -1119,13 +1119,14 @@ html[data-appearance="dark"] .activity-line span{background:#24333F;color:#DCE7E
 <script>
 (() => {
 'use strict';
-const KEY='bom_regresso_web_v1';
-const APP_VERSION='1.0.1';
+const KEY='bom_regresso_web_v2';
+const APP_VERSION='1.0.2';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
 let avatarDraft={image:'',emoji:''};
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
+const DATA_NAMESPACE='v2';
 const FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
   authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
@@ -1146,14 +1147,7 @@ const nval=id=>Number((val(id)||'0').replace(/\./g,'').replace(',','.'))||0;
 const initials=n=>{const p=String(n||'?').trim().split(/\s+/);return (p.length>1?p[0][0]+p.at(-1)[0]:p[0].slice(0,2)).toUpperCase()};
 const defaults=()=>({
   operators:[], currentOperator:'', currentOperatorId:'',
-  machinery:[
-    {id:uid(),name:'Trator agrícola',category:'Trator',status:'Disponível',notes:''},
-    {id:uid(),name:'Patrola',category:'Motoniveladora',status:'Disponível',notes:''},
-    {id:uid(),name:'Retroescavadeira',category:'Retroescavadeira',status:'Disponível',notes:''},
-    {id:uid(),name:'Escavadeira hidráulica',category:'Escavadeira',status:'Disponível',notes:''},
-    {id:uid(),name:'Caminhão caçamba',category:'Caminhão',status:'Disponível',notes:''},
-    {id:uid(),name:'Rolo compactador',category:'Compactação',status:'Disponível',notes:''}],
-  implements:['Grade','Arado','Plantadeira','Subsolador','Perfurador de solo','Roçadeira','Distribuidor de adubo','Vagão basculante'].map(name=>({id:uid(),name,status:'Disponível',notes:''})),
+  machinery:[], implements:[],
   appointments:[], licitations:[], employees:[], payments:[], contracts:[], finance:[], trucks:[], trips:[], carriers:[], activityLog:[]
 });
 let db=load(); let page='home'; let sub=''; let selectedImps=[]; let historyReady=false;
@@ -1242,7 +1236,7 @@ async function migrateLegacyCarriers(items){
 }
 function startCarrierSync(legacy=[]){
   if(!fbStore)return;
-  carrierCollection=fbStore.collection('carriers');
+  carrierCollection=fbStore.collection('carriers_'+DATA_NAMESPACE);
   migrateLegacyCarriers(legacy);
   if(carrierUnsub)carrierUnsub();
   carrierUnsub=carrierCollection.onSnapshot(snap=>{
@@ -1253,8 +1247,8 @@ function startCarrierSync(legacy=[]){
     if(old!==JSON.stringify(db.carriers)&&document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();
   },err=>{console.error('Listener de transportadoras:',err);toast('Sincronização de transportadoras indisponível.')});
 }
-function loadingScreen(){const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');root.innerHTML='<div class="login-card"><h1>Prefeitura de Bom Regresso</h1><p>Conectando ao banco de dados compartilhado…</p><div class="muted">☁ Firebase</div></div>'}
-async function initCloud(){loadingScreen();try{if(!window.firebase)throw new Error('SDK do Firebase não carregou');firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbStore=firebase.firestore();await fbAuth.signInAnonymously();cloudDoc=fbStore.collection('municipio').doc('dados');const snap=await cloudDoc.get();const legacyCarriers=snap.exists?(snap.data().carriers||[]):[];if(snap.exists){applyCloud(snap.data())}else{await cloudDoc.set(cloudPayload())}cloudReady=true;startCarrierSync(legacyCarriers);cloudUnsub=cloudDoc.onSnapshot(s=>{if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);const before=JSON.stringify(cloudPayload());applyCloud(data);const after=JSON.stringify(cloudPayload());if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}},err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});loginScreen()}catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}}
+function loadingScreen(){const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');root.innerHTML='<div class="login-card"><h1>Prefeitura de Bom Regresso</h1><p>Conectando à base limpa da Prefeitura…</p><div class="muted">☁ Firebase</div></div>'}
+async function initCloud(){loadingScreen();try{if(!window.firebase)throw new Error('SDK do Firebase não carregou');firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbStore=firebase.firestore();await fbAuth.signInAnonymously();cloudDoc=fbStore.collection('municipio').doc('dados_'+DATA_NAMESPACE);const snap=await cloudDoc.get();const legacyCarriers=snap.exists?(snap.data().carriers||[]):[];if(snap.exists){applyCloud(snap.data())}else{await cloudDoc.set(cloudPayload())}cloudReady=true;startCarrierSync(legacyCarriers);cloudUnsub=cloudDoc.onSnapshot(s=>{if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);const before=JSON.stringify(cloudPayload());applyCloud(data);const after=JSON.stringify(cloudPayload());if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}},err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});loginScreen()}catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2300)}
 function statusClass(s){s=String(s||'').toLowerCase();if(/concl|pago|ativo|disponível|confirmad/.test(s))return's-ok';if(/aguard|pend|andamento|manutenção|agend/.test(s))return's-warn';if(/cancel|indispon|inativo/.test(s))return's-bad';if(/receita/.test(s))return's-ok';return's-info'}
 const THEME_PRESETS={
