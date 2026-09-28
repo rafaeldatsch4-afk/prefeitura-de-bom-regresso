@@ -1217,7 +1217,7 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.2.1';
+const APP_VERSION='1.2.2';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1233,7 +1233,7 @@ const FIREBASE_CONFIG={
   appId:'1:198816706059:web:0cc06972a903b13867610e'
 };
 const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','activityLog'];
-let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
+let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,profileSecretsCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
 let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='';
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
 const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
@@ -1256,7 +1256,19 @@ const defaults=()=>({
 let db=load(); let page='home'; let sub=''; let selectedImps=[]; let historyReady=false;
 function load(){try{const raw=localStorage.getItem(KEY); if(!raw)return defaults(); const d=JSON.parse(raw); return Object.assign(defaults(),d)}catch{return defaults()}}
 function persistLocal(){localStorage.setItem(KEY,JSON.stringify(db))}
-function cloudPayload(){const out={updatedAt:nowISO()};for(const k of SHARED_KEYS)out[k]=db[k]||[];return out}
+function cloudPayload(){
+  const out={updatedAt:nowISO()};
+  for(const k of SHARED_KEYS){
+    if(k==='operators'){
+      out[k]=(db.operators||[]).map(o=>{
+        const x=cloneData(o);
+        delete x.rhPasswordHash;delete x.rhPasswordSalt;delete x.rhPasswordIterations;delete x.rhPasswordUpdatedAt;
+        return x
+      })
+    }else out[k]=db[k]||[]
+  }
+  return out
+}
 function applyCloud(data){
   const operator=db.currentOperator||'',operatorId=db.currentOperatorId||'',carriers=db.carriers||[];
   applyingCloud=true;
@@ -1357,12 +1369,18 @@ async function initCloud(){
     if(!window.firebase)throw new Error('SDK do Firebase não carregou');
     firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbStore=firebase.firestore();await fbAuth.signInAnonymously();
     cloudDoc=fbStore.collection('municipio').doc('dados_'+DATA_NAMESPACE);
+    profileSecretsCollection=fbStore.collection('profileSecrets_'+DATA_NAMESPACE);
     const snap=await cloudDoc.get(),legacyCarriers=snap.exists?(snap.data().carriers||[]):[];
     if(snap.exists)applyCloud(snap.data());else await cloudDoc.set(cloudPayload());
+    for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
+    persistLocal();
     cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();await startPushInfrastructure();
     cloudUnsub=cloudDoc.onSnapshot(s=>{
       if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);
-      const before=JSON.stringify(cloudPayload());applyCloud(data);const after=JSON.stringify(cloudPayload());
+      const before=JSON.stringify(cloudPayload());applyCloud(data);
+      for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
+      persistLocal();
+      const after=JSON.stringify(cloudPayload());
       if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}
     },err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});
     loginScreen()
@@ -1411,22 +1429,41 @@ async function deriveRHPassword(password,salt,iterations=120000){
 }
 async function setRHPasswordForProfile(profile,password){
   if(!profile||!isPasswordProtectedProfile(profile))throw new Error('Este perfil não exige senha.');
-  const salt=randomSalt(),iterations=120000;
-  profile.rhPasswordSalt=salt;
-  profile.rhPasswordHash=await deriveRHPassword(password,salt,iterations);
-  profile.rhPasswordIterations=iterations;
-  profile.rhPasswordUpdatedAt=nowISO();
-  profile.updatedAt=nowISO();
+  if(!profileSecretsCollection)throw new Error('Banco de credenciais indisponível.');
+  const salt=randomSalt(),iterations=120000,hash=await deriveRHPassword(password,salt,iterations);
+  await profileSecretsCollection.doc(profile.id).set({
+    hash,salt,iterations,role:profile.role||'',updatedAt:nowISO()
+  },{merge:false});
+  clearLegacyPasswordFields(profile);
+  profile.passwordConfigured=true;profile.updatedAt=nowISO();
   save()
 }
 async function verifyRHPassword(profile,password){
-  if(!profile?.rhPasswordHash||!profile?.rhPasswordSalt)return false;
-  const hash=await deriveRHPassword(password,profile.rhPasswordSalt,profile.rhPasswordIterations||120000);
-  return hash===profile.rhPasswordHash
+  if(!profile?.id)return false;
+  const secret=await getProtectedProfileSecret(profile.id);
+  if(!secret?.hash||!secret?.salt)return false;
+  const hash=await deriveRHPassword(password,secret.salt,secret.iterations||120000);
+  return hash===secret.hash
 }
-function rhPasswordSetupModal(id,enterAfter=false){
+async function getProtectedProfileSecret(profileId){
+  if(!profileSecretsCollection||!profileId)return null;
+  try{
+    const snap=await profileSecretsCollection.doc(profileId).get();
+    return snap.exists?snap.data():null
+  }catch(err){console.error('Ler credencial protegida:',err);return null}
+}
+async function protectedProfileHasSecret(profileId){
+  const s=await getProtectedProfileSecret(profileId);
+  return !!(s?.hash&&s?.salt)
+}
+function clearLegacyPasswordFields(profile){
+  if(!profile)return;
+  delete profile.rhPasswordHash;delete profile.rhPasswordSalt;delete profile.rhPasswordIterations;delete profile.rhPasswordUpdatedAt
+}
+
+function rhPasswordSetupModal(id,enterAfter=false,isRecovery=false){
   const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
-  showModal('Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">🔐</div><p>O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">Salvar senha</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
+  showModal(isRecovery?'Redefinir senha do perfil':'Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">${isRecovery?'🔑':'🔐'}</div><p>${isRecovery?'A proteção de senha foi corrigida nesta atualização. Defina novamente a senha deste perfil. Depois disso, ela ficará salva separadamente e não poderá mais ser trocada por uma sincronização antiga.':`O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.`}</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">${isRecovery?'Definir nova senha':'Salvar senha'}</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
 }
 async function saveRHPassword(id,enterAfter=false){
   const p=db.operators.find(x=>x.id===id),a=val('rhNewPassword'),b=val('rhConfirmPassword');
@@ -1465,7 +1502,8 @@ async function saveMyRHPasswordChange(){
   if(String(next).length<4)return toast('A nova senha precisa ter pelo menos 4 caracteres.');
   if(next!==confirm)return toast('As novas senhas não conferem.');
   try{
-    if(p.rhPasswordHash&&!(await verifyRHPassword(p,current))){document.getElementById('rhChangeError')?.classList.remove('hidden');return}
+    const configured=await protectedProfileHasSecret(p.id);
+    if(configured&&!(await verifyRHPassword(p,current))){document.getElementById('rhChangeError')?.classList.remove('hidden');return}
     await setRHPasswordForProfile(p,next);closeModal();toast('Senha do perfil alterada.')
   }catch(err){console.error(err);toast('Não foi possível alterar a senha.')}
 }
@@ -2141,15 +2179,13 @@ function completeRoleModal(id){
   const o=db.operators.find(x=>x.id===id);if(!o)return;
   showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'',o.id)}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)
 }
-function saveOperatorRoleAndEnter(id){
+async function saveOperatorRoleAndEnter(id){
   const o=db.operators.find(x=>x.id===id),role=val('completeRole');
   if(!o||!role)return toast('Selecione o cargo.');
   if(!validateRoleSlot(role,o.id))return;
   o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);save();closeModal();
-  if(isPasswordProtectedProfile(o)&&!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
-  db.currentOperator=o.name;db.currentOperatorId=o.id;
-  page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();toast('Perfil atualizado.');
-  if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
+  if(isPasswordProtectedProfile(o)&&!(await protectedProfileHasSecret(o.id))){rhPasswordSetupModal(o.id,true);return}
+  db.currentOperator=o.name;db.currentOperatorId=o.id;page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
 function shade(hex,percent){const h=safeHex(hex,'#0B2E59').slice(1),n=parseInt(h,16),amt=Math.round(2.55*percent),r=Math.max(0,Math.min(255,(n>>16)+amt)),g=Math.max(0,Math.min(255,((n>>8)&255)+amt)),b=Math.max(0,Math.min(255,(n&255)+amt));return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -2314,14 +2350,14 @@ function saveOperator(){
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">${o.rhPasswordHash?'🔒 Protegido':'🔓 Sem senha'}</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?'<span class="rh-password-badge">🔒 Protegido</span>':''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
   if(!requireFull())return;const o=db.operators.find(x=>x.id===id);if(!o)return;
   showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
 }
-function saveRenameOperator(id){
+async function saveRenameOperator(id){
   if(!requireFull())return;
   const o=db.operators.find(x=>x.id===id),name=val('renameOp'),role=val('renameRole');
   if(!o||!name)return toast('Digite o nome.');
@@ -2329,7 +2365,10 @@ function saveRenameOperator(id){
   if(!validateRoleSlot(role,o.id))return;
   const old=o.name,oldRole=o.role;
   o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
-  if(isUniqueRole(oldRole)&&!isPasswordProtectedProfile(o)){delete o.rhPasswordSalt;delete o.rhPasswordHash;delete o.rhPasswordIterations;delete o.rhPasswordUpdatedAt}
+  if(isPasswordProtectedProfile({role:oldRole})&&!isPasswordProtectedProfile(o)){
+    try{await profileSecretsCollection?.doc(o.id).delete()}catch(err){console.error('Remover credencial antiga:',err)}
+    o.passwordConfigured=false;clearLegacyPasswordFields(o)
+  }
   if(db.currentOperatorId===o.id||db.currentOperator===old){db.currentOperator=name;db.currentOperatorId=o.id}
   syncOperatorEmployee(o,old);recordActivity('users','Edição',`${db.currentOperator} editou o perfil de ${old} para ${name} (${role}).`);save();closeModal();render();toast('Perfil e cadastro do RH atualizados.')
 }
@@ -2345,7 +2384,7 @@ function removableOperatorSnapshot(o){
   delete copy.rhPasswordHash;delete copy.rhPasswordSalt;delete copy.rhPasswordIterations;delete copy.rhPasswordUpdatedAt;
   return copy
 }
-function removeOperatorProfile(id){
+async function removeOperatorProfile(id){
   if(!requireFull())return;
   const o=db.operators.find(x=>x.id===id);if(!o)return toast('Perfil não encontrado.');
   if(db.currentOperatorId===id)return toast('Troque para outro perfil autorizado antes de remover o perfil que está em uso.');
@@ -2354,16 +2393,18 @@ function removeOperatorProfile(id){
   const linked=db.employees.filter(e=>e.operatorId===id).map(cloneData);
   db.operators=db.operators.filter(x=>x.id!==id);
   db.employees=db.employees.filter(e=>e.operatorId!==id);
+  try{await profileSecretsCollection?.doc(id).delete()}catch(err){console.error('Remover credencial do perfil:',err)}
   const records=[{collection:'operators',id:o.id,before:opBefore,after:null},...linked.map(e=>({collection:'employees',id:e.id,before:e,after:null}))];
   recordActivity('users','Remoção',`${db.currentOperator} removeu o perfil de ${o.name} do sistema.`,records);
   save();render();toast('Perfil removido. Ele poderá ser cadastrado novamente no futuro.')
 }
-
-function enter(){
+async function enter(){
   const id=val('loginOp'),o=db.operators.find(x=>x.id===id);if(!o)return;
   if(!o.role){completeRoleModal(o.id);return}
   if(isPasswordProtectedProfile(o)){
-    if(!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
+    if(!profileSecretsCollection){toast('Conecte-se à internet para entrar neste perfil protegido.');return}
+    const configured=await protectedProfileHasSecret(o.id);
+    if(!configured){rhPasswordSetupModal(o.id,true,true);return}
     rhPasswordLoginModal(o.id);return
   }
   db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();
