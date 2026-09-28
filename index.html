@@ -1021,6 +1021,11 @@ html[data-appearance="dark"] .chat-date-separator span{background:#1B2832;border
 html[data-appearance="dark"] .push-diag>div{background:#131C24}
 @media(max-width:520px){.push-diag{grid-template-columns:1fr}}
 
+
+.chat-record-status{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chat-record-status>button{border:0;border-radius:9px;padding:5px 9px;background:#7F2525;color:#fff;font-size:10px;font-weight:900;cursor:pointer}
+.chat-time{font-variant-numeric:tabular-nums}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1217,7 +1222,7 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.2.4';
+const APP_VERSION='1.2.5';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1238,7 +1243,7 @@ let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection
 let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='';
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
 const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
-let chatMessages=[],chatReady=false,chatUnread=Number(localStorage.getItem(CHAT_UNREAD_KEY)||0)||0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0;
+let chatMessages=[],chatReady=false,chatUnread=Number(localStorage.getItem(CHAT_UNREAD_KEY)||0)||0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false;
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0;
 let chatPresenceCollection=null,chatPresenceUnsub=null,chatPresence=[],chatTypingTimer=null,chatPresenceTimer=null;
 const todayBR=()=>new Date().toLocaleDateString('pt-BR');
@@ -1798,7 +1803,17 @@ async function startPushInfrastructure(){
   pushTokensCollection=fbStore.collection('pushTokens_'+DATA_NAMESPACE);
   pushConfigDoc=fbStore.collection('municipio').doc('push_config_'+DATA_NAMESPACE);
   await loadPushConfig();
-  try{messaging=firebase.messaging()}catch(err){console.warn('FCM não suportado:',err);messaging=null}
+  try{
+    messaging=firebase.messaging();
+    messaging.onMessage(payload=>{
+      const d=payload?.data||{};
+      if(d.type==='chat'&&page!=='chat'){
+        chatUnread=Math.max(1,chatUnread);
+        localStorage.setItem(CHAT_UNREAD_KEY,String(chatUnread));
+        updateChatBadges()
+      }
+    })
+  }catch(err){console.warn('FCM não suportado:',err);messaging=null}
   startChatPresence();
   if(typeof Notification!=='undefined'&&Notification.permission==='granted'&&db.currentOperatorId)ensurePushRegistration(false)
 }
@@ -1869,6 +1884,12 @@ function markChatRead(){
   chatUnread=0;localStorage.setItem(CHAT_UNREAD_KEY,'0');updateChatBadges()
 }
 function chatTextHTML(text){return esc(text||'').replace(/\n/g,'<br>')}
+function chatReadReceipt(m){
+  if(m.senderId!==db.currentOperatorId)return '';
+  const sent=new Date(m.createdAt||0).getTime();if(!sent)return '✓ Enviada';
+  const readers=(chatPresence||[]).filter(p=>p.operatorId&&p.operatorId!==db.currentOperatorId&&new Date(p.lastReadAt||0).getTime()>=sent);
+  return readers.length?`✓✓ Lida${readers.length>1?' por '+readers.length:''}`:'✓ Enviada'
+}
 function chatSenderProfile(m){
   return (db.operators||[]).find(o=>o.id===m.senderId)||{id:m.senderId,name:m.senderName||'Usuário',role:m.senderRole||'Servidor / Outro',avatarEmoji:m.senderEmoji||''}
 }
@@ -1881,6 +1902,7 @@ function chatAttachmentHTML(m){
 function chatMessageHTML(m){
   const mine=m.senderId===db.currentOperatorId,p=chatSenderProfile(m),canDelete=mine||isFullAccess();
   const quoted=m.reply?`<button type="button" class="chat-quote" onclick="App.scrollToChatMessage('${esc(m.reply.id||'')}')"><b>↩ ${esc(m.reply.senderName||'Mensagem')}</b><span>${esc((m.reply.text||'Anexo').slice(0,90))}</span></button>`:'';
+  const receipt=mine?chatReadReceipt(m):'';
   return `<div class="chat-row ${mine?'mine':'theirs'}" data-chat-id="${esc(m.id)}">
     ${mine?'':profileAvatarHTML(p,'profile-avatar-chat')}
     <div class="chat-message-wrap">
@@ -1889,7 +1911,7 @@ function chatMessageHTML(m){
         ${quoted}
         ${m.text?`<div class="chat-text">${chatTextHTML(m.text)}</div>`:''}
         ${chatAttachmentHTML(m)}
-        <div class="chat-time">${chatTime(m.createdAt)}${m.editedAt?' · editada':''}${mine?' · ✓':''}</div>
+        <div class="chat-time">${chatTime(m.createdAt)}${m.editedAt?' · editada':''}${receipt?' · '+esc(receipt):''}</div>
       </div>
       <div class="chat-actions">
         <button type="button" onclick="App.replyChatMessage('${m.id}')">↩ Responder</button>
@@ -1940,10 +1962,9 @@ function renderChatPresence(){
 async function touchChatPresence(typing=false){
   const p=currentProfile();if(!p||!chatPresenceCollection)return;
   try{
-    await chatPresenceCollection.doc(p.id).set({
-      operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',
-      typing:!!typing,lastSeen:nowISO(),deviceId:pushDeviceId()
-    },{merge:true})
+    const data={operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',typing:!!typing,lastSeen:nowISO(),deviceId:pushDeviceId()};
+    if(page==='chat'&&document.visibilityState==='visible')data.lastReadAt=nowISO();
+    await chatPresenceCollection.doc(p.id).set(data,{merge:true})
   }catch{}
 }
 function chatInputChanged(el){
@@ -1958,10 +1979,11 @@ function startChatPresence(){
   if(chatPresenceUnsub)chatPresenceUnsub();
   chatPresenceUnsub=chatPresenceCollection.onSnapshot(s=>{
     chatPresence=s.docs.map(d=>d.data());
-    renderChatPresence()
+    renderChatPresence();
+    if(page==='chat'&&document.getElementById('chatMessages'))renderChatMessages(false)
   },err=>console.warn('Presença do chat:',err));
   clearInterval(chatPresenceTimer);
-  chatPresenceTimer=setInterval(()=>{if(db.currentOperatorId&&document.visibilityState==='visible')touchChatPresence(false)},45000)
+  chatPresenceTimer=setInterval(()=>{if(db.currentOperatorId&&document.visibilityState==='visible')touchChatPresence(false)},30000)
 }
 function editChatMessage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
@@ -2019,7 +2041,7 @@ function renderChatAttachmentPreview(){
   const root=document.getElementById('chatAttachmentPreview');if(root)root.innerHTML=chatAttachmentPreviewHTML()
 }
 function chat(c){
-  markChatRead();chatAutoScroll=true;touchChatPresence(false);
+  markChatRead();chatAutoScroll=true;
   const notif=getChatNotifySettings(),perm=notificationPermissionLabel();
   c.innerHTML=head('Chat da Prefeitura','Conversa interna dos perfis cadastrados.',cloudReady?'☁ Online':'⚠ Offline')+`
     <div class="chat-shell panel">
@@ -2038,10 +2060,10 @@ function chat(c){
         <button type="button" id="chatMicBtn" class="chat-round-btn" onclick="App.toggleChatRecording()" title="Mensagem de voz">🎙️</button>
         <button type="button" class="chat-send-btn" onclick="App.sendChatMessage()" title="Enviar">➤</button>
       </div>
-      <div id="chatRecordStatus" class="chat-record-status hidden"><span class="chat-record-dot"></span> Gravando <b id="chatRecordTimer">00:00</b> — toque no microfone para concluir</div>
+      <div id="chatRecordStatus" class="chat-record-status hidden"><span><span class="chat-record-dot"></span> Gravando <b id="chatRecordTimer">00:00</b></span><button type="button" onclick="App.cancelChatRecording()">Cancelar</button></div>
       <div class="chat-limit-note">Enter envia • Shift+Enter quebra linha • imagens são otimizadas automaticamente.</div>
     </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();setTimeout(()=>document.getElementById('chatInput')?.focus(),80)
+  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);setTimeout(()=>document.getElementById('chatInput')?.focus(),80)
 }
 function startChatSync(){
   if(!fbStore)return;
@@ -2124,29 +2146,31 @@ async function toggleChatRecording(){
   if(chatRecorder&&chatRecorder.state==='recording'){chatRecorder.stop();return}
   if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined')return toast('Gravação de voz não é suportada neste aparelho.');
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});chatRecorderStream=stream;chatAudioChunks=[];
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});chatRecorderStream=stream;chatAudioChunks=[];chatRecordingCancelled=false;
     const preferred=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t));
     try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000})}catch{chatRecorder=new MediaRecorder(stream)}
     chatRecorder.ondataavailable=e=>{if(e.data?.size)chatAudioChunks.push(e.data)};
     chatRecorder.onstop=async()=>{
-      clearInterval(chatRecordingTimer);chatRecordingTimer=null;
-      chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;
-      const mime=chatRecorder?.mimeType||chatAudioChunks[0]?.type||'audio/webm';
-      const blob=new Blob(chatAudioChunks,{type:mime});chatAudioChunks=[];
-      document.getElementById('chatMicBtn')?.classList.remove('recording');
-      document.getElementById('chatRecordStatus')?.classList.add('hidden');
-      if(!blob.size)return;
-      if(blob.size>380*1024){toast('O áudio ficou grande demais. Grave uma mensagem mais curta.');return}
+      clearInterval(chatRecordingTimer);chatRecordingTimer=null;chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;
+      document.getElementById('chatMicBtn')?.classList.remove('recording');document.getElementById('chatRecordStatus')?.classList.add('hidden');
+      if(chatRecordingCancelled){chatAudioChunks=[];chatRecordingCancelled=false;toast('Gravação cancelada.');return}
+      const mime=chatRecorder?.mimeType||chatAudioChunks[0]?.type||'audio/webm',blob=new Blob(chatAudioChunks,{type:mime});chatAudioChunks=[];
+      if(!blob.size)return;if(blob.size>380*1024){toast('O áudio ficou grande demais. Grave uma mensagem mais curta.');return}
       const dataUrl=await blobToDataURL(blob);
       chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl};renderChatAttachmentPreview();toast('Mensagem de voz pronta.')
     };
     chatRecorder.start(500);chatRecordingStartedAt=Date.now();
     document.getElementById('chatMicBtn')?.classList.add('recording');document.getElementById('chatRecordStatus')?.classList.remove('hidden');
     chatRecordingTimer=setInterval(()=>{
-      const sec=Math.floor((Date.now()-chatRecordingStartedAt)/1000),el=document.getElementById('chatRecordTimer');if(el)el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
+      const sec=Math.floor((Date.now()-chatRecordingStartedAt)/1000),el=document.getElementById('chatRecordTimer');
+      if(el)el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
       if(sec>=45&&chatRecorder?.state==='recording'){toast('Limite de 45 segundos atingido.');chatRecorder.stop()}
     },500)
   }catch(err){console.error(err);chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;toast('Não foi possível acessar o microfone.')}
+}
+function cancelChatRecording(){
+  if(chatRecorder?.state==='recording'){chatRecordingCancelled=true;chatRecorder.stop();return}
+  chatRecordingCancelled=false
 }
 async function sendChatMessage(){
   const p=currentProfile(),input=document.getElementById('chatInput');if(!p)return;
@@ -3134,7 +3158,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
