@@ -662,6 +662,66 @@ html[data-appearance="dark"] .topbar-back{
   .carrier-add-btn{min-width:72px;padding-left:8px;padding-right:8px;font-size:11px}
 }
 
+
+/* Contraste do tema escuro — correção mobile */
+html[data-appearance="dark"] .page-head h2,
+html[data-appearance="dark"] .panel h3,
+html[data-appearance="dark"] .card .value,
+html[data-appearance="dark"] .settings-section h4,
+html[data-appearance="dark"] .field label{
+  color:#F2F6FA!important;
+}
+html[data-appearance="dark"] .card .label,
+html[data-appearance="dark"] .card .mini,
+html[data-appearance="dark"] .panel .sub,
+html[data-appearance="dark"] .page-head p,
+html[data-appearance="dark"] .muted{
+  color:#AAB8C4!important;
+}
+html[data-appearance="dark"] .home-finance-panel .small-actions .btn,
+html[data-appearance="dark"] .small-actions .btn.btn-secondary{
+  background:#24333F!important;
+  color:#EAF1F6!important;
+  border:1px solid #354755!important;
+}
+html[data-appearance="dark"] .home-finance-panel .small-actions .btn:active{
+  background:#2E414F!important;
+}
+html[data-appearance="dark"] .home-finance-panel .kpi-line span{
+  color:#E5EDF3!important;
+}
+html[data-appearance="dark"] .home-finance-panel .kpi-line b{
+  color:#F2F6FA!important;
+}
+html[data-appearance="dark"] .home-finance-panel .kpi-line b.s-ok{color:#6FD3A2!important}
+html[data-appearance="dark"] .home-finance-panel .kpi-line b.s-bad{color:#FF8E8E!important}
+html[data-appearance="dark"] .mobile-nav{
+  background:rgba(20,30,39,.98)!important;
+  border-top-color:#2B3A45!important;
+}
+html[data-appearance="dark"] .mobile-nav button{
+  color:#A7B5C0!important;
+  background:transparent!important;
+}
+html[data-appearance="dark"] .mobile-nav button.active{
+  color:#FFFFFF!important;
+  background:#22313E!important;
+}
+html[data-appearance="dark"] .mobile-nav button.active span{
+  background:#2D4354!important;
+  color:#FFFFFF!important;
+}
+html[data-appearance="dark"] .tabs button{
+  background:#1B2833!important;
+  color:#DCE7EF!important;
+  border-color:#344652!important;
+}
+html[data-appearance="dark"] .tabs button.active{
+  background:var(--navy2)!important;
+  color:#FFFFFF!important;
+  border-color:var(--gold)!important;
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -868,8 +928,8 @@ const FIREBASE_CONFIG={
   messagingSenderId:'198816706059',
   appId:'1:198816706059:web:0cc06972a903b13867610e'
 };
-const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','carriers'];
-let fbAuth=null,fbStore=null,cloudDoc=null,cloudReady=false,applyingCloud=false,cloudUnsub=null;
+const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips'];
+let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null;
 const todayBR=()=>new Date().toLocaleDateString('pt-BR');
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -894,10 +954,38 @@ let db=load(); let page='home'; let sub=''; let selectedImps=[]; let historyRead
 function load(){try{const raw=localStorage.getItem(KEY); if(!raw)return defaults(); const d=JSON.parse(raw); return Object.assign(defaults(),d)}catch{return defaults()}}
 function persistLocal(){localStorage.setItem(KEY,JSON.stringify(db))}
 function cloudPayload(){const out={updatedAt:nowISO()};for(const k of SHARED_KEYS)out[k]=db[k]||[];return out}
-function applyCloud(data){const operator=db.currentOperator||'';applyingCloud=true;db=Object.assign(defaults(),data||{});db.currentOperator=operator;persistLocal();applyingCloud=false}
+function applyCloud(data){const operator=db.currentOperator||'';const carriers=db.carriers||[];applyingCloud=true;db=Object.assign(defaults(),data||{});db.currentOperator=operator;db.carriers=carriers;persistLocal();applyingCloud=false}
 function save(){persistLocal();if(cloudReady&&!applyingCloud&&cloudDoc){cloudDoc.set(cloudPayload(),{merge:true}).catch(err=>{console.error('Falha ao sincronizar Firebase:',err);toast('Não foi possível sincronizar agora. Os dados ficaram salvos neste aparelho.')})}}
+async function syncCarrierRecord(x){
+  persistLocal();
+  if(!cloudReady||!carrierCollection||!x?.id)return;
+  try{await carrierCollection.doc(x.id).set(x,{merge:true})}
+  catch(err){console.error('Falha ao sincronizar transportadora:',err);toast('Transportadora salva neste aparelho; sincronização pendente.')}
+}
+async function migrateLegacyCarriers(items){
+  if(!carrierCollection||!Array.isArray(items)||!items.length)return;
+  try{
+    const existing=await carrierCollection.get();
+    const known=new Set(existing.docs.map(d=>d.id));
+    const missing=items.filter(x=>x?.id&&!known.has(x.id));
+    if(missing.length)await Promise.all(missing.map(x=>carrierCollection.doc(x.id).set(x,{merge:true})));
+  }catch(err){console.error('Migração de transportadoras:',err)}
+}
+function startCarrierSync(legacy=[]){
+  if(!fbStore)return;
+  carrierCollection=fbStore.collection('carriers');
+  migrateLegacyCarriers(legacy);
+  if(carrierUnsub)carrierUnsub();
+  carrierUnsub=carrierCollection.onSnapshot(snap=>{
+    const remote=snap.docs.map(d=>Object.assign({id:d.id},d.data())).filter(x=>x.active!==undefined||x.name);
+    const old=JSON.stringify(db.carriers||[]);
+    db.carriers=remote.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
+    persistLocal();
+    if(old!==JSON.stringify(db.carriers)&&document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();
+  },err=>{console.error('Listener de transportadoras:',err);toast('Sincronização de transportadoras indisponível.')});
+}
 function loadingScreen(){const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');root.innerHTML='<div class="login-card"><h1>Prefeitura de Bom Regresso</h1><p>Conectando ao banco de dados compartilhado…</p><div class="muted">☁ Firebase</div></div>'}
-async function initCloud(){loadingScreen();try{if(!window.firebase)throw new Error('SDK do Firebase não carregou');firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbStore=firebase.firestore();await fbAuth.signInAnonymously();cloudDoc=fbStore.collection('municipio').doc('dados');const snap=await cloudDoc.get();if(snap.exists){applyCloud(snap.data())}else{await cloudDoc.set(cloudPayload())}cloudReady=true;cloudUnsub=cloudDoc.onSnapshot(s=>{if(!s.exists)return;const before=JSON.stringify(cloudPayload());applyCloud(s.data());const after=JSON.stringify(cloudPayload());if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}},err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});loginScreen()}catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}}
+async function initCloud(){loadingScreen();try{if(!window.firebase)throw new Error('SDK do Firebase não carregou');firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbStore=firebase.firestore();await fbAuth.signInAnonymously();cloudDoc=fbStore.collection('municipio').doc('dados');const snap=await cloudDoc.get();const legacyCarriers=snap.exists?(snap.data().carriers||[]):[];if(snap.exists){applyCloud(snap.data())}else{await cloudDoc.set(cloudPayload())}cloudReady=true;startCarrierSync(legacyCarriers);cloudUnsub=cloudDoc.onSnapshot(s=>{if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);const before=JSON.stringify(cloudPayload());applyCloud(data);const after=JSON.stringify(cloudPayload());if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}},err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});loginScreen()}catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2300)}
 function statusClass(s){s=String(s||'').toLowerCase();if(/concl|pago|ativo|disponível|confirmad/.test(s))return's-ok';if(/aguard|pend|andamento|manutenção|agend/.test(s))return's-warn';if(/cancel|indispon|inativo/.test(s))return's-bad';if(/receita/.test(s))return's-ok';return's-info'}
 const THEME_PRESETS={
@@ -1061,7 +1149,7 @@ function quickAddCarrier(targetSelect){
   const name=prompt('Nome da transportadora:','');
   if(!name||!name.trim())return;
   const x={id:uid(),name:name.trim(),contact:'',phone:'',location:'',notes:'',active:true,createdAt:nowISO()};
-  db.carriers.push(x);save();
+  db.carriers.push(x);syncCarrierRecord(x);
   const select=document.getElementById(targetSelect);
   if(select){select.innerHTML=carrierOptions(x.id);select.value=x.id}
   toast('Transportadora adicionada e selecionada.');
@@ -1071,8 +1159,8 @@ function saveCarrier(id='',targetSelect=''){
   if(!name)return toast('Digite o nome da transportadora.');
   let x=(db.carriers||[]).find(r=>r.id===id);
   if(!x){x={id:uid(),createdAt:nowISO(),active:true};db.carriers.push(x)}
-  x.name=name;x.contact=val('cContact');x.phone=val('cPhone');x.location=val('cLocation');x.notes=val('cNotes');x.active=x.active!==false;
-  save();closeModal();
+  x.name=name;x.contact=val('cContact');x.phone=val('cPhone');x.location=val('cLocation');x.notes=val('cNotes');x.active=x.active!==false;x.updatedAt=nowISO();
+  syncCarrierRecord(x);closeModal();
   const select=targetSelect?document.getElementById(targetSelect):null;
   if(select){
     select.innerHTML=carrierOptions(x.id);
@@ -1083,8 +1171,8 @@ function saveCarrier(id='',targetSelect=''){
 function toggleCarrier(id){
   const x=(db.carriers||[]).find(r=>r.id===id);
   if(!x)return;
-  x.active=x.active===false;
-  save();renderPage();toast(x.active?'Transportadora ativada.':'Transportadora desativada.');
+  x.active=x.active===false;x.updatedAt=nowISO();
+  syncCarrierRecord(x);renderPage();toast(x.active?'Transportadora ativada.':'Transportadora desativada.');
 }
 function carrierList(v){
   const rows=(db.carriers||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
