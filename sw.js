@@ -1,5 +1,5 @@
-const CACHE='bom-regresso-pwa-v34';
-const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
+const CACHE='bom-regresso-pwa-v35';
+const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
   importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
