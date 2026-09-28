@@ -961,6 +961,8 @@ const KEY='bom_regresso_web_v1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
+let avatarDraft={image:'',emoji:''};
+let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
 const FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
   authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
@@ -1047,6 +1049,67 @@ function roleOptions(selected=''){return '<option value="">Selecione o cargo</op
 function roleDepartment(role){if(role==='RH')return'RH';if(role==='Secretário da Agricultura')return'Agricultura';if(role==='Motorista')return'Frota / Transportes';if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';return'Geral'}
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
+function profileAvatarHTML(profile,extraClass=''){
+  const p=profile||{},cls=`profile-avatar ${extraClass}`.trim();
+  if(p.avatarImage)return `<span class="${cls}"><img src="${esc(p.avatarImage)}" alt=""></span>`;
+  if(p.avatarEmoji)return `<span class="${cls} profile-avatar-emoji">${esc(p.avatarEmoji)}</span>`;
+  return `<span class="${cls} profile-avatar-initials">${esc(initials(p.name||'?'))}</span>`
+}
+function profileStats(profile){
+  const p=profile||{},norm=s=>String(s||'').trim().toLocaleLowerCase('pt-BR');
+  const employee=db.employees.find(e=>e.operatorId===p.id)||db.employees.find(e=>norm(e.name)===norm(p.name));
+  const payments=(db.payments||[]).filter(x=>(employee&&x.employeeId===employee.id)||(!x.employeeId&&norm(x.employeeName)===norm(p.name)));
+  const gross=payments.reduce((a,x)=>a+Number(x.value||0),0),refunded=payments.filter(x=>x.refunded).reduce((a,x)=>a+Number(x.value||0),0);
+  return {employee,payments,gross,refunded,balance:gross-refunded,count:payments.length,validCount:payments.filter(x=>!x.refunded).length}
+}
+function resetAvatarDraft(profile={}){
+  avatarDraft={image:profile.avatarImage||'',emoji:profile.avatarEmoji||''};
+  avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0}
+}
+function avatarEditorHTML(profile={}){
+  resetAvatarDraft(profile);
+  return `<div class="avatar-editor">
+    <div class="avatar-editor-top"><div id="avatarDraftPreview">${profileAvatarHTML(profile,'profile-avatar-xl')}</div><div class="grow"><b>Foto ou emoji</b><div class="muted" style="font-size:12px;margin-top:4px">A foto usa proporção quadrada automática. Arraste e use o zoom para ajustar.</div></div></div>
+    <div class="avatar-choice-grid"><label class="btn btn-secondary avatar-upload-label">📷 Enviar foto<input id="avatarFile" type="file" accept="image/*" hidden onchange="App.loadAvatarFile(this.files[0])"></label><button type="button" class="btn btn-secondary" onclick="App.useAvatarInitials()">AB Usar iniciais</button></div>
+    <div class="field"><label>Ou escolha um emoji</label><div class="emoji-picker-row">${['👤','🙂','😎','👑','🧑‍💼','🚜','🚚','🛠️','🌱','💼'].map(e=>`<button type="button" class="emoji-choice" onclick="App.chooseAvatarEmoji('${e}')">${e}</button>`).join('')}<input id="customAvatarEmoji" class="emoji-custom" maxlength="8" placeholder="Outro" oninput="App.chooseAvatarEmoji(this.value)"></div></div>
+    <div id="avatarCropArea" class="avatar-crop-area hidden"><div class="avatar-crop-frame"><canvas id="avatarCropCanvas" width="320" height="320"></canvas></div><div class="field"><label>Zoom da foto</label><input id="avatarZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="App.setAvatarZoom(this.value)"></div><div class="row wrap"><button type="button" class="btn btn-secondary" onclick="App.centerAvatarCrop()">Centralizar</button><button type="button" class="btn btn-primary" onclick="App.applyAvatarCrop()">Usar este recorte</button></div></div>
+  </div>`
+}
+function updateAvatarDraftPreview(){
+  const box=document.getElementById('avatarDraftPreview');if(!box)return;
+  box.innerHTML=profileAvatarHTML({name:currentProfile()?.name||val('opName')||val('renameOp')||'Perfil',avatarImage:avatarDraft.image,avatarEmoji:avatarDraft.emoji},'profile-avatar-xl')
+}
+function chooseAvatarEmoji(emoji){avatarDraft.image='';avatarDraft.emoji=String(emoji||'').trim().slice(0,8);updateAvatarDraftPreview()}
+function useAvatarInitials(){avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview()}
+function loadAvatarFile(file){
+  if(!file)return;if(!String(file.type||'').startsWith('image/'))return toast('Escolha um arquivo de imagem.');if(file.size>12*1024*1024)return toast('A imagem é muito grande. Use uma foto de até 12 MB.');
+  const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{avatarCropState={img,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};document.getElementById('avatarCropArea')?.classList.remove('hidden');const z=document.getElementById('avatarZoom');if(z)z.value='1';bindAvatarCropCanvas();drawAvatarCrop()};img.onerror=()=>toast('Não foi possível abrir essa imagem.');img.src=reader.result};reader.readAsDataURL(file)
+}
+function bindAvatarCropCanvas(){
+  const canvas=document.getElementById('avatarCropCanvas');if(!canvas)return;
+  canvas.onpointerdown=e=>{avatarCropState.dragging=true;avatarCropState.lastX=e.clientX;avatarCropState.lastY=e.clientY;canvas.setPointerCapture?.(e.pointerId)};
+  canvas.onpointermove=e=>{if(!avatarCropState.dragging)return;const r=canvas.getBoundingClientRect(),sx=canvas.width/Math.max(1,r.width),sy=canvas.height/Math.max(1,r.height);avatarCropState.offsetX+=(e.clientX-avatarCropState.lastX)*sx;avatarCropState.offsetY+=(e.clientY-avatarCropState.lastY)*sy;avatarCropState.lastX=e.clientX;avatarCropState.lastY=e.clientY;drawAvatarCrop()};
+  canvas.onpointerup=canvas.onpointercancel=e=>{avatarCropState.dragging=false;try{canvas.releasePointerCapture?.(e.pointerId)}catch{}}
+}
+function drawAvatarCrop(){
+  const canvas=document.getElementById('avatarCropCanvas'),img=avatarCropState.img;if(!canvas||!img)return;const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#E8EEF4';ctx.fillRect(0,0,w,h);
+  const base=Math.max(w/img.naturalWidth,h/img.naturalHeight),scale=base*Number(avatarCropState.zoom||1),dw=img.naturalWidth*scale,dh=img.naturalHeight*scale,maxX=Math.max(0,(dw-w)/2),maxY=Math.max(0,(dh-h)/2);
+  avatarCropState.offsetX=Math.max(-maxX,Math.min(maxX,avatarCropState.offsetX));avatarCropState.offsetY=Math.max(-maxY,Math.min(maxY,avatarCropState.offsetY));ctx.drawImage(img,(w-dw)/2+avatarCropState.offsetX,(h-dh)/2+avatarCropState.offsetY,dw,dh)
+}
+function setAvatarZoom(v){avatarCropState.zoom=Math.max(1,Math.min(3,Number(v)||1));drawAvatarCrop()}
+function centerAvatarCrop(){avatarCropState.offsetX=0;avatarCropState.offsetY=0;drawAvatarCrop()}
+function applyAvatarCrop(){
+  const source=document.getElementById('avatarCropCanvas');if(!source||!avatarCropState.img)return;const out=document.createElement('canvas');out.width=192;out.height=192;out.getContext('2d').drawImage(source,0,0,192,192);
+  let q=.78,data=out.toDataURL('image/jpeg',q);while(data.length>45000&&q>.48){q-=.08;data=out.toDataURL('image/jpeg',q)}
+  avatarDraft.image=data;avatarDraft.emoji='';document.getElementById('avatarCropArea')?.classList.add('hidden');updateAvatarDraftPreview();toast('Recorte aplicado.')
+}
+function openMyProfile(){
+  const p=currentProfile();if(!p)return;const s=profileStats(p),recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,5);
+  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div><div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyAvatar()">✎ Personalizar foto / emoji</button>${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
+}
+function editMyAvatar(){const p=currentProfile();if(!p)return;showModal('Personalizar perfil',avatarEditorHTML(p)+`<div class="actions"><button class="btn btn-primary" onclick="App.saveMyAvatar()">Salvar foto / emoji</button></div>`)}
+function saveMyAvatar(){const p=currentProfile();if(!p)return;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();save();closeModal();render();toast('Perfil personalizado.')}
+
 function isFullAccess(role=currentRole()){return ['Prefeito','Vice-prefeito','RH'].includes(role)}
 function canPage(p){
   return ['home','agri','licit','hr','contracts','finance','fleet','notes'].includes(p)
