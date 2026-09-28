@@ -1181,11 +1181,12 @@ html[data-appearance="dark"] .chat-file-card{background:#17232C;color:#F0F4F7}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 <script>
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.1.0';
+const APP_VERSION='1.1.1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1201,7 +1202,8 @@ const FIREBASE_CONFIG={
   appId:'1:198816706059:web:0cc06972a903b13867610e'
 };
 const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','activityLog'];
-let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
+let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
+let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='';
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
 let chatMessages=[],chatReady=false,chatUnread=Number(localStorage.getItem(CHAT_UNREAD_KEY)||0)||0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0;
 const todayBR=()=>new Date().toLocaleDateString('pt-BR');
@@ -1323,7 +1325,7 @@ async function initCloud(){
     cloudDoc=fbStore.collection('municipio').doc('dados_'+DATA_NAMESPACE);
     const snap=await cloudDoc.get(),legacyCarriers=snap.exists?(snap.data().carriers||[]):[];
     if(snap.exists)applyCloud(snap.data());else await cloudDoc.set(cloudPayload());
-    cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();
+    cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();await startPushInfrastructure();
     cloudUnsub=cloudDoc.onSnapshot(s=>{
       if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);
       const before=JSON.stringify(cloudPayload());applyCloud(data);const after=JSON.stringify(cloudPayload());
@@ -1415,7 +1417,8 @@ async function verifyRHLogin(id){
   }catch(err){console.error(err);toast('Não foi possível verificar a senha.')}
 }
 function completeRHLogin(p){
-  db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();page='home';sub='';pushAppHistory('home','');render()
+  db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();page='home';sub='';pushAppHistory('home','');render();
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
 function changeMyRHPassword(){
   const p=currentProfile();if(!p||!isPasswordProtectedProfile(p))return;
@@ -1638,6 +1641,81 @@ function updateChatBadges(){
   document.querySelectorAll('[data-chat-badge]').forEach(el=>{el.textContent=chatBadgeText();el.classList.toggle('hidden',!chatUnread)});
   if('setAppBadge' in navigator){if(chatUnread)navigator.setAppBadge(chatUnread).catch(()=>{});else navigator.clearAppBadge?.().catch(()=>{})}
 }
+async function loadPushConfig(){
+  if(!pushConfigDoc)return '';
+  try{
+    const s=await pushConfigDoc.get(),d=s.exists?s.data():{};
+    pushVapidPublicKey=String(d?.vapidPublicKey||'').trim();
+    return pushVapidPublicKey
+  }catch(err){console.error('Config push:',err);return ''}
+}
+async function savePushConfig(){
+  if(!requireFull())return;
+  const key=val('pushVapidKey');
+  if(!key||key.length<40)return toast('Cole a chave pública Web Push (VAPID) gerada no Firebase.');
+  try{
+    await pushConfigDoc.set({vapidPublicKey:key,updatedAt:nowISO(),updatedBy:db.currentOperator},{merge:true});
+    pushVapidPublicKey=key;toast('Chave Web Push salva para todos os aparelhos.');
+  }catch(err){console.error(err);toast('Não foi possível salvar a chave Web Push.')}
+}
+function pushDeviceId(){
+  const k='bom_regresso_push_device_v2';let id=localStorage.getItem(k);
+  if(!id){id=(crypto.randomUUID?.()||uid())+'_'+Math.random().toString(36).slice(2,8);localStorage.setItem(k,id)}
+  return id
+}
+async function startPushInfrastructure(){
+  if(!fbStore)return;
+  pushTokensCollection=fbStore.collection('pushTokens_'+DATA_NAMESPACE);
+  pushConfigDoc=fbStore.collection('municipio').doc('push_config_'+DATA_NAMESPACE);
+  await loadPushConfig();
+  try{messaging=firebase.messaging()}catch(err){console.warn('FCM não suportado:',err);messaging=null}
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'&&db.currentOperatorId)ensurePushRegistration(false)
+}
+async function ensurePushRegistration(askPermission=true){
+  if(pushRegistering)return false;
+  if(typeof Notification==='undefined')return askPermission&&toast('Este aparelho não oferece notificações push.'),false;
+  pushRegistering=true;
+  try{
+    let permission=Notification.permission;
+    if(permission==='default'&&askPermission)permission=await Notification.requestPermission();
+    if(permission!=='granted'){if(askPermission)toast('Notificações não foram autorizadas.');return false}
+    if(!pushVapidPublicKey)await loadPushConfig();
+    if(!pushVapidPublicKey){if(askPermission)toast('O Push FCM ainda precisa da chave Web Push nas Configurações.');return false}
+    if(!messaging){try{messaging=firebase.messaging()}catch{return false}}
+    const reg=await navigator.serviceWorker.ready;
+    const token=await messaging.getToken({vapidKey:pushVapidPublicKey,serviceWorkerRegistration:reg});
+    if(!token)throw new Error('FCM não retornou token');
+    const p=currentProfile();if(!p)return false;
+    await pushTokensCollection.doc(pushDeviceId()).set({
+      token,operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',
+      updatedAt:nowISO(),platform:navigator.platform||'',standalone:isStandalone()
+    },{merge:true});
+    lastPushOperatorId=p.id;
+    if(askPermission)toast('🔔 Push ativado neste aparelho.');
+    return true
+  }catch(err){console.error('Registrar push:',err);if(askPermission)toast('Não foi possível ativar o push neste aparelho.');return false}
+  finally{pushRegistering=false}
+}
+async function sendChatPush(msg){
+  if(!pushTokensCollection||!fbAuth?.currentUser)return;
+  try{
+    const snap=await pushTokensCollection.get();
+    const tokens=[...new Set(snap.docs.map(d=>d.data()).filter(x=>x?.token&&x.operatorId!==msg.senderId).map(x=>x.token))].slice(0,50);
+    if(!tokens.length)return;
+    const idToken=await fbAuth.currentUser.getIdToken();
+    const attachmentLabel=msg.attachment?.kind==='image'?'📷 Imagem':msg.attachment?.kind==='audio'?'🎙️ Mensagem de voz':msg.attachment?'📎 Arquivo':'';
+    const body=(msg.text||attachmentLabel||'Nova mensagem').slice(0,180);
+    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({tokens,title:'💬 '+msg.senderName,body,data:{type:'chat'}})});
+    if(!r.ok){const t=await r.text().catch(()=>String(r.status));console.warn('Push não enviado:',r.status,t)}
+  }catch(err){console.warn('Push do chat:',err)}
+}
+async function testPushBackend(){
+  try{
+    const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();
+    toast(j.configured?'Servidor push configurado.':'Servidor push ainda precisa das credenciais do Firebase.')
+  }catch{toast('Não foi possível consultar o servidor push.')}
+}
+
 function markChatRead(){
   chatUnread=0;localStorage.setItem(CHAT_UNREAD_KEY,'0');updateChatBadges()
 }
@@ -1723,13 +1801,8 @@ function startChatSync(){
   },err=>{console.error('Chat Firestore:',err);chatReady=false;if(page==='chat')renderChatMessages();toast('Chat temporariamente indisponível.')})
 }
 async function requestChatNotifications(){
-  if(typeof Notification==='undefined')return toast('Este aparelho não oferece notificações do navegador.');
-  try{
-    const permission=await Notification.requestPermission();
-    if(permission==='granted')toast('Notificações do chat ativadas.');
-    else toast('Notificações não foram autorizadas.');
-    if(page==='chat')renderPage()
-  }catch{toast('Não foi possível ativar as notificações.')}
+  const ok=await ensurePushRegistration(true);
+  if(ok&&page==='chat')renderPage()
 }
 async function notifyChatMessage(m){
   const label=m.attachment?.kind==='image'?'📷 Imagem':m.attachment?.kind==='audio'?'🎙️ Mensagem de voz':m.attachment?'📎 Arquivo':'';
@@ -1816,6 +1889,7 @@ async function sendChatMessage(){
   try{
     if(input)input.disabled=true;
     await chatCollection.add(msg);
+    sendChatPush(msg);
     if(input){input.value='';input.disabled=false;input.focus()}
     chatPendingAttachment=null;renderChatAttachmentPreview()
   }catch(err){console.error('Enviar chat:',err);if(input)input.disabled=false;toast('Não foi possível enviar a mensagem.')}
@@ -1893,7 +1967,8 @@ function isStandalone(){return window.matchMedia?.('(display-mode: standalone)')
 function openSettings(){
   const t=getTheme();
   const presets=[['classic','#0B2E59','#D7A93E','Clássico'],['green','#145A45','#D7A93E','Verde'],['wine','#6B2031','#D7A93E','Vinho'],['royal','#3E3A86','#E4B441','Real'],['graphite','#263238','#C89B3C','Grafite']];
-  showModal('Configurações',`<div class="settings-version-card"><div><small>VERSÃO DO SISTEMA</small><strong>Bom Regresso v${APP_VERSION}</strong></div><span>✓ Atual</span></div><div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,n])=>`<button class="theme-preset" onclick="App.setThemePreset('${k}')"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${n}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div><div class="sep"></div><div class="settings-section"><h4>📲 Aplicativo no celular</h4><p class="muted">Instale o sistema na tela inicial para abrir como aplicativo, sem precisar procurar o site no navegador.</p><button class="btn btn-primary install-btn" style="width:100%;min-height:48px" onclick="App.installApp()">⬇ ${isStandalone()?'Aplicativo instalado':'Instalar Prefeitura de Bom Regresso'}</button></div>`)
+  const pushAdmin=isFullAccess()?`<div class="sep"></div><div class="settings-section"><h4>🔔 Push do Chat (FCM)</h4><p class="muted">Chave pública Web Push do Firebase. Ela é pública e pode ser armazenada aqui; a credencial privada fica somente no servidor da Vercel.</p><div class="field"><label>Chave pública VAPID</label><input id="pushVapidKey" value="${esc(pushVapidPublicKey)}" placeholder="Cole a chave pública Web Push"></div><div class="actions"><button class="btn btn-secondary" onclick="App.testPushBackend()">Testar servidor</button><button class="btn btn-primary" onclick="App.savePushConfig()">Salvar chave Web Push</button></div></div>`:''; 
+  showModal('Configurações',`<div class="settings-version-card"><div><small>VERSÃO DO SISTEMA</small><strong>Bom Regresso v${APP_VERSION}</strong></div><span>✓ Atual</span></div><div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,n])=>`<button class="theme-preset" onclick="App.setThemePreset('${k}')"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${n}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div><div class="sep"></div><div class="settings-section"><h4>📲 Aplicativo no celular</h4><p class="muted">Instale o sistema na tela inicial para abrir como aplicativo, sem precisar procurar o site no navegador.</p><button class="btn btn-primary install-btn" style="width:100%;min-height:48px" onclick="App.installApp()">⬇ ${isStandalone()?'Aplicativo instalado':'Instalar Prefeitura de Bom Regresso'}</button></div>${pushAdmin}`)
 }
 async function installApp(){
   if(isStandalone()){toast('O aplicativo já está instalado neste aparelho.');return}
@@ -2067,7 +2142,8 @@ function enter(){
     if(!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
     rhPasswordLoginModal(o.id);return
   }
-  db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();page='home';sub='';pushAppHistory('home','');render()
+  db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();page='home';sub='';pushAppHistory('home','');render();
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
 function logout(){db.currentOperator='';db.currentOperatorId='';persistLocal();history.pushState({brApp:true,view:'login',guard:true},'',location.href);loginScreen()}
 function navItems(){return[
@@ -2765,7 +2841,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,chatComposerKey,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,savePushConfig,testPushBackend,chatComposerKey,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
