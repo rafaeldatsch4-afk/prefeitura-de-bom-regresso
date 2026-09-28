@@ -1179,7 +1179,13 @@ function isFullAccess(role=currentRole()){return ['Prefeito','Vice-prefeito','RH
 function canPage(p){
   return ['home','agri','licit','hr','contracts','finance','fleet','notes'].includes(p)
 }
-function canAction(action){const role=currentRole();if(isFullAccess(role))return true;if(role==='Secretário da Agricultura')return ['agri.view','agri.appointment','agri.asset','agri.status'].includes(action);if(role==='Motorista')return ['fleet.view','trip.create','trip.complete','truck.create','carrier.create'].includes(action);return false}
+function canAction(action){
+  const role=currentRole();
+  if(isFullAccess(role))return true;
+  if(role==='Secretário da Agricultura')return ['agri.view','agri.appointment','agri.asset','agri.status'].includes(action);
+  if(role==='Motorista')return ['fleet.view','trip.create','trip.edit','trip.complete','truck.create','truck.edit','carrier.create','carrier.edit','carrier.status'].includes(action);
+  return false
+}
 function canEditArea(area){
   if(isFullAccess())return true;
   if(area==='agri')return currentRole()==='Secretário da Agricultura';
@@ -1260,6 +1266,37 @@ async function installApp(){
   }
   showModal('Instalar aplicativo',`<p>Se o botão automático não apareceu, abra este site no <b>Chrome</b> e use o menu <b>⋮</b>.</p><div class="panel" style="box-shadow:none"><b>Android / Chrome</b><p class="muted" style="margin-bottom:0">⋮ → <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p></div><p class="muted">Depois disso, o sistema aparecerá junto dos outros aplicativos do celular.</p>`);
 }
+async function registerAutoUpdatingServiceWorker(){
+  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
+  try{
+    const hadController=!!navigator.serviceWorker.controller;
+    const reg=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
+    let reloading=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!hadController||reloading)return;
+      if(sessionStorage.getItem('br_sw_reload')==='1'){sessionStorage.removeItem('br_sw_reload');return}
+      reloading=true;sessionStorage.setItem('br_sw_reload','1');location.reload()
+    });
+    const activateWaiting=()=>{
+      if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'})
+    };
+    activateWaiting();
+    reg.addEventListener('updatefound',()=>{
+      const worker=reg.installing;if(!worker)return;
+      worker.addEventListener('statechange',()=>{
+        if(worker.state==='installed'&&navigator.serviceWorker.controller){
+          if(reg.waiting)reg.waiting.postMessage({type:'SKIP_WAITING'})
+        }
+      })
+    });
+    const check=()=>reg.update().catch(()=>{});
+    check();
+    window.addEventListener('focus',check);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});
+    setInterval(check,60000)
+  }catch(err){console.error('Atualização automática do aplicativo:',err)}
+}
+
 function appViewState(){
   const main=document.getElementById('main');
   const inSystem=main&&!main.classList.contains('hidden')&&!!db.currentOperator;
@@ -1416,15 +1453,36 @@ function carrierName(id,fallback=''){
   const x=(db.carriers||[]).find(r=>r.id===id);
   return x?.name||fallback||'';
 }
-function carrierModal(id='',targetSelect=''){if(id&&!isFullAccess())return accessDenied();if(!id&&!requireAction('carrier.create'))return;const x=(db.carriers||[]).find(r=>r.id===id)||{};showModal(id?'Editar transportadora':'Cadastrar transportadora',`<div class="sub">Cadastro simples. Somente o nome é necessário.</div><div class="field"><label>Nome da transportadora</label><input id="cName" value="${esc(x.name||'')}" placeholder="Ex.: Transportadora Hoffmann"></div><div class="field"><label>Contato / responsável</label><input id="cContact" value="${esc(x.contact||'')}" placeholder="Opcional"></div><div class="field"><label>Telefone</label><input id="cPhone" value="${esc(x.phone||'')}" placeholder="Opcional" inputmode="tel"></div><div class="field"><label>Localidade</label><input id="cLocation" value="${esc(x.location||'')}" placeholder="Opcional"></div><div class="field"><label>Observações</label><textarea id="cNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveCarrier('${id}','${targetSelect}')">Salvar transportadora</button></div>`,()=>document.getElementById('cName')?.focus())}
+function carrierModal(id='',targetSelect=''){
+  if(id&&!requireAction('carrier.edit'))return;
+  if(!id&&!requireAction('carrier.create'))return;
+  const x=(db.carriers||[]).find(r=>r.id===id)||{};
+  showModal(id?'Editar transportadora':'Cadastrar transportadora',`<div class="sub">Cadastro simples. Somente o nome é necessário.</div><div class="field"><label>Nome da transportadora</label><input id="cName" value="${esc(x.name||'')}" placeholder="Ex.: Transportadora Hoffmann"></div><div class="field"><label>Contato / responsável</label><input id="cContact" value="${esc(x.contact||'')}" placeholder="Opcional"></div><div class="field"><label>Telefone</label><input id="cPhone" value="${esc(x.phone||'')}" placeholder="Opcional" inputmode="tel"></div><div class="field"><label>Localidade</label><input id="cLocation" value="${esc(x.location||'')}" placeholder="Opcional"></div><div class="field"><label>Observações</label><textarea id="cNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveCarrier('${id}','${targetSelect}')">Salvar transportadora</button></div>`,()=>document.getElementById('cName')?.focus())
+}
 function quickAddCarrier(targetSelect){if(!requireAction('carrier.create'))return;const name=prompt('Nome da transportadora:','');if(!name||!name.trim())return;const x={id:uid(),name:name.trim(),contact:'',phone:'',location:'',notes:'',active:true,createdAt:nowISO()};db.carriers.push(x);syncCarrierRecord(x);const select=document.getElementById(targetSelect);if(select){select.innerHTML=carrierOptions(x.id);select.value=x.id}toast('Transportadora adicionada e selecionada.')}
-function saveCarrier(id='',targetSelect=''){if(id&&!isFullAccess())return accessDenied();if(!id&&!requireAction('carrier.create'))return;const name=val('cName');if(!name)return toast('Digite o nome da transportadora.');let x=(db.carriers||[]).find(r=>r.id===id);if(!x){x={id:uid(),createdAt:nowISO(),active:true};db.carriers.push(x)}x.name=name;x.contact=val('cContact');x.phone=val('cPhone');x.location=val('cLocation');x.notes=val('cNotes');x.active=x.active!==false;x.updatedAt=nowISO();syncCarrierRecord(x);closeModal();const select=targetSelect?document.getElementById(targetSelect):null;if(select){select.innerHTML=carrierOptions(x.id);select.value=x.id}else if(page==='fleet'&&sub==='carriers'){renderPage()}toast('Transportadora salva.')}
-function toggleCarrier(id){if(!requireFull())return;const x=(db.carriers||[]).find(r=>r.id===id);if(!x)return;x.active=x.active===false;x.updatedAt=nowISO();syncCarrierRecord(x);renderPage();toast(x.active?'Transportadora ativada.':'Transportadora desativada.')}
+function saveCarrier(id='',targetSelect=''){
+  if(id&&!requireAction('carrier.edit'))return;
+  if(!id&&!requireAction('carrier.create'))return;
+  const name=val('cName');if(!name)return toast('Digite o nome da transportadora.');
+  let x=(db.carriers||[]).find(r=>r.id===id);
+  if(!x){x={id:uid(),createdAt:nowISO(),active:true};db.carriers.push(x)}
+  x.name=name;x.contact=val('cContact');x.phone=val('cPhone');x.location=val('cLocation');x.notes=val('cNotes');x.active=x.active!==false;x.updatedAt=nowISO();x.updatedBy=db.currentOperator;
+  syncCarrierRecord(x);closeModal();
+  const select=targetSelect?document.getElementById(targetSelect):null;
+  if(select){select.innerHTML=carrierOptions(x.id);select.value=x.id}else if(page==='fleet'&&sub==='carriers'){renderPage()}
+  toast('Transportadora salva.')
+}
+function toggleCarrier(id){
+  if(!requireAction('carrier.status'))return;
+  const x=(db.carriers||[]).find(r=>r.id===id);if(!x)return;
+  x.active=x.active===false;x.updatedAt=nowISO();x.updatedBy=db.currentOperator;
+  syncCarrierRecord(x);renderPage();toast(x.active?'Transportadora ativada.':'Transportadora desativada.')
+}
 function carrierList(v){
   const rows=(db.carriers||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
-  const canAdd=canAction('carrier.create'),full=isFullAccess();
+  const canAdd=canAction('carrier.create'),canEdit=canAction('carrier.edit');
   v.innerHTML=`<div class="panel"><div class="row wrap"><div class="grow"><h3>Transportadoras</h3><div class="sub">Contatos usados em viagens e veículos.</div></div>${canAdd?'<button class="btn btn-primary" onclick="App.carrierModal()">＋ Cadastrar transportadora</button>':''}</div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Nome</th><th>Contato</th><th>Telefone</th><th>Localidade</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-  ${rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.contact||'-')}</td><td>${esc(x.phone||'-')}</td><td>${esc(x.location||'-')}</td><td class="status ${x.active!==false?'s-ok':'s-muted'}">${x.active!==false?'Ativa':'Inativa'}</td><td class="small-actions">${full?`<button class="btn btn-secondary" onclick="App.carrierModal('${x.id}')">Editar</button><button class="btn ${x.active!==false?'btn-danger':'btn-ok'}" onclick="App.toggleCarrier('${x.id}')">${x.active!==false?'Desativar':'Ativar'}</button>`:'<span class="muted">Visualização</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma transportadora cadastrada.</td></tr>'}
+  ${rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.contact||'-')}</td><td>${esc(x.phone||'-')}</td><td>${esc(x.location||'-')}</td><td class="status ${x.active!==false?'s-ok':'s-muted'}">${x.active!==false?'Ativa':'Inativa'}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.carrierModal('${x.id}')">Editar</button><button class="btn ${x.active!==false?'btn-danger':'btn-ok'}" onclick="App.toggleCarrier('${x.id}')">${x.active!==false?'Desativar':'Ativar'}</button>`:'<span class="muted">Visualização</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma transportadora cadastrada.</td></tr>'}
   </tbody></table></div></div>`
 }
 function agri(c){
@@ -1552,20 +1610,52 @@ function fleet(c){
   if(t==='trip')tripForm(v);else if(t==='trucks')truckList(v);else if(t==='truck')truckForm(v);else if(t==='carriers')carrierList(v);else tripList(v)
 }
 function truckList(v){
-  const showNote=canPage('notes');
-  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Identificação</th><th>Modelo</th><th>Transportadora</th><th>Status</th><th>KM</th><th></th></tr></thead><tbody>${db.trucks.map(x=>`<tr><td>${esc(x.plate)}</td><td>${esc(x.model||'-')}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'Próprio / não informado')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.odometer||0)}</td><td>${showNote?`<button class="btn btn-secondary" onclick="App.noteFrom('truck','${x.id}')">Nota</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum caminhão cadastrado.</td></tr>'}</tbody></table></div></div>`
+  const showNote=canPage('notes'),canEdit=canAction('truck.edit');
+  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Identificação</th><th>Modelo</th><th>Transportadora</th><th>Status</th><th>KM</th><th>Ações</th></tr></thead><tbody>${db.trucks.map(x=>`<tr><td>${esc(x.plate)}</td><td>${esc(x.model||'-')}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'Próprio / não informado')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.odometer||0)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTruck('${x.id}')">Editar</button>`:''}${showNote?`<button class="btn btn-secondary" onclick="App.noteFrom('truck','${x.id}')">Nota</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum caminhão cadastrado.</td></tr>'}</tbody></table></div></div>`
 }
 function truckForm(v){if(!requireAction('truck.create'))return;v.innerHTML=`<div class="panel"><h3>Cadastrar caminhão</h3><div class="form-grid"><div class="field"><label>Placa / identificação</label><input id="tPlate"></div><div class="field"><label>Modelo</label><input id="tModel"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="tCarrier">${carrierOptions()}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('tCarrier')">＋ Nova</button></div></div><div class="field"><label>Status</label><select id="tStatus"><option>Disponível</option><option>Em manutenção</option><option>Indisponível</option></select></div><div class="field"><label>Quilometragem</label><input id="tKm"></div><div class="field wide"><label>Observações</label><textarea id="tNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTruck()">Salvar caminhão</button></div></div>`}
 function saveTruck(){if(!requireAction('truck.create'))return;const carrierId=val('tCarrier');db.trucks.push({id:uid(),plate:val('tPlate')||`CAM-${db.trucks.length+1}`,model:val('tModel'),carrierId,carrierName:carrierName(carrierId),status:val('tStatus')||'Disponível',odometer:nval('tKm'),notes:val('tNotes'),createdAt:nowISO()});save();toast('Caminhão salvo.');go('fleet','trucks')}
+function editTruck(id){
+  if(!requireAction('truck.edit'))return;
+  const x=db.trucks.find(r=>r.id===id);if(!x)return toast('Caminhão não encontrado.');
+  showModal('Editar caminhão',`<div class="form-grid"><div class="field"><label>Placa / identificação</label><input id="etPlate" value="${esc(x.plate||'')}"></div><div class="field"><label>Modelo</label><input id="etModel" value="${esc(x.model||'')}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="etCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('etCarrier')">＋ Nova</button></div></div><div class="field"><label>Status</label><select id="etStatus">${['Disponível','Em manutenção','Indisponível'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Quilometragem</label><input id="etKm" value="${esc(x.odometer||0)}"></div><div class="field wide"><label>Observações</label><textarea id="etNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTruckEdit('${id}')">Salvar alterações</button></div>`)
+}
+function saveTruckEdit(id){
+  if(!requireAction('truck.edit'))return;
+  const x=db.trucks.find(r=>r.id===id);if(!x)return toast('Caminhão não encontrado.');
+  const carrierId=val('etCarrier');
+  x.plate=val('etPlate')||x.plate;x.model=val('etModel');x.carrierId=carrierId;x.carrierName=carrierName(carrierId);x.status=val('etStatus')||'Disponível';x.odometer=nval('etKm');x.notes=val('etNotes');x.updatedAt=nowISO();x.updatedBy=db.currentOperator;
+  save();closeModal();renderPage();toast('Caminhão atualizado.')
+}
+
 function tripList(v){
-  const editable=canAction('trip.complete');
-  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Transportadora</th><th>Caminhão</th><th>Motorista</th><th>Origem</th><th>Destino</th><th>Carga / motivo</th><th>Status</th><th></th></tr></thead><tbody>
-  ${db.trips.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td>${esc(x.truck||'-')}</td><td>${esc(x.driver||'-')}</td><td>${esc(x.origin||'-')}</td><td>${esc(x.destination||'-')}</td><td>${esc(x.cargo||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${editable?`<button class="btn btn-ok" onclick="App.setTripStatus('${x.id}','Concluída')">Concluir</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('trip','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Nenhuma viagem.</td></tr>'}
+  const canEdit=canAction('trip.edit');
+  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Transportadora</th><th>Caminhão</th><th>Motorista</th><th>Origem</th><th>Destino</th><th>Carga / motivo</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+  ${db.trips.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td>${esc(x.truck||'-')}</td><td>${esc(x.driver||'-')}</td><td>${esc(x.origin||'-')}</td><td>${esc(x.destination||'-')}</td><td>${esc(x.cargo||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTrip('${x.id}')">Editar</button><button class="btn btn-ok" onclick="App.setTripStatus('${x.id}','Concluída')">Concluir</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('trip','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Nenhuma viagem.</td></tr>'}
   </tbody></table></div></div>`
 }
 function tripForm(v){if(!requireAction('trip.create'))return;v.innerHTML=`<div class="panel"><h3>Registrar viagem</h3><div class="sub">Selecione uma transportadora se o transporte for terceirizado.</div><div class="form-grid"><div class="field"><label>Data</label><input id="rDate" value="${todayBR()}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="rCarrier">${carrierOptions()}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('rCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="rTruck"><option value="">Sem caminhão definido</option>${db.trucks.map(x=>`<option>${esc(x.plate)}${x.model?' - '+esc(x.model):''}</option>`).join('')}</select></div><div class="field"><label>Motorista</label><input id="rDriver" value="${currentRole()==='Motorista'?esc(db.currentOperator):''}"></div><div class="field"><label>Status</label><select id="rStatus"><option>Agendada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option></select></div><div class="field"><label>Origem</label><input id="rOrigin"></div><div class="field"><label>Destino</label><input id="rDest"></div><div class="field wide"><label>Carga / motivo</label><input id="rCargo"></div><div class="field"><label>KM inicial</label><input id="rStart"></div><div class="field"><label>KM final</label><input id="rEnd"></div><div class="field wide"><label>Observações</label><textarea id="rNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTrip()">Salvar viagem</button></div></div>`}
 function saveTrip(){if(!requireAction('trip.create'))return;const carrierId=val('rCarrier');db.trips.push({id:uid(),date:val('rDate')||todayBR(),carrierId,carrierName:carrierName(carrierId),truck:val('rTruck'),driver:val('rDriver')||db.currentOperator,origin:val('rOrigin'),destination:val('rDest'),cargo:val('rCargo'),startKm:nval('rStart'),endKm:nval('rEnd'),status:val('rStatus')||'Agendada',notes:val('rNotes'),operator:db.currentOperator,createdAt:nowISO()});save();toast('Viagem salva.');go('fleet','trips')}
-function setTripStatus(id,s){if(!isFullAccess()&&!(currentRole()==='Motorista'&&s==='Concluída'))return accessDenied();const x=db.trips.find(r=>r.id===id);if(x){x.status=s;x.updatedAt=nowISO();save();renderPage();toast('Status atualizado.')}}
+function tripTruckOptions(selected=''){
+  return '<option value="">Sem caminhão definido</option>'+db.trucks.map(x=>{const value=`${x.plate}${x.model?' - '+x.model:''}`;return `<option value="${esc(value)}" ${value===selected?'selected':''}>${esc(value)}</option>`}).join('')
+}
+function editTrip(id){
+  if(!requireAction('trip.edit'))return;
+  const x=db.trips.find(r=>r.id===id);if(!x)return toast('Viagem não encontrada.');
+  showModal('Editar viagem',`<div class="form-grid"><div class="field"><label>Data</label><input id="erDate" value="${esc(x.date||todayBR())}"></div><div class="field"><label>Transportadora</label><div class="carrier-picker"><select id="erCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('erCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="erTruck">${tripTruckOptions(x.truck||'')}</select></div><div class="field"><label>Motorista</label><input id="erDriver" value="${esc(x.driver||'')}"></div><div class="field"><label>Status</label><select id="erStatus">${['Agendada','Em andamento','Concluída','Cancelada'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Origem</label><input id="erOrigin" value="${esc(x.origin||'')}"></div><div class="field"><label>Destino</label><input id="erDest" value="${esc(x.destination||'')}"></div><div class="field wide"><label>Carga / motivo</label><input id="erCargo" value="${esc(x.cargo||'')}"></div><div class="field"><label>KM inicial</label><input id="erStart" value="${esc(x.startKm||0)}"></div><div class="field"><label>KM final</label><input id="erEnd" value="${esc(x.endKm||0)}"></div><div class="field wide"><label>Observações</label><textarea id="erNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTripEdit('${id}')">Salvar alterações</button></div>`)
+}
+function saveTripEdit(id){
+  if(!requireAction('trip.edit'))return;
+  const x=db.trips.find(r=>r.id===id);if(!x)return toast('Viagem não encontrada.');
+  const carrierId=val('erCarrier');
+  x.date=val('erDate')||x.date||todayBR();x.carrierId=carrierId;x.carrierName=carrierName(carrierId);x.truck=val('erTruck');x.driver=val('erDriver')||db.currentOperator;x.status=val('erStatus')||'Agendada';x.origin=val('erOrigin');x.destination=val('erDest');x.cargo=val('erCargo');x.startKm=nval('erStart');x.endKm=nval('erEnd');x.notes=val('erNotes');x.updatedAt=nowISO();x.updatedBy=db.currentOperator;
+  save();closeModal();renderPage();toast('Viagem atualizada.')
+}
+
+function setTripStatus(id,s){
+  if(!requireAction('trip.edit'))return;
+  const x=db.trips.find(r=>r.id===id);if(x){x.status=s;x.updatedAt=nowISO();x.updatedBy=db.currentOperator;save();renderPage();toast('Status atualizado.')}
+}
 function notes(c){
   c.innerHTML=head('Notas e Resumos','Primeiro gere a nota em texto. Depois, se quiser, transforme a prévia em PDF.')+
   `<div class="notes-flow">
@@ -1765,7 +1855,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,openMyProfile,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,saveTrip,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,openMyProfile,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
@@ -1776,7 +1866,7 @@ document.addEventListener('focusin',e=>{
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(getTheme().appearance==='auto')applyTheme()});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;toast('Prefeitura de Bom Regresso instalada.')});
-if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
+registerAutoUpdatingServiceWorker();
 initCloud();
 })();
 </script>
