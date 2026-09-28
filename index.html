@@ -1526,14 +1526,14 @@ html[data-appearance="dark"] .chat-record-status.lock-ready,html[data-appearance
 <script>
 (() => {
 'use strict';
-const KEY='bom_regresso_web_v3';
-const APP_VERSION='1.5.2';
+const KEY='bom_regresso_web_v4';
+const APP_VERSION='1.5.3';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
 let avatarDraft={image:'',emoji:''};
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
-const DATA_NAMESPACE='v3';
+const DATA_NAMESPACE='v4';
 const PUSH_CONFIG_NAMESPACE='v2';
 const FEDERATION_PROTOCOL='bom-regresso-federation';
 const FEDERATION_VERSION=1;
@@ -1553,9 +1553,9 @@ const FIREBASE_CONFIG={
 const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','activityLog'];
 let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,chatMediaCollection=null,profileSecretsCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
 let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='',pushBackendConfigured=false;
-const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v3';
-const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_v3_';
-const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
+const CHAT_UNREAD_KEY='bom_regresso_chat_unread_'+DATA_NAMESPACE;
+const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_'+DATA_NAMESPACE+'_';
+const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_'+DATA_NAMESPACE;
 let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false,chatRecordingSendOnStop=false;
 let chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false};
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0,chatSending=false;
