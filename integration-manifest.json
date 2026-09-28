@@ -5,7 +5,7 @@
     "id": "prefeitura-bom-regresso",
     "name": "Prefeitura de Bom Regresso",
     "scope": "municipal",
-    "appVersion": "1.5.3",
+    "appVersion": "1.5.4",
     "municipalityId": "bom-regresso",
     "parentStateId": null
   },
@@ -75,11 +75,14 @@
       "protocol": "bom-regresso-federation",
       "type": "DISCOVER_MUNICIPAL_SYSTEM"
     },
-    "responseMessageType": "MUNICIPAL_SYSTEM_DESCRIPTOR"
+    "responseMessageType": "MUNICIPAL_SYSTEM_DESCRIPTOR",
+    "handoffMessageType": "HANDOFF_PROFILE",
+    "handoffResultMessageType": "HANDOFF_RESULT",
+    "automaticMunicipalProfileSync": true
   },
   "notes": [
-    "A Prefeitura continua funcionando de forma independente.",
-    "A integração nacional/estadual pode descobrir este sistema sem assumir ainda o controle do login.",
-    "parentStateId será preenchido quando o sistema estadual definitivo for conectado."
+    "O Portal do País e a Prefeitura funcionam de forma independente, mas agora compartilham uma ponte de perfil.",
+    "Perfis de Prefeito e Vice-prefeito vinculados a Bom Regresso podem abrir o sistema municipal dentro da UI do município.",
+    "O acesso municipal continua respeitando a senha protegida do perfil e os dados do Firebase da Prefeitura."
   ]
 }
