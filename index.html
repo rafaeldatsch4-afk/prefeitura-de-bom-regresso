@@ -1985,8 +1985,11 @@ function saveEmployeeEdit(id){
 }
 function paymentForm(empId=''){
   if(!requireFull())return;
-  if(!db.employees.length)return toast('Cadastre um servidor primeiro.');
-  const opts=db.employees.map(e=>`<option value="${e.id}" ${e.id===empId?'selected':''}>${esc(e.name)}</option>`).join('');
+  syncAllProfileEmployees();
+  const validIds=new Set((db.operators||[]).map(o=>o.id));
+  const linked=(db.employees||[]).filter(e=>e.operatorId&&validIds.has(e.operatorId));
+  if(!linked.length)return toast('Nenhum perfil de servidor cadastrado.');
+  const opts=linked.map(e=>`<option value="${e.id}" ${e.id===empId?'selected':''}>${esc(e.name)}</option>`).join('');
   showModal('Fazer pagamento',`<div class="field"><label>Servidor</label><select id="pEmp">${opts}</select></div><div class="field"><label>Data</label><input id="pDate" value="${todayBR()}"></div><div class="field"><label>Referência</label><input id="pRef" placeholder="Ex.: 09/2026"></div><div class="field"><label>Valor</label><input id="pValue" placeholder="0,00"></div><div class="field"><label>Observações</label><textarea id="pNotes"></textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.savePayment()">Registrar e gerar nota</button></div>`)
 }
 function savePayment(){
