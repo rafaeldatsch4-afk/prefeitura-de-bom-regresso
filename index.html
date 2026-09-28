@@ -1021,10 +1021,12 @@ function syncOperatorEmployee(o,oldName=''){
   else{e.operatorId=o.id;e.name=o.name;e.role=o.role||'Servidor / Outro';e.department=roleDepartment(o.role);if(o.active===false)e.status='Inativo';else if(!e.status||e.status==='Inativo')e.status='Ativo';e.updatedAt=nowISO()}
 }
 function completeRoleModal(id){const o=db.operators.find(x=>x.id===id);if(!o)return;showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'')}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)}
-function saveOperator(){
-  if(db.currentOperator&&!isFullAccess())return accessDenied();
-  const name=val('opName'),role=val('opRole');if(!name)return toast('Digite o nome do operador.');if(!role)return toast('Selecione o cargo.');
-  const o={id:uid(),name,role,active:true,createdAt:nowISO()};db.operators.push(o);syncOperatorEmployee(o);save();closeModal();loginScreen();toast('Operador cadastrado e incluído no RH.')
+function saveOperatorRoleAndEnter(id){
+  const o=db.operators.find(x=>x.id===id),role=val('completeRole');
+  if(!o||!role)return toast('Selecione o cargo.');
+  o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);
+  db.currentOperator=o.name;db.currentOperatorId=o.id;
+  save();closeModal();page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
 function shade(hex,percent){const h=safeHex(hex,'#0B2E59').slice(1),n=parseInt(h,16),amt=Math.round(2.55*percent),r=Math.max(0,Math.min(255,(n>>16)+amt)),g=Math.max(0,Math.min(255,((n>>8)&255)+amt)),b=Math.max(0,Math.min(255,(n&255)+amt));return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -1137,7 +1139,15 @@ function addOperator(){
   if(db.currentOperator&&!isFullAccess())return accessDenied();
   showModal('Cadastrar operador',`<div class="field"><label>Nome do operador</label><input id="opName" placeholder="Ex.: Vitor"></div><div class="field"><label>Cargo / função</label><select id="opRole">${roleOptions()}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperator()">Salvar operador</button></div>`,()=>document.getElementById('opName')?.focus())
 }
-function saveOperator(){const name=val('opName');if(!name)return toast('Digite o nome do operador.');db.operators.push({id:uid(),name,active:true});save();closeModal();loginScreen();toast('Operador cadastrado.')}
+function saveOperator(){
+  if(db.currentOperator&&!isFullAccess())return accessDenied();
+  const name=val('opName'),role=val('opRole');
+  if(!name)return toast('Digite o nome do operador.');
+  if(!role)return toast('Selecione o cargo.');
+  const o={id:uid(),name,role,active:true,createdAt:nowISO()};
+  db.operators.push(o);syncOperatorEmployee(o);save();closeModal();loginScreen();
+  toast('Operador cadastrado e incluído no RH.')
+}
 function manageOperators(){
   if(!requireFull())return;
   const rows=db.operators.map(o=>`<tr><td>${esc(o.name)}</td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.toggleOperator('${o.id}')">${o.active!==false?'Desativar':'Ativar'}</button></td></tr>`).join('');
