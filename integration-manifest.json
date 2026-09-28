@@ -1,0 +1,85 @@
+{
+  "protocol": "bom-regresso-federation",
+  "protocolVersion": 1,
+  "system": {
+    "id": "prefeitura-bom-regresso",
+    "name": "Prefeitura de Bom Regresso",
+    "scope": "municipal",
+    "appVersion": "1.5.1",
+    "municipalityId": "bom-regresso",
+    "parentStateId": null
+  },
+  "hierarchy": {
+    "roles": [
+      "Presidente",
+      "Vice-presidente",
+      "Governador",
+      "Vice-governador",
+      "Prefeito",
+      "Vice-prefeito",
+      "RH",
+      "Secretário da Agricultura",
+      "Motorista",
+      "Servidor / Outro"
+    ],
+    "localRoles": [
+      "Prefeito",
+      "Vice-prefeito",
+      "RH",
+      "Secretário da Agricultura",
+      "Motorista",
+      "Servidor / Outro"
+    ],
+    "exclusiveLocalRoles": [
+      "Prefeito",
+      "Vice-prefeito",
+      "RH"
+    ]
+  },
+  "profileSchema": {
+    "id": "string",
+    "name": "string",
+    "role": "string",
+    "sector": "string?",
+    "jurisdictionId": "string",
+    "parentJurisdictionId": "string?",
+    "governmentLevel": "national|state|municipal",
+    "sourceSystem": "string"
+  },
+  "data": {
+    "firebaseProjectId": "prefeitura-de-bom-regresso",
+    "mainDocument": "municipio/dados_v2",
+    "carriersCollection": "carriers_v2",
+    "chatCollection": "chatMessages_v2",
+    "mediaCollection": "chatMedia_v2",
+    "profileSecretsCollection": "profileSecrets_v2",
+    "integrationRegistryCollection": "integrationRegistry_v2"
+  },
+  "modules": [
+    "home",
+    "chat",
+    "users",
+    "activity",
+    "agri",
+    "licit",
+    "hr",
+    "contracts",
+    "finance",
+    "fleet",
+    "notes"
+  ],
+  "bridge": {
+    "global": "BomRegressoMunicipalBridge",
+    "readyEvent": "bomregresso:municipal-ready",
+    "discoveryMessage": {
+      "protocol": "bom-regresso-federation",
+      "type": "DISCOVER_MUNICIPAL_SYSTEM"
+    },
+    "responseMessageType": "MUNICIPAL_SYSTEM_DESCRIPTOR"
+  },
+  "notes": [
+    "A Prefeitura continua funcionando de forma independente.",
+    "A integração nacional/estadual pode descobrir este sistema sem assumir ainda o controle do login.",
+    "parentStateId será preenchido quando o sistema estadual definitivo for conectado."
+  ]
+}
