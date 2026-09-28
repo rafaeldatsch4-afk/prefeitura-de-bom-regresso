@@ -722,6 +722,36 @@ html[data-appearance="dark"] .tabs button.active{
   border-color:var(--gold)!important;
 }
 
+
+/* Fluxo rápido de notas: texto primeiro, PDF sob demanda */
+.notes-flow{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(0,1.28fr);gap:14px;align-items:start}
+.note-generator-panel{position:sticky;top:82px}
+.note-generate-btn{width:100%;min-height:48px;margin-top:10px}
+.note-preview-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.note-ready-badge{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:#EEF2F6;color:#6B7884;font-size:11px;font-weight:800}
+.note-ready-badge.is-ready{background:#E4F4EC;color:#216746}
+.note-preview-box,
+html[data-appearance="dark"] .note-preview-box{
+  background:#FFFFFF!important;
+  color:#1E2933!important;
+  border:1px solid #D8E0E7!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 5px 18px rgba(11,46,89,.06);
+  min-height:330px;
+  line-height:1.6;
+  font-size:13px;
+  overflow:auto;
+}
+.note-pdf-btn{width:100%;min-height:50px;margin-top:12px;font-size:14px}
+.note-pdf-btn:disabled{opacity:.48;cursor:not-allowed}
+@media (max-width:900px){
+  .notes-flow{grid-template-columns:1fr}
+  .note-generator-panel{position:static}
+}
+@media (max-width:430px){
+  .note-preview-box,
+  html[data-appearance="dark"] .note-preview-box{min-height:300px;max-height:50vh;font-size:12px;line-height:1.55}
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -913,13 +943,13 @@ html[data-appearance="dark"] .tabs button.active{
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script>
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
+let pdfLibPromise=null;
 const FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
   authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
@@ -1271,7 +1301,48 @@ function tripList(v){
 function tripForm(v){if(!requireAction('trip.create'))return;v.innerHTML=`<div class="panel"><h3>Registrar viagem</h3><div class="sub">Selecione uma transportadora se o transporte for terceirizado.</div><div class="form-grid"><div class="field"><label>Data</label><input id="rDate" value="${todayBR()}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="rCarrier">${carrierOptions()}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('rCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="rTruck"><option value="">Sem caminhão definido</option>${db.trucks.map(x=>`<option>${esc(x.plate)}${x.model?' - '+esc(x.model):''}</option>`).join('')}</select></div><div class="field"><label>Motorista</label><input id="rDriver" value="${currentRole()==='Motorista'?esc(db.currentOperator):''}"></div><div class="field"><label>Status</label><select id="rStatus"><option>Agendada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option></select></div><div class="field"><label>Origem</label><input id="rOrigin"></div><div class="field"><label>Destino</label><input id="rDest"></div><div class="field wide"><label>Carga / motivo</label><input id="rCargo"></div><div class="field"><label>KM inicial</label><input id="rStart"></div><div class="field"><label>KM final</label><input id="rEnd"></div><div class="field wide"><label>Observações</label><textarea id="rNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTrip()">Salvar viagem</button></div></div>`}
 function saveTrip(){if(!requireAction('trip.create'))return;const carrierId=val('rCarrier');db.trips.push({id:uid(),date:val('rDate')||todayBR(),carrierId,carrierName:carrierName(carrierId),truck:val('rTruck'),driver:val('rDriver')||db.currentOperator,origin:val('rOrigin'),destination:val('rDest'),cargo:val('rCargo'),startKm:nval('rStart'),endKm:nval('rEnd'),status:val('rStatus')||'Agendada',notes:val('rNotes'),operator:db.currentOperator,createdAt:nowISO()});save();toast('Viagem salva.');go('fleet','trips')}
 function setTripStatus(id,s){if(!isFullAccess()&&!(currentRole()==='Motorista'&&s==='Concluída'))return accessDenied();const x=db.trips.find(r=>r.id===id);if(x){x.status=s;x.updatedAt=nowISO();save();renderPage();toast('Status atualizado.')}}
-function notes(c){c.innerHTML=head('Notas e Resumos','Geração automática de documentos fictícios com os dados cadastrados.')+`<div class="grid2"><div class="panel"><h3>Gerar nota</h3><div class="field"><label>Tipo de nota</label><select id="noteType" onchange="App.refreshNoteTargets()"><option value="general">Resumo geral da prefeitura</option><option value="finance">Resumo de saldo</option><option value="trip">Viagem</option><option value="appointment">Agendamento da Agricultura</option><option value="licitation">Licitação</option><option value="payment">Pagamento de servidor</option><option value="refund">Reembolso de pagamento</option><option value="contract">Contrato</option><option value="truck">Caminhão</option></select></div><div class="field"><label>Registro</label><select id="noteTarget"><option value="">Não se aplica</option></select></div><div class="actions" style="justify-content:flex-start"><button class="btn btn-primary" onclick="App.generateSelectedNote()">Gerar nota</button></div></div><div class="panel note-document-panel"><h3>Documento</h3><div class="sub">Gere um PDF ou documento para baixar e encaminhar pelo celular.</div><div id="noteBox" class="note">Selecione um tipo de nota.</div><div class="note-export-actions"><button class="btn btn-primary" onclick="App.downloadNotePdf()">📄 Baixar PDF</button><button class="btn btn-secondary" onclick="App.shareNotePdf()">↗ Compartilhar PDF</button><button class="btn btn-secondary" onclick="App.downloadNoteDoc()">📝 Documento Word</button><button class="btn btn-secondary" onclick="App.copyNote()">Copiar texto</button><button class="btn btn-secondary" onclick="window.print()">Imprimir</button></div></div></div>`;refreshNoteTargets()}
+function notes(c){
+  c.innerHTML=head('Notas e Resumos','Primeiro gere a nota em texto. Depois, se quiser, transforme a prévia em PDF.')+
+  `<div class="notes-flow">
+    <div class="panel note-generator-panel">
+      <h3>1. Escolher nota</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Tipo de nota</label>
+          <select id="noteType" onchange="App.refreshNoteTargets()">
+            <option value="general">Resumo geral da prefeitura</option>
+            <option value="finance">Resumo de saldo</option>
+            <option value="trip">Viagem</option>
+            <option value="appointment">Agendamento da Agricultura</option>
+            <option value="licitation">Licitação</option>
+            <option value="payment">Pagamento de servidor</option>
+            <option value="refund">Reembolso de pagamento</option>
+            <option value="contract">Contrato</option>
+            <option value="truck">Caminhão</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Registro</label>
+          <select id="noteTarget"><option value="">Não se aplica</option></select>
+        </div>
+      </div>
+      <button class="btn btn-primary note-generate-btn" onclick="App.generateSelectedNote()">Gerar e visualizar nota</button>
+    </div>
+
+    <div class="panel note-document-panel">
+      <div class="note-preview-head">
+        <div>
+          <h3>2. Prévia em texto</h3>
+          <div class="sub">Confira o conteúdo antes de gerar o arquivo.</div>
+        </div>
+        <span id="noteReadyBadge" class="note-ready-badge">Aguardando</span>
+      </div>
+      <div id="noteBox" class="note note-preview-box" data-ready="0">A nota aparecerá aqui em forma de texto.</div>
+      <button id="notePdfBtn" class="btn btn-primary note-pdf-btn" onclick="App.downloadNotePdf()" disabled>📄 Gerar em PDF</button>
+    </div>
+  </div>`;
+  refreshNoteTargets()
+}
 function refreshNoteTargets(){
   const t=val('noteType');let arr=[];
   if(t==='trip')arr=db.trips.map(x=>[x.id,`${x.date} • ${x.origin||'-'} → ${x.destination||'-'}`]);
@@ -1294,19 +1365,36 @@ else if(type==='refund'){const x=db.payments.find(r=>r.id===id);if(x&&x.refunded
 else if(type==='contract'){const x=db.contracts.find(r=>r.id===id);if(x)s=noteHeader('Resumo de Contrato')+`Número: ${x.number}\nContratado: ${x.contractor}\nObjeto: ${x.object||'-'}\nInício: ${x.start||'-'}\nFim: ${x.end||'-'}\nValor: ${money(x.value)}\nStatus: ${x.status}\nOperador: ${x.operator}\nObservações: ${x.notes||'-'}`}
 else if(type==='truck'){const x=db.trucks.find(r=>r.id===id);if(x)s=noteHeader('Resumo de Caminhão')+`Identificação: ${x.plate}\nModelo: ${x.model||'-'}\nTransportadora: ${carrierName(x.carrierId,x.carrierName)||'-'}\nStatus: ${x.status}\nQuilometragem: ${x.odometer||0}\nObservações: ${x.notes||'-'}`}
 if(!s)s='Registro não encontrado.';return s}
-function generateSelectedNote(){document.getElementById('noteBox').textContent=generateNote()}
+function generateSelectedNote(){
+  const box=document.getElementById('noteBox'),btn=document.getElementById('notePdfBtn'),badge=document.getElementById('noteReadyBadge');
+  const text=generateNote();
+  if(box){box.textContent=text;box.dataset.ready=text&&text!=='Registro não encontrado.'?'1':'0'}
+  const ready=box?.dataset.ready==='1';
+  if(btn)btn.disabled=!ready;
+  if(badge){badge.textContent=ready?'Pronta':'Sem registro';badge.classList.toggle('is-ready',ready)}
+  if(ready)box?.scrollIntoView({behavior:'smooth',block:'nearest'})
+}
 function noteFrom(type,id){
   if(!canPage('notes'))return accessDenied();
   page='notes';sub='';pushAppHistory('notes','');render();
-  setTimeout(()=>{const typeEl=document.getElementById('noteType'),target=document.getElementById('noteTarget'),box=document.getElementById('noteBox');if(!typeEl||!target||!box)return;typeEl.value=type;refreshNoteTargets();target.value=id;box.textContent=generateNote(type,id)},0)
+  setTimeout(()=>{
+    const typeEl=document.getElementById('noteType'),target=document.getElementById('noteTarget');
+    if(!typeEl||!target)return;
+    typeEl.value=type;refreshNoteTargets();target.value=id;generateSelectedNote()
+  },0)
 }
 async function copyNote(){const s=currentNoteText();try{await navigator.clipboard.writeText(s);toast('Nota copiada.')}catch{toast('Não foi possível copiar automaticamente.')}}
 function currentNoteText(){
   const box=document.getElementById('noteBox');
   const shown=(box?.textContent||'').trim();
-  if(shown&&shown!=='Selecione um tipo de nota.'&&shown!=='Registro não encontrado.')return shown;
+  if(box?.dataset.ready==='1'&&shown)return shown;
   const generated=generateNote();
-  if(box)box.textContent=generated;
+  if(box){
+    box.textContent=generated;
+    box.dataset.ready=generated&&generated!=='Registro não encontrado.'?'1':'0';
+    const btn=document.getElementById('notePdfBtn');if(btn)btn.disabled=box.dataset.ready!=='1';
+    const badge=document.getElementById('noteReadyBadge');if(badge){badge.textContent=box.dataset.ready==='1'?'Pronta':'Sem registro';badge.classList.toggle('is-ready',box.dataset.ready==='1')}
+  }
   return generated;
 }
 function noteFileBase(){
@@ -1315,6 +1403,19 @@ function noteFileBase(){
   return `bom-regresso-${names[type]||'documento'}-${new Date().toISOString().slice(0,10)}`;
 }
 function cleanPdfText(s){return String(s||'').replace(/\t/g,'    ').replace(/[═━]/g,'=')}
+function ensurePdfLib(){
+  if(window.jspdf?.jsPDF)return Promise.resolve(window.jspdf);
+  if(pdfLibPromise)return pdfLibPromise;
+  pdfLibPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.async=true;
+    s.onload=()=>window.jspdf?.jsPDF?resolve(window.jspdf):reject(new Error('Biblioteca de PDF indisponível.'));
+    s.onerror=()=>reject(new Error('Não foi possível carregar a biblioteca de PDF.'));
+    document.head.appendChild(s);
+  }).catch(err=>{pdfLibPromise=null;throw err});
+  return pdfLibPromise;
+}
 function buildNotePdfBlob(){
   if(!window.jspdf?.jsPDF)throw new Error('Biblioteca de PDF não carregou.');
   const text=cleanPdfText(currentNoteText());
@@ -1361,21 +1462,31 @@ function triggerBlobDownload(blob,name){
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-function downloadNotePdf(){
-  try{triggerBlobDownload(buildNotePdfBlob(),noteFileBase()+'.pdf');toast('PDF gerado.')}catch(err){console.error(err);toast('Não foi possível gerar o PDF. Atualize a página e tente novamente.')}
+async function downloadNotePdf(){
+  const btn=document.getElementById('notePdfBtn');
+  try{
+    const text=currentNoteText();
+    if(!text||text==='Registro não encontrado.')return toast('Gere uma nota válida primeiro.');
+    if(btn){btn.disabled=true;btn.textContent='Gerando PDF…'}
+    await ensurePdfLib();
+    triggerBlobDownload(buildNotePdfBlob(),noteFileBase()+'.pdf');
+    toast('PDF gerado.')
+  }catch(err){
+    console.error(err);toast('Não foi possível gerar o PDF. Verifique a internet e tente novamente.')
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='📄 Gerar em PDF'}
+  }
 }
 async function shareNotePdf(){
   try{
+    await ensurePdfLib();
     const blob=buildNotePdfBlob(),file=new File([blob],noteFileBase()+'.pdf',{type:'application/pdf'});
     if(navigator.canShare?.({files:[file]})&&navigator.share){
       await navigator.share({title:'Documento - Prefeitura de Bom Regresso',text:'Documento gerado pelo Sistema Municipal Integrado de Bom Regresso.',files:[file]});
     }else{
-      triggerBlobDownload(blob,file.name);
-      toast('Seu navegador não permite compartilhar o arquivo diretamente. O PDF foi baixado para encaminhar.');
+      triggerBlobDownload(blob,file.name);toast('O PDF foi baixado para encaminhar.')
     }
-  }catch(err){
-    if(err?.name!=='AbortError'){console.error(err);toast('Não foi possível compartilhar o PDF.')}
-  }
+  }catch(err){if(err?.name!=='AbortError'){console.error(err);toast('Não foi possível compartilhar o PDF.')}}
 }
 function downloadNoteDoc(){
   const text=currentNoteText();
