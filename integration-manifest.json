@@ -5,7 +5,7 @@
     "id": "prefeitura-bom-regresso",
     "name": "Prefeitura de Bom Regresso",
     "scope": "municipal",
-    "appVersion": "1.5.1",
+    "appVersion": "1.5.3",
     "municipalityId": "bom-regresso",
     "parentStateId": null
   },
@@ -48,12 +48,12 @@
   },
   "data": {
     "firebaseProjectId": "prefeitura-de-bom-regresso",
-    "mainDocument": "municipio/dados_v2",
-    "carriersCollection": "carriers_v2",
-    "chatCollection": "chatMessages_v2",
-    "mediaCollection": "chatMedia_v2",
-    "profileSecretsCollection": "profileSecrets_v2",
-    "integrationRegistryCollection": "integrationRegistry_v2"
+    "mainDocument": "municipio/dados_v4",
+    "carriersCollection": "carriers_v4",
+    "chatCollection": "chatMessages_v4",
+    "mediaCollection": "chatMedia_v4",
+    "profileSecretsCollection": "profileSecrets_v4",
+    "integrationRegistryCollection": "integrationRegistry_v4"
   },
   "modules": [
     "home",
