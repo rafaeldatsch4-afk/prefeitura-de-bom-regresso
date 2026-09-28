@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v33';
+const CACHE='bom-regresso-pwa-v34';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
 
 try{
@@ -19,9 +19,10 @@ try{
       body:d.body||'Nova mensagem',
       icon:'./app-icon.svg',
       badge:'./app-icon.svg',
-      tag:'bom-regresso-chat',
+      tag:'bom-regresso-chat-'+(d.messageId||Date.now()),
       renotify:true,
-      vibrate:[70,45,70],
+      silent:d.sound==='0',
+      vibrate:d.vibrate==='0'?undefined:[70,45,70],
       timestamp:Date.now(),
       data:{type:'chat',url:'./?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
       actions:[{action:'open-chat',title:'Abrir chat'}]
