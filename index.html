@@ -1261,6 +1261,59 @@ html[data-appearance="dark"] .chat-info-members>button{background:#17232C}
   .chat-info-members{grid-template-columns:1fr}
 }
 
+
+/* Chat v1.4.2 — correção do teclado Android e de toques acidentais */
+@media(max-width:760px){
+  body.chat-open{
+    position:fixed!important;
+    left:0!important;right:0!important;top:var(--chat-vtop,0px)!important;
+    width:100%!important;
+    height:var(--chat-vh,100dvh)!important;
+    min-height:0!important;max-height:var(--chat-vh,100dvh)!important;
+    overflow:hidden!important;overscroll-behavior:none!important;
+    touch-action:none!important;
+  }
+  body.chat-open #main,
+  body.chat-open .app,
+  body.chat-open .shell,
+  body.chat-open .content-wrap,
+  body.chat-open .content{
+    width:100%!important;
+    height:var(--chat-vh,100dvh)!important;
+    min-height:0!important;max-height:var(--chat-vh,100dvh)!important;
+    overflow:hidden!important;
+  }
+  body.chat-open .content{padding:0!important}
+  body.chat-open .content-wrap>.topbar,
+  body.chat-open .mobile-nav{display:none!important}
+  body.chat-open .chat-page,
+  body.chat-open .chat-page .chat-shell{
+    width:100%!important;
+    height:var(--chat-vh,100dvh)!important;
+    min-height:0!important;max-height:var(--chat-vh,100dvh)!important;
+    overflow:hidden!important;
+    border-radius:0!important;border:0!important;margin:0!important;
+  }
+  .chat-app-header,.chat-search-bar,.chat-reply-preview,.chat-attachment-preview,.chat-emoji-panel,.chat-attach-menu,.chat-record-status,.chat-composer-wrap{
+    flex:0 0 auto!important
+  }
+  .chat-messages-wrap{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+  .chat-messages{
+    height:100%!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;
+    overscroll-behavior:contain!important;touch-action:pan-y!important;-webkit-overflow-scrolling:touch
+  }
+  .chat-shell button,.chat-shell a,.chat-image-wrap,.chat-file-card{
+    touch-action:manipulation!important;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;-webkit-user-select:none
+  }
+  .chat-composer textarea{touch-action:pan-y!important}
+  .chat-header-icon,.chat-back-btn{min-width:42px!important;min-height:42px!important}
+  .chat-round-btn{min-width:40px!important;min-height:40px!important}
+  .chat-send-btn{min-width:42px!important;min-height:42px!important}
+  .chat-message-menu{min-width:30px!important;min-height:30px!important}
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1457,7 +1510,7 @@ html[data-appearance="dark"] .chat-info-members>button{background:#17232C}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.4.1';
+const APP_VERSION='1.4.2';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -2331,6 +2384,11 @@ function chatInputChanged(el){
   clearTimeout(chatTypingTimer);
   chatTypingTimer=setTimeout(()=>touchChatPresence(false),2200)
 }
+function chatInputFocus(){
+  toggleChatEmoji(false);toggleChatAttachMenu(false);
+  setTimeout(()=>{syncChatViewportHeight();if(chatAutoScroll)scrollChatBottom()},90)
+}
+
 function startChatPresence(){
   if(!fbStore)return;
   chatPresenceCollection=fbStore.collection('chatPresence_'+DATA_NAMESPACE);
@@ -2390,9 +2448,52 @@ function toggleChatAttachMenu(force){
 }
 function syncChatViewportHeight(){
   if(page!=='chat')return;
-  const h=Math.round(window.visualViewport?.height||window.innerHeight||0);
-  if(h)document.documentElement.style.setProperty('--chat-vh',h+'px')
+  cancelAnimationFrame(syncChatViewportHeight._raf||0);
+  syncChatViewportHeight._raf=requestAnimationFrame(()=>{
+    const vv=window.visualViewport;
+    const h=Math.max(320,Math.round(vv?.height||window.innerHeight||document.documentElement.clientHeight||0));
+    const top=Math.max(0,Math.round(vv?.offsetTop||0));
+    document.documentElement.style.setProperty('--chat-vh',h+'px');
+    document.documentElement.style.setProperty('--chat-vtop',top+'px');
+    const root=document.getElementById('chatMessages');
+    const input=document.getElementById('chatInput');
+    if(root&&(chatAutoScroll||document.activeElement===input)){
+      requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()})
+    }
+  })
 }
+function bindChatTouchGuard(){
+  const shell=document.querySelector('.chat-shell');if(!shell||shell.dataset.touchGuard==='1')return;
+  shell.dataset.touchGuard='1';
+  let sx=0,sy=0,pid=null,moved=false,suppressUntil=0,lastTarget=null,lastAt=0;
+  shell.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='touch')return;
+    pid=e.pointerId;sx=e.clientX;sy=e.clientY;moved=false
+  },{passive:true});
+  shell.addEventListener('pointermove',e=>{
+    if(e.pointerType!=='touch'||e.pointerId!==pid)return;
+    if(Math.hypot(e.clientX-sx,e.clientY-sy)>11)moved=true
+  },{passive:true});
+  shell.addEventListener('pointerup',e=>{
+    if(e.pointerType!=='touch'||e.pointerId!==pid)return;
+    if(moved)suppressUntil=performance.now()+320;
+    pid=null
+  },{passive:true});
+  shell.addEventListener('pointercancel',()=>{pid=null;moved=false},{passive:true});
+  shell.addEventListener('click',e=>{
+    const action=e.target.closest('button,a,.chat-image-wrap,.chat-file-card');
+    if(!action)return;
+    const now=performance.now();
+    if(now<suppressUntil){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();return
+    }
+    if(lastTarget===action&&now-lastAt<260){
+      e.preventDefault();e.stopPropagation();e.stopImmediatePropagation?.();return
+    }
+    lastTarget=action;lastAt=now
+  },true)
+}
+
 function showChatInfo(){
   const online=chatOnlineUsers(),participants=(db.operators||[]).filter(o=>o.active!==false),prefs=getChatNotifySettings();
   const notif=(typeof Notification==='undefined')?'Indisponível':Notification.permission==='granted'&&prefs.enabled?'Ativadas':Notification.permission==='denied'?'Bloqueadas':'Desativadas';
@@ -2463,9 +2564,7 @@ function chat(c){
         <button class="chat-header-icon chat-search-trigger" onclick="App.toggleChatSearch()" aria-label="Pesquisar" title="Pesquisar">⌕</button>
       </header>
       <div id="chatSearchBar" class="chat-search-bar hidden">
-        <span>⌕</span>
-        <input id="chatSearch" placeholder="Pesquisar mensagens" oninput="App.filterChatMessages()">
-        <button onclick="App.toggleChatSearch(false)" aria-label="Fechar pesquisa">✕</button>
+        <span>⌕</span><input id="chatSearch" placeholder="Pesquisar mensagens" oninput="App.filterChatMessages()"><button onclick="App.toggleChatSearch(false)" aria-label="Fechar pesquisa">✕</button>
       </div>
       <div class="chat-messages-wrap">
         <div id="chatMessages" class="chat-messages" onscroll="App.chatScrollChanged()"></div>
@@ -2492,7 +2591,7 @@ function chat(c){
         <div class="chat-composer">
           <button type="button" class="chat-round-btn chat-emoji-btn" onclick="App.toggleChatEmoji()" title="Emoji">☺</button>
           <div class="chat-input-pill">
-            <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" oninput="App.chatInputChanged(this)" onkeydown="App.chatComposerKey(event)"></textarea>
+            <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" onfocus="App.chatInputFocus()" oninput="App.chatInputChanged(this)" onkeydown="App.chatComposerKey(event)"></textarea>
             <button type="button" class="chat-pill-attach" onclick="App.toggleChatAttachMenu()" title="Anexar">📎</button>
           </div>
           <button type="button" id="chatMicBtn" class="chat-round-btn chat-mic-btn" onclick="App.toggleChatRecording()" title="Mensagem de voz">🎙</button>
@@ -2501,8 +2600,12 @@ function chat(c){
       </footer>
     </div>
   </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();
-  setTimeout(()=>document.getElementById('chatInput')?.focus(),100)
+  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();
+  setTimeout(()=>{
+    const input=document.getElementById('chatInput');
+    if(window.innerWidth>760)input?.focus({preventScroll:true});
+    else input?.blur()
+  },100)
 }
 function startChatSync(){
   if(!fbStore)return;
@@ -2764,6 +2867,7 @@ async function registerAutoUpdatingServiceWorker(){
     check();
     window.addEventListener('focus',check);
     window.visualViewport?.addEventListener('resize',()=>{if(page==='chat')syncChatViewportHeight()});
+window.visualViewport?.addEventListener('scroll',()=>{if(page==='chat')syncChatViewportHeight()});
 window.addEventListener('resize',()=>{if(page==='chat')syncChatViewportHeight()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});
     setInterval(check,60000)
@@ -3619,13 +3723,20 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
+  if(e.target?.closest?.('.chat-page')){
+    setTimeout(()=>syncChatViewportHeight(),80);
+    return;
+  }
   if(window.innerWidth<=760 && e.target?.matches?.('input,select,textarea')){
     setTimeout(()=>e.target.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'}),180);
   }
+});
+document.addEventListener('focusout',e=>{
+  if(e.target?.closest?.('.chat-page'))setTimeout(()=>syncChatViewportHeight(),120);
 });
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(getTheme().appearance==='auto')applyTheme()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db.currentOperatorId){touchChatPresence(false);if(page==='chat')markChatRead();else recalculateChatUnread();if(getChatNotifySettings().enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)}});
