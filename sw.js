@@ -1,5 +1,32 @@
-const CACHE='bom-regresso-pwa-v19';
+const CACHE='bom-regresso-pwa-v20';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
+
+try{
+  importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+  firebase.initializeApp({
+    apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
+    authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
+    projectId:'prefeitura-de-bom-regresso',
+    storageBucket:'prefeitura-de-bom-regresso.firebasestorage.app',
+    messagingSenderId:'198816706059',
+    appId:'1:198816706059:web:0cc06972a903b13867610e'
+  });
+  const messaging=firebase.messaging();
+  messaging.onBackgroundMessage(payload=>{
+    const d=payload.data||{};
+    self.registration.showNotification(d.title||'💬 Chat da Prefeitura',{
+      body:d.body||'Nova mensagem',
+      icon:'./app-icon.svg',
+      badge:'./app-icon.svg',
+      tag:'bom-regresso-chat',
+      renotify:true,
+      data:{type:'chat'}
+    });
+  });
+}catch(err){
+  console.error('FCM service worker indisponível:',err);
+}
 
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
@@ -70,6 +97,6 @@ self.addEventListener('notificationclick',event=>{
     for(const client of list){
       try{client.postMessage({type:'OPEN_CHAT'});await client.focus();return}catch{}
     }
-    if(self.clients.openWindow)await self.clients.openWindow('./');
+    if(self.clients.openWindow)await self.clients.openWindow('./?open=chat');
   })());
 });
