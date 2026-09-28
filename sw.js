@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v9';
+const CACHE='bom-regresso-pwa-v10';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
 
 self.addEventListener('install',event=>{
