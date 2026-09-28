@@ -5,7 +5,7 @@
     "id": "prefeitura-bom-regresso",
     "name": "Prefeitura de Bom Regresso",
     "scope": "municipal",
-    "appVersion": "1.5.4",
+    "appVersion": "1.6.0",
     "municipalityId": "bom-regresso",
     "parentStateId": null
   },
@@ -48,12 +48,12 @@
   },
   "data": {
     "firebaseProjectId": "prefeitura-de-bom-regresso",
-    "mainDocument": "municipio/dados_v4",
-    "carriersCollection": "carriers_v4",
-    "chatCollection": "chatMessages_v4",
-    "mediaCollection": "chatMedia_v4",
-    "profileSecretsCollection": "profileSecrets_v4",
-    "integrationRegistryCollection": "integrationRegistry_v4"
+    "mainDocument": "municipio/dados_v5",
+    "carriersCollection": "carriers_v5",
+    "chatCollection": "chatMessages_v5",
+    "mediaCollection": "chatMedia_v5",
+    "profileSecretsCollection": "profileSecrets_v5",
+    "integrationRegistryCollection": "integrationRegistry_v5"
   },
   "modules": [
     "home",
@@ -81,8 +81,8 @@
     "automaticMunicipalProfileSync": true
   },
   "notes": [
-    "O Portal do País e a Prefeitura funcionam de forma independente, mas agora compartilham uma ponte de perfil.",
-    "Perfis de Prefeito e Vice-prefeito vinculados a Bom Regresso podem abrir o sistema municipal dentro da UI do município.",
-    "O acesso municipal continua respeitando a senha protegida do perfil e os dados do Firebase da Prefeitura."
+    "A Prefeitura funciona de forma independente e também pode ser aberta dentro da UI municipal do País de Bom Regresso.",
+    "O painel do município descobre o sistema municipal por bridge e entrega o perfil de Prefeito/Vice-prefeito para o login integrado.",
+    "O namespace v5 é a base ativa após o reset solicitado."
   ]
 }
