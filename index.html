@@ -990,6 +990,27 @@ html[data-appearance="dark"] .chat-file-card{background:#17232C;color:#F0F4F7}
   .chat-fab-badge{position:absolute;right:-5px;top:-5px;display:grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border-radius:999px;background:#D94B4B;color:#fff;font-size:9px;font-weight:900;border:2px solid #fff}
 }
 
+
+/* Chat 1.2 — respostas, pesquisa e notificações */
+.chat-toolbar-actions{display:flex;align-items:center;gap:7px}
+.chat-search-wrap{height:38px;display:flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--bg);border-radius:11px;padding:0 9px}
+.chat-search-wrap input{width:150px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:11px}
+.chat-notify-status{padding:5px 14px;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);background:var(--card)}
+.chat-messages-wrap{position:relative;flex:1;min-height:0;display:flex}.chat-messages{width:100%;height:100%}
+.chat-message-wrap{max-width:min(78%,640px)}.chat-message-wrap .chat-bubble{max-width:none}
+.chat-actions{display:flex;gap:3px;margin-top:2px;opacity:0;transition:opacity .15s}.chat-row:hover .chat-actions,.chat-row:focus-within .chat-actions{opacity:1}
+.chat-actions button{border:0;background:transparent;color:var(--muted);font-size:8.5px;font-weight:800;padding:3px 5px;cursor:pointer;border-radius:6px}.chat-actions button:hover{background:rgba(127,145,159,.12)}.chat-actions button.danger{color:#A94444}.chat-row.mine .chat-actions{justify-content:flex-end}
+.chat-quote{display:flex;flex-direction:column;gap:2px;width:100%;border:0;border-left:3px solid var(--gold);border-radius:7px;background:rgba(127,145,159,.10);padding:6px 8px;margin-bottom:6px;text-align:left;color:inherit;cursor:pointer}.chat-quote b{font-size:9.5px}.chat-quote span{font-size:9px;opacity:.78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-reply-preview{padding:0 12px;background:var(--card)}.chat-reply-card{display:flex;align-items:center;gap:8px;margin-top:7px;padding:7px 9px;border-left:3px solid var(--gold);background:#F3F6F9;border-radius:8px}.chat-reply-card b,.chat-reply-card span{display:block}.chat-reply-card b{font-size:10px}.chat-reply-card span{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-reply-card button{border:0;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
+.chat-date-separator{display:flex;justify-content:center;margin:13px 0 9px}.chat-date-separator span{padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.82);border:1px solid #DDE6ED;color:#6A7C89;font-size:8.5px;font-weight:900;text-transform:capitalize}
+.chat-scroll-bottom{position:absolute;right:14px;bottom:12px;width:36px;height:36px;border:0;border-radius:13px;background:var(--navy);color:#fff;box-shadow:0 5px 15px rgba(0,0,0,.20);font-size:17px;cursor:pointer;z-index:2}
+.chat-highlight .chat-bubble{outline:3px solid rgba(215,169,62,.45);transition:outline .2s}
+.notification-status-card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid var(--border);border-radius:12px;background:#F7F9FB;margin-bottom:8px}.notification-status-card small{display:block;color:var(--muted);font-size:9px}.notification-status-card b{font-size:12px}
+.settings-toggle-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;overflow:hidden}.settings-toggle-list label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border-bottom:1px solid var(--border);cursor:pointer}.settings-toggle-list label:last-child{border-bottom:0}.settings-toggle-list b,.settings-toggle-list small{display:block}.settings-toggle-list b{font-size:11px}.settings-toggle-list small{font-size:9px;color:var(--muted);margin-top:2px}.settings-toggle-list input{width:18px;height:18px;accent-color:var(--navy)}
+html[data-appearance="dark"] .chat-reply-card,html[data-appearance="dark"] .notification-status-card{background:#16222B}
+html[data-appearance="dark"] .chat-date-separator span{background:#1B2832;border-color:#30414E;color:#BCC9D2}
+@media(max-width:760px){.chat-toolbar{align-items:flex-start}.chat-toolbar-actions{flex-direction:column;align-items:stretch}.chat-search-wrap input{width:105px}.chat-notify-btn{width:100%}.chat-message-wrap{max-width:86%}.chat-actions{opacity:.72}.chat-actions button{font-size:8px}}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1186,7 +1207,7 @@ html[data-appearance="dark"] .chat-file-card{background:#17232C;color:#F0F4F7}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.1.2';
+const APP_VERSION='1.2.0';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1205,7 +1226,9 @@ const SHARED_KEYS=['operators','machinery','implements','appointments','licitati
 let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
 let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='';
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
+const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
 let chatMessages=[],chatReady=false,chatUnread=Number(localStorage.getItem(CHAT_UNREAD_KEY)||0)||0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0;
+let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0;
 const todayBR=()=>new Date().toLocaleDateString('pt-BR');
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -1642,6 +1665,48 @@ function updateChatBadges(){
   document.querySelectorAll('[data-chat-badge]').forEach(el=>{el.textContent=chatBadgeText();el.classList.toggle('hidden',!chatUnread)});
   if('setAppBadge' in navigator){if(chatUnread)navigator.setAppBadge(chatUnread).catch(()=>{});else navigator.clearAppBadge?.().catch(()=>{})}
 }
+function getChatNotifySettings(){
+  try{return Object.assign({enabled:true,sound:true,vibrate:true,preview:true},JSON.parse(localStorage.getItem(CHAT_NOTIFY_SETTINGS_KEY)||'{}'))}
+  catch{return{enabled:true,sound:true,vibrate:true,preview:true}}
+}
+function setChatNotifySetting(key,value){
+  const s=getChatNotifySettings();s[key]=!!value;localStorage.setItem(CHAT_NOTIFY_SETTINGS_KEY,JSON.stringify(s));
+}
+function playChatTone(){
+  const s=getChatNotifySettings();if(!s.sound)return;
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    const ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.frequency.setValueAtTime(720,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(940,ctx.currentTime+.08);
+    g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.10,ctx.currentTime+.015);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.16);
+    o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.17);setTimeout(()=>ctx.close().catch(()=>{}),280)
+  }catch{}
+}
+function vibrateChat(){
+  const s=getChatNotifySettings();if(s.vibrate&&navigator.vibrate)try{navigator.vibrate([70,45,70])}catch{}
+}
+function notificationPermissionLabel(){
+  if(typeof Notification==='undefined')return'Não suportado';
+  if(Notification.permission==='granted')return'Permitido';
+  if(Notification.permission==='denied')return'Bloqueado pelo navegador';
+  return'Aguardando autorização'
+}
+async function testChatNotification(){
+  const s=getChatNotifySettings();
+  if(!s.enabled)return toast('Ative as notificações do chat primeiro.');
+  if(typeof Notification==='undefined')return toast('Notificações não são suportadas neste aparelho.');
+  if(Notification.permission!=='granted'){
+    const ok=await ensurePushRegistration(true);if(!ok)return
+  }
+  playChatTone();vibrateChat();
+  try{
+    const reg=await navigator.serviceWorker?.ready;
+    if(reg)await reg.showNotification('💬 Chat da Prefeitura',{body:'Notificação de teste funcionando.',icon:'./app-icon.svg',badge:'./app-icon.svg',tag:'bom-regresso-test',data:{type:'chat'}});
+    else new Notification('💬 Chat da Prefeitura',{body:'Notificação de teste funcionando.'});
+    toast('Notificação de teste enviada.')
+  }catch{toast('Não foi possível exibir a notificação de teste.')}
+}
+
 async function loadPushConfig(){
   if(!pushConfigDoc)return '';
   try{
@@ -1679,23 +1744,34 @@ async function ensurePushRegistration(askPermission=true){
   try{
     let permission=Notification.permission;
     if(permission==='default'&&askPermission)permission=await Notification.requestPermission();
-    if(permission!=='granted'){if(askPermission)toast('Notificações não foram autorizadas.');return false}
+    if(permission!=='granted'){if(askPermission)toast('As notificações estão bloqueadas no navegador.');return false}
     if(!pushVapidPublicKey)await loadPushConfig();
-    if(!pushVapidPublicKey){if(askPermission)toast('O Push FCM ainda precisa da chave Web Push nas Configurações.');return false}
     if(!messaging){try{messaging=firebase.messaging()}catch{return false}}
     const reg=await navigator.serviceWorker.ready;
-    const token=await messaging.getToken({vapidKey:pushVapidPublicKey,serviceWorkerRegistration:reg});
-    if(!token)throw new Error('FCM não retornou token');
+    let token='';
+    try{
+      token=pushVapidPublicKey
+        ?await messaging.getToken({vapidKey:pushVapidPublicKey,serviceWorkerRegistration:reg})
+        :await messaging.getToken({serviceWorkerRegistration:reg})
+    }catch(err){
+      console.warn('FCM token:',err);
+      if(askPermission)toast('Notificação local ativada. Para receber com o app fechado, configure o Push FCM nas Configurações.');
+      return true
+    }
+    if(!token)return true;
     const p=currentProfile();if(!p)return false;
     await pushTokensCollection.doc(pushDeviceId()).set({
       token,operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',
       updatedAt:nowISO(),platform:navigator.platform||'',standalone:isStandalone()
     },{merge:true});
     lastPushOperatorId=p.id;
-    if(askPermission)toast('🔔 Push ativado neste aparelho.');
+    if(askPermission)toast('🔔 Notificações ativadas neste aparelho.');
     return true
-  }catch(err){console.error('Registrar push:',err);if(askPermission)toast('Não foi possível ativar o push neste aparelho.');return false}
-  finally{pushRegistering=false}
+  }catch(err){
+    console.error('Registrar push:',err);
+    if(askPermission)toast(Notification.permission==='granted'?'Notificação local ativada; o push em segundo plano ainda precisa da configuração do Firebase.':'Não foi possível ativar as notificações.');
+    return Notification.permission==='granted'
+  }finally{pushRegistering=false}
 }
 async function sendChatPush(msg){
   if(!pushTokensCollection||!fbAuth?.currentUser)return;
@@ -1731,23 +1807,80 @@ function chatAttachmentHTML(m){
   return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment('${m.id}')"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
 }
 function chatMessageHTML(m){
-  const mine=m.senderId===db.currentOperatorId,p=chatSenderProfile(m);
+  const mine=m.senderId===db.currentOperatorId,p=chatSenderProfile(m),canDelete=mine||isFullAccess();
+  const quoted=m.reply?`<button type="button" class="chat-quote" onclick="App.scrollToChatMessage('${esc(m.reply.id||'')}')"><b>↩ ${esc(m.reply.senderName||'Mensagem')}</b><span>${esc((m.reply.text||'Anexo').slice(0,90))}</span></button>`:'';
   return `<div class="chat-row ${mine?'mine':'theirs'}" data-chat-id="${esc(m.id)}">
     ${mine?'':profileAvatarHTML(p,'profile-avatar-chat')}
-    <div class="chat-bubble">
-      ${mine?'':`<div class="chat-sender"><b>${esc(m.senderName||p.name||'Usuário')}</b><span>${esc(m.senderRole||p.role||'')}</span></div>`}
-      ${m.text?`<div class="chat-text">${chatTextHTML(m.text)}</div>`:''}
-      ${chatAttachmentHTML(m)}
-      <div class="chat-time">${chatTime(m.createdAt)}${mine?' · ✓':''}</div>
+    <div class="chat-message-wrap">
+      <div class="chat-bubble">
+        ${mine?'':`<div class="chat-sender"><b>${esc(m.senderName||p.name||'Usuário')}</b><span>${esc(m.senderRole||p.role||'')}</span></div>`}
+        ${quoted}
+        ${m.text?`<div class="chat-text">${chatTextHTML(m.text)}</div>`:''}
+        ${chatAttachmentHTML(m)}
+        <div class="chat-time">${chatTime(m.createdAt)}${mine?' · ✓':''}</div>
+      </div>
+      <div class="chat-actions">
+        <button type="button" onclick="App.replyChatMessage('${m.id}')">↩ Responder</button>
+        ${m.text?`<button type="button" onclick="App.copyChatMessage('${m.id}')">⧉ Copiar</button>`:''}
+        ${canDelete?`<button type="button" class="danger" onclick="App.deleteChatMessage('${m.id}')">🗑 Excluir</button>`:''}
+      </div>
     </div>
   </div>`
 }
-function renderChatMessages(){
+function renderChatMessages(forceBottom=false){
   const root=document.getElementById('chatMessages');if(!root)return;
   if(!chatReady){root.innerHTML='<div class="chat-loading">☁ Carregando mensagens…</div>';return}
-  root.innerHTML=chatMessages.length?chatMessages.map(chatMessageHTML).join(''):'<div class="chat-empty"><div>💬</div><b>O chat está vazio</b><span>Envie a primeira mensagem da Prefeitura.</span></div>';
-  requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight})
+  const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
+  const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
+  if(!list.length){root.innerHTML=q?'<div class="chat-empty"><div>🔎</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div>💬</div><b>O chat está vazio</b><span>Envie a primeira mensagem da Prefeitura.</span></div>';return}
+  let lastDay='',html='';
+  for(const m of list){
+    const d=new Date(m.createdAt),day=Number.isNaN(d.getTime())?'':d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'short'});
+    if(day&&day!==lastDay){html+=`<div class="chat-date-separator"><span>${esc(day)}</span></div>`;lastDay=day}
+    html+=chatMessageHTML(m)
+  }
+  root.innerHTML=html;
+  const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
+  requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
+function filterChatMessages(){chatSearchTerm=val('chatSearch');renderChatMessages(false)}
+function chatScrollChanged(){
+  const root=document.getElementById('chatMessages');if(!root)return;
+  chatAutoScroll=root.scrollHeight-root.scrollTop-root.clientHeight<90;updateChatScrollButton()
+}
+function updateChatScrollButton(){
+  const root=document.getElementById('chatMessages'),btn=document.getElementById('chatScrollBottom');if(!root||!btn)return;
+  btn.classList.toggle('hidden',root.scrollHeight-root.scrollTop-root.clientHeight<=120)
+}
+function scrollChatBottom(){const root=document.getElementById('chatMessages');if(root){root.scrollTo({top:root.scrollHeight,behavior:'smooth'});chatAutoScroll=true;updateChatScrollButton()}}
+function chatAutoGrow(el){if(!el)return;el.style.height='auto';el.style.height=Math.min(116,Math.max(40,el.scrollHeight))+'px'}
+function replyChatMessage(id){
+  const m=chatMessages.find(x=>x.id===id);if(!m)return;
+  chatReplyTarget={id:m.id,senderName:m.senderName||'Usuário',text:(m.text||m.attachment?.name||'Anexo').slice(0,120)};
+  renderChatReplyPreview();document.getElementById('chatInput')?.focus()
+}
+function clearChatReply(){chatReplyTarget=null;renderChatReplyPreview()}
+function renderChatReplyPreview(){
+  const root=document.getElementById('chatReplyPreview');if(!root)return;
+  root.innerHTML=chatReplyTarget?`<div class="chat-reply-card"><div class="grow"><b>↩ Respondendo a ${esc(chatReplyTarget.senderName)}</b><span>${esc(chatReplyTarget.text)}</span></div><button type="button" onclick="App.clearChatReply()">✕</button></div>`:''
+}
+function scrollToChatMessage(id){
+  if(!id)return;
+  let el=null;try{el=document.querySelector(`[data-chat-id="${CSS.escape(id)}"]`)}catch{}
+  if(!el)return toast('A mensagem original não está nas últimas mensagens carregadas.');
+  el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('chat-highlight');setTimeout(()=>el.classList.remove('chat-highlight'),1200)
+}
+async function copyChatMessage(id){
+  const m=chatMessages.find(x=>x.id===id);if(!m?.text)return;
+  try{await navigator.clipboard.writeText(m.text);toast('Mensagem copiada.')}catch{toast('Não foi possível copiar.')}
+}
+async function deleteChatMessage(id){
+  const m=chatMessages.find(x=>x.id===id);if(!m)return;
+  if(m.senderId!==db.currentOperatorId&&!isFullAccess())return accessDenied();
+  if(!confirm('Excluir esta mensagem do Chat da Prefeitura?'))return;
+  try{await chatCollection.doc(id).delete();if(chatReplyTarget?.id===id)clearChatReply();toast('Mensagem excluída.')}catch(err){console.error(err);toast('Não foi possível excluir a mensagem.')}
+}
+
 function chatAttachmentPreviewHTML(){
   const a=chatPendingAttachment;if(!a)return '';
   const icon=a.kind==='image'?'🖼️':a.kind==='audio'?'🎙️':'📎';
@@ -1757,63 +1890,70 @@ function renderChatAttachmentPreview(){
   const root=document.getElementById('chatAttachmentPreview');if(root)root.innerHTML=chatAttachmentPreviewHTML()
 }
 function chat(c){
-  markChatRead();
+  markChatRead();chatAutoScroll=true;
+  const notif=getChatNotifySettings(),perm=notificationPermissionLabel();
   c.innerHTML=head('Chat da Prefeitura','Conversa interna dos perfis cadastrados.',cloudReady?'☁ Online':'⚠ Offline')+`
     <div class="chat-shell panel">
       <div class="chat-toolbar">
-        <div><b>💬 Bom Regresso</b><span>${chatReady?'Mensagens sincronizadas em tempo real':'Conectando ao chat…'}</span></div>
-        <button class="btn btn-secondary chat-notify-btn" onclick="App.requestChatNotifications()">🔔 ${typeof Notification!=='undefined'&&Notification.permission==='granted'?'Notificações ativas':'Ativar notificações'}</button>
+        <div class="chat-title-block"><b>💬 Bom Regresso</b><span>${chatReady?'Mensagens sincronizadas em tempo real':'Conectando ao chat…'}</span></div>
+        <div class="chat-toolbar-actions"><div class="chat-search-wrap">🔎 <input id="chatSearch" placeholder="Pesquisar..." oninput="App.filterChatMessages()"></div><button class="btn btn-secondary chat-notify-btn" onclick="App.requestChatNotifications()">🔔 ${typeof Notification!=='undefined'&&Notification.permission==='granted'&&notif.enabled?'Ativas':'Ativar'}</button></div>
       </div>
-      <div id="chatMessages" class="chat-messages"></div>
+      <div class="chat-notify-status">${notif.enabled?'🔔':'🔕'} Notificações: <b>${notif.enabled?perm:'Desativadas nas preferências'}</b></div>
+      <div class="chat-messages-wrap"><div id="chatMessages" class="chat-messages" onscroll="App.chatScrollChanged()"></div><button id="chatScrollBottom" class="chat-scroll-bottom hidden" onclick="App.scrollChatBottom()">↓</button></div>
+      <div id="chatReplyPreview" class="chat-reply-preview"></div>
       <div id="chatAttachmentPreview" class="chat-attachment-preview">${chatAttachmentPreviewHTML()}</div>
       <div class="chat-composer">
         <button type="button" class="chat-round-btn" onclick="document.getElementById('chatFileInput').click()" title="Enviar imagem ou arquivo">📎</button>
         <input id="chatFileInput" type="file" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
-        <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem..." onkeydown="App.chatComposerKey(event)"></textarea>
+        <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem..." oninput="App.chatAutoGrow(this)" onkeydown="App.chatComposerKey(event)"></textarea>
         <button type="button" id="chatMicBtn" class="chat-round-btn" onclick="App.toggleChatRecording()" title="Mensagem de voz">🎙️</button>
         <button type="button" class="chat-send-btn" onclick="App.sendChatMessage()" title="Enviar">➤</button>
       </div>
       <div id="chatRecordStatus" class="chat-record-status hidden"><span class="chat-record-dot"></span> Gravando <b id="chatRecordTimer">00:00</b> — toque no microfone para concluir</div>
-      <div class="chat-limit-note">Imagens são otimizadas automaticamente. Arquivos e áudios são limitados para manter o chat rápido.</div>
+      <div class="chat-limit-note">Enter envia • Shift+Enter quebra linha • imagens são otimizadas automaticamente.</div>
     </div>`;
-  renderChatMessages();
-  setTimeout(()=>document.getElementById('chatInput')?.focus(),80)
+  renderChatMessages(true);renderChatReplyPreview();setTimeout(()=>document.getElementById('chatInput')?.focus(),80)
 }
 function startChatSync(){
   if(!fbStore)return;
   chatCollection=fbStore.collection('chatMessages_'+DATA_NAMESPACE);
   if(chatUnsub)chatUnsub();
   let primed=false,known=new Set();
-  chatUnsub=chatCollection.orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{
+  chatUnsub=chatCollection.orderBy('createdAt','desc').limit(80).onSnapshot(snap=>{
     const next=snap.docs.map(d=>Object.assign({id:d.id},d.data())).reverse();
     if(primed){
       for(const m of next){
         if(!known.has(m.id)&&m.senderId!==db.currentOperatorId&&db.currentOperatorId){
           const visible=page==='chat'&&document.visibilityState==='visible';
-          if(!visible){
-            chatUnread++;localStorage.setItem(CHAT_UNREAD_KEY,String(chatUnread));updateChatBadges();notifyChatMessage(m)
-          }
+          if(!visible){chatUnread++;localStorage.setItem(CHAT_UNREAD_KEY,String(chatUnread));updateChatBadges();notifyChatMessage(m)}
         }
       }
     }
     known=new Set(next.map(m=>m.id));chatMessages=next;chatReady=true;
-    if(page==='chat'&&db.currentOperatorId){markChatRead();renderChatMessages()}
+    if(page==='chat'&&db.currentOperatorId){markChatRead();renderChatMessages(false)}
     updateChatBadges();primed=true
   },err=>{console.error('Chat Firestore:',err);chatReady=false;if(page==='chat')renderChatMessages();toast('Chat temporariamente indisponível.')})
 }
 async function requestChatNotifications(){
+  setChatNotifySetting('enabled',true);
   const ok=await ensurePushRegistration(true);
-  if(ok&&page==='chat')renderPage()
+  if(ok){playChatTone();vibrateChat()}
+  if(page==='chat')renderPage()
 }
 async function notifyChatMessage(m){
+  const s=getChatNotifySettings();if(!s.enabled)return;
   const label=m.attachment?.kind==='image'?'📷 Imagem':m.attachment?.kind==='audio'?'🎙️ Mensagem de voz':m.attachment?'📎 Arquivo':'';
-  const body=(m.text||label||'Nova mensagem').slice(0,120);
-  toast(`💬 ${m.senderName||'Nova mensagem'}: ${body}`);
+  const preview=s.preview?(m.text||label||'Nova mensagem').slice(0,120):'Nova mensagem no Chat da Prefeitura';
+  const visible=document.visibilityState==='visible';
+  if(visible){toast(`💬 ${m.senderName||'Nova mensagem'}: ${preview}`);playChatTone();vibrateChat();return}
+  vibrateChat();
+  const hasPush=!!lastPushOperatorId&&Notification.permission==='granted';
+  if(hasPush)return;
   if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
   try{
     const reg=await navigator.serviceWorker?.ready;
-    if(reg)await reg.showNotification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body,icon:'./app-icon.svg',badge:'./app-icon.svg',tag:'bom-regresso-chat',renotify:true,data:{type:'chat'}});
-    else new Notification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body})
+    if(reg)await reg.showNotification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body:preview,icon:'./app-icon.svg',badge:'./app-icon.svg',tag:'bom-regresso-chat',renotify:true,vibrate:s.vibrate?[70,45,70]:undefined,data:{type:'chat'}});
+    else new Notification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body:preview})
   }catch(err){console.error('Notificação do chat:',err)}
 }
 function chatComposerKey(e){
@@ -1886,13 +2026,12 @@ async function sendChatMessage(){
   if(!chatCollection||!cloudReady)return toast('Conecte-se à internet para enviar mensagens.');
   const attachment=chatPendingAttachment?cloneData(chatPendingAttachment):null;
   if(attachment?.dataUrl?.length>520000)return toast('O anexo ultrapassa o limite do chat.');
-  const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,createdAt:nowISO()};
+  const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,reply:chatReplyTarget?cloneData(chatReplyTarget):null,createdAt:nowISO()};
   try{
     if(input)input.disabled=true;
-    await chatCollection.add(msg);
-    sendChatPush(msg);
-    if(input){input.value='';input.disabled=false;input.focus()}
-    chatPendingAttachment=null;renderChatAttachmentPreview()
+    await chatCollection.add(msg);sendChatPush(msg);
+    if(input){input.value='';input.style.height='40px';input.disabled=false;input.focus()}
+    chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();chatAutoScroll=true
   }catch(err){console.error('Enviar chat:',err);if(input)input.disabled=false;toast('Não foi possível enviar a mensagem.')}
 }
 function openChatImage(id){
@@ -1968,10 +2107,16 @@ function saveThemeSettings(){
 function resetTheme(){saveTheme({primary:'#0B2E59',accent:'#D7A93E',appearance:'light'});closeModal();toast('Tema padrão restaurado.')}
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true}
 function openSettings(){
-  const t=getTheme();
+  const t=getTheme(),n=getChatNotifySettings();
   const presets=[['classic','#0B2E59','#D7A93E','Clássico'],['green','#145A45','#D7A93E','Verde'],['wine','#6B2031','#D7A93E','Vinho'],['royal','#3E3A86','#E4B441','Real'],['graphite','#263238','#C89B3C','Grafite']];
-  const pushAdmin=isFullAccess()?`<div class="sep"></div><div class="settings-section"><h4>🔔 Push do Chat (FCM)</h4><p class="muted">Chave pública Web Push do Firebase. Ela é pública e pode ser armazenada aqui; a credencial privada fica somente no servidor da Vercel.</p><div class="field"><label>Chave pública VAPID</label><input id="pushVapidKey" value="${esc(pushVapidPublicKey)}" placeholder="Cole a chave pública Web Push"></div><div class="actions"><button class="btn btn-secondary" onclick="App.testPushBackend()">Testar servidor</button><button class="btn btn-primary" onclick="App.savePushConfig()">Salvar chave Web Push</button></div></div>`:''; 
-  showModal('Configurações',`<div class="settings-version-card"><div><small>VERSÃO DO SISTEMA</small><strong>Bom Regresso v${APP_VERSION}</strong></div><span>✓ Atual</span></div><div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,n])=>`<button class="theme-preset" onclick="App.setThemePreset('${k}')"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${n}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div><div class="sep"></div><div class="settings-section"><h4>📲 Aplicativo no celular</h4><p class="muted">Instale o sistema na tela inicial para abrir como aplicativo, sem precisar procurar o site no navegador.</p><button class="btn btn-primary install-btn" style="width:100%;min-height:48px" onclick="App.installApp()">⬇ ${isStandalone()?'Aplicativo instalado':'Instalar Prefeitura de Bom Regresso'}</button></div>${pushAdmin}`)
+  const pushAdmin=isFullAccess()?`<div class="sep"></div><div class="settings-section"><h4>🔔 Push avançado (FCM)</h4><p class="muted">Para receber mensagens com o aplicativo totalmente fechado, o Firebase Cloud Messaging precisa estar configurado. A chave VAPID é pública; a credencial privada permanece somente no servidor da Vercel.</p><div class="field"><label>Chave pública Web Push (VAPID)</label><input id="pushVapidKey" value="${esc(pushVapidPublicKey)}" placeholder="Opcional se o Firebase usar certificado padrão"></div><div class="actions"><button class="btn btn-secondary" onclick="App.testPushBackend()">Testar servidor push</button><button class="btn btn-primary" onclick="App.savePushConfig()">Salvar chave Web Push</button></div></div>`:''; 
+  showModal('Configurações',`
+    <div class="settings-version-card"><div><small>VERSÃO DO SISTEMA</small><strong>Bom Regresso v${APP_VERSION}</strong></div><span>✓ Atual</span></div>
+    <div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,nm])=>`<button class="theme-preset" onclick="App.setThemePreset('${k}')"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${nm}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div>
+    <div class="sep"></div>
+    <div class="settings-section"><h4>🔔 Notificações do Chat</h4><div class="notification-status-card"><div><small>Permissão do aparelho</small><b>${esc(notificationPermissionLabel())}</b></div><button class="btn btn-primary" onclick="App.requestChatNotifications()">Ativar / registrar</button></div><div class="settings-toggle-list"><label><span><b>Receber notificações</b><small>Alertar quando chegar mensagem nova.</small></span><input type="checkbox" ${n.enabled?'checked':''} onchange="App.setChatNotifySetting('enabled',this.checked)"></label><label><span><b>Som</b><small>Tocar um aviso quando o app estiver aberto.</small></span><input type="checkbox" ${n.sound?'checked':''} onchange="App.setChatNotifySetting('sound',this.checked)"></label><label><span><b>Vibração</b><small>Vibrar em aparelhos compatíveis.</small></span><input type="checkbox" ${n.vibrate?'checked':''} onchange="App.setChatNotifySetting('vibrate',this.checked)"></label><label><span><b>Mostrar prévia</b><small>Exibir o texto da mensagem na notificação.</small></span><input type="checkbox" ${n.preview?'checked':''} onchange="App.setChatNotifySetting('preview',this.checked)"></label></div><button class="btn btn-secondary" style="width:100%;margin-top:9px" onclick="App.testChatNotification()">🔔 Enviar notificação de teste</button></div>
+    <div class="sep"></div><div class="settings-section"><h4>📲 Aplicativo no celular</h4><p class="muted">Instale o sistema na tela inicial para abrir como aplicativo, sem precisar procurar o site no navegador.</p><button class="btn btn-primary install-btn" style="width:100%;min-height:48px" onclick="App.installApp()">⬇ ${isStandalone()?'Aplicativo instalado':'Instalar Prefeitura de Bom Regresso'}</button></div>
+    ${pushAdmin}`)
 }
 async function installApp(){
   if(isStandalone()){toast('O aplicativo já está instalado neste aparelho.');return}
@@ -2845,7 +2990,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,savePushConfig,testPushBackend,chatComposerKey,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,chatComposerKey,chatChooseFile,clearChatAttachment,toggleChatRecording,sendChatMessage,openChatImage,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
