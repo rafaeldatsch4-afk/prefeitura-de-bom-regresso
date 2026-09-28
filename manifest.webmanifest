@@ -1,14 +1,14 @@
 {
   "id": "/",
-  "name": "Prefeitura de Bom Regresso",
+  "name": "República Bom Regressense",
   "short_name": "Bom Regresso",
-  "description": "Sistema Municipal Integrado de Bom Regresso",
+  "description": "Sistema integrado da República Bom Regressense",
   "lang": "pt-BR",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#EEF3F7",
+  "background_color": "#EEF2F6",
   "theme_color": "#0B2E59",
   "categories": [
     "productivity",
