@@ -36,7 +36,7 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 .topbar-city{display:none}.mobile-nav{display:none}.mobile-more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.mobile-more-grid .btn{min-height:58px;text-align:left;padding:12px}.small-actions{display:flex;gap:6px;flex-wrap:wrap}.small-actions .btn{padding:7px 9px;font-size:12px}.kpi-line{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #EEF2F5}.kpi-line:last-child{border-bottom:0}.kpi-line b{color:var(--navy)}
 @media (max-width:1050px){.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.shell{grid-template-columns:220px 1fr}.sidebar{padding-left:8px;padding-right:8px}}
 @media (max-width:760px){
-  body{background:#F3F6FA;overscroll-behavior-y:none}
+  body{background:#F3F6FA;overscroll-behavior-y:auto}
   .shell{display:block}.sidebar{display:none}
   .topbar{height:58px;padding:8px 12px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);box-shadow:0 2px 12px rgba(11,46,89,.06)}
   .topbar strong{display:block;line-height:1.05;letter-spacing:.04em}.topbar-city{display:block;font-size:13px}.topbar-system{display:none}
@@ -420,6 +420,140 @@ html[data-appearance="dark"] .pill{background:#24333F;color:#DDE9F2}
   html[data-appearance="dark"] .topbar-settings{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.16)}
 }
 
+
+/* Mobile stability v5 — rolagem, proporção e formulário da Agricultura */
+@media (max-width:760px){
+  html{
+    width:100%;
+    min-height:100%;
+    height:auto;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    -webkit-text-size-adjust:100%;
+    scroll-behavior:auto;
+  }
+  body{
+    width:100%;
+    min-height:100dvh;
+    height:auto!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:pan-y pinch-zoom;
+    position:static!important;
+  }
+  #main,.app,.shell,.content-wrap,.content{
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+  .shell{min-height:100dvh}
+  .content-wrap{
+    width:100%;
+    min-width:0;
+  }
+  .content{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    padding-left:10px;
+    padding-right:10px;
+    padding-bottom:calc(104px + env(safe-area-inset-bottom));
+  }
+  .topbar{
+    width:100%;
+    max-width:100vw;
+  }
+  .tabs{
+    max-width:calc(100vw - 20px);
+    overscroll-behavior-x:contain;
+    touch-action:auto;
+  }
+  .tabs button,
+  .btn,
+  input,
+  select,
+  textarea{
+    touch-action:manipulation;
+  }
+  input,select,textarea{
+    max-width:100%;
+    width:100%;
+    min-width:0;
+    font-size:16px!important;
+  }
+  select{
+    appearance:auto;
+    -webkit-appearance:menulist;
+  }
+  .field{
+    min-width:0;
+    scroll-margin-top:90px;
+    scroll-margin-bottom:150px;
+  }
+  .agri-form-panel{
+    width:100%;
+    max-width:100%;
+    overflow:visible;
+    padding:14px;
+  }
+  .agri-form-grid{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:6px;
+    width:100%;
+  }
+  .agri-form-grid>.field,
+  .agri-form-grid>.wide{
+    width:100%;
+    min-width:0;
+  }
+  .agri-implement-row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 48px;
+    gap:8px;
+    align-items:stretch;
+    width:100%;
+  }
+  .agri-add-imp{
+    width:48px;
+    min-width:48px;
+    min-height:48px;
+    padding:0;
+    font-size:22px;
+  }
+  .agri-form-panel .listbox{
+    width:100%;
+    min-height:62px;
+    overflow:visible;
+  }
+  .agri-save-actions{
+    margin-top:14px;
+    width:100%;
+  }
+  .agri-save-actions .btn{
+    width:100%;
+    min-height:50px;
+    font-size:14px;
+  }
+  .mobile-nav{
+    width:100%;
+    max-width:100vw;
+  }
+}
+@media (max-width:390px){
+  .content{
+    padding-left:8px;
+    padding-right:8px;
+  }
+  .agri-form-panel{
+    padding:12px;
+    border-radius:16px;
+  }
+  .page-head h2{font-size:21px}
+  .tabs{max-width:calc(100vw - 16px)}
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -741,7 +875,7 @@ function mobileMore(){
     <button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button>
   </div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
 }
-function go(p,s=''){page=p;sub=s;render()}
+function go(p,s=''){page=p;sub=s;render();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
 function head(title,desc,right=''){return`<div class="page-head"><div><h2>${title}</h2><p>${desc}</p></div>${right?`<span class="pill">${right}</span>`:''}</div>`}
 function renderPage(){const c=document.getElementById('content');if(!c)return;({home:home,agri:agri,licit:licit,hr:hr,contracts:contracts,finance:finance,fleet:fleet,notes:notes}[page]||home)(c)}
 function card(t,v,m,a='var(--navy)'){return`<div class="card"><div class="accent" style="background:${a}"></div><div class="label">${t}</div><div class="value">${v}</div><div class="mini">${m}</div></div>`}
@@ -753,7 +887,7 @@ function agri(c){const t=sub||'list';c.innerHTML=head('Agricultura','Agendamento
 function agriList(v){v.innerHTML=`<div class="panel"><div class="row wrap"><input id="agSearch" class="grow" placeholder="Pesquisar produtor, localidade ou máquina" style="padding:10px;border:1px solid var(--border);border-radius:10px"><button class="btn btn-secondary" onclick="App.filterAgri()">Pesquisar</button></div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Data</th><th>Produtor</th><th>Localidade</th><th>Máquina</th><th>Horas</th><th>Operador</th><th>Status</th><th>Ações</th></tr></thead><tbody id="agBody"></tbody></table></div></div>`;filterAgri()}
 function filterAgri(){const q=(val('agSearch')||'').toLowerCase();const rows=db.appointments.filter(x=>JSON.stringify(x).toLowerCase().includes(q)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));document.getElementById('agBody').innerHTML=rows.map(x=>`<tr><td>${esc(x.date||'-')}</td><td>${esc(x.producer||'-')}</td><td>${esc(x.locality||'-')}</td><td>${esc(x.machine||'-')}</td><td>${esc(x.hours||0)}</td><td>${esc(x.operator||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions"><button class="btn btn-ok" onclick="App.setAgStatus('${x.id}','Concluído')">Concluir</button><button class="btn btn-secondary" onclick="App.setAgStatus('${x.id}','Em andamento')">Andamento</button><button class="btn btn-secondary" onclick="App.noteFrom('appointment','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>'}
 function setAgStatus(id,s){const x=db.appointments.find(r=>r.id===id);if(x){x.status=s;save();filterAgri();toast('Status atualizado.')}}
-function agriNew(v){selectedImps=[];const ms=db.machinery.filter(x=>x.status==='Disponível'), im=db.implements.filter(x=>x.status==='Disponível');v.innerHTML=`<div class="panel"><h3>Novo agendamento</h3><div class="sub">Preencha somente o que fizer sentido. Campos vazios recebem valores simples.</div><div class="form-grid"><div class="field"><label>Nome do produtor</label><input id="aProducer" placeholder="Opcional"></div><div class="field"><label>Localidade</label><input id="aLoc" placeholder="Opcional"></div><div class="field"><label>Máquina</label><select id="aMachine"><option value="">Sem máquina definida</option>${ms.map(x=>`<option>${esc(x.name)}</option>`).join('')}</select></div><div class="field"><label>Implemento</label><div class="row"><select id="aImp" class="grow"><option value="">Selecione</option>${im.map(x=>`<option>${esc(x.name)}</option>`).join('')}</select><button class="btn btn-secondary" onclick="App.addImp()">＋</button></div></div><div class="wide"><div id="impPills" class="listbox"><span class="muted">Nenhum implemento adicionado.</span></div></div><div class="field"><label>Data</label><input id="aDate" value="${todayBR()}"></div><div class="field"><label>Horas</label><input id="aHours" type="number" step="0.5" placeholder="0"></div><div class="field wide"><label>Observações</label><textarea id="aNotes" rows="3"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveAppointment()">Salvar agendamento</button></div></div>`}
+function agriNew(v){selectedImps=[];const ms=db.machinery.filter(x=>x.status==='Disponível'), im=db.implements.filter(x=>x.status==='Disponível');v.innerHTML=`<div class="panel agri-form-panel"><h3>Novo agendamento</h3><div class="sub">Preencha somente o que fizer sentido. Campos vazios recebem valores simples.</div><div class="form-grid agri-form-grid"><div class="field"><label>Nome do produtor</label><input id="aProducer" placeholder="Opcional" autocomplete="off"></div><div class="field"><label>Localidade</label><input id="aLoc" placeholder="Opcional" autocomplete="off"></div><div class="field"><label>Máquina</label><select id="aMachine"><option value="">Sem máquina definida</option>${ms.map(x=>`<option>${esc(x.name)}</option>`).join('')}</select></div><div class="field"><label>Implemento</label><div class="agri-implement-row"><select id="aImp"><option value="">Selecione</option>${im.map(x=>`<option>${esc(x.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary agri-add-imp" onclick="App.addImp()" aria-label="Adicionar implemento">＋</button></div></div><div class="wide"><div id="impPills" class="listbox"><span class="muted">Nenhum implemento adicionado.</span></div></div><div class="field"><label>Data</label><input id="aDate" value="${todayBR()}" inputmode="numeric"></div><div class="field"><label>Horas</label><input id="aHours" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0"></div><div class="field wide"><label>Observações</label><textarea id="aNotes" rows="3"></textarea></div></div><div class="actions agri-save-actions"><button type="button" class="btn btn-primary" onclick="App.saveAppointment()">Salvar agendamento</button></div></div>`}
 function addImp(){const x=val('aImp');if(x&&!selectedImps.includes(x)){selectedImps.push(x);drawImps()}}
 function drawImps(){const r=document.getElementById('impPills');if(!r)return;r.innerHTML=selectedImps.length?selectedImps.map((x,i)=>`<span class="pill">${esc(x)} <button onclick="App.rmImp(${i})">×</button></span>`).join(''):'<span class="muted">Nenhum implemento adicionado.</span>'}
 function rmImp(i){selectedImps.splice(i,1);drawImps()}
@@ -810,6 +944,11 @@ function importData(file){if(!file)return;const r=new FileReader();r.onload=()=>
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
 window.App={closeModal,enter,logout,go,mobileMore,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,saveContract,saveFinance,saveTruck,saveTrip,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNote,dataTools,exportData,importData,resetData};
 applyTheme();
+document.addEventListener('focusin',e=>{
+  if(window.innerWidth<=760 && e.target?.matches?.('input,select,textarea')){
+    setTimeout(()=>e.target.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'}),180);
+  }
+});
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(getTheme().appearance==='auto')applyTheme()});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;toast('Prefeitura de Bom Regresso instalada.')});
