@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v26';
+const CACHE='bom-regresso-pwa-v27';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
 
 try{
