@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v18';
+const CACHE='bom-regresso-pwa-v19';
 const SHELL=['/index.html','/manifest.webmanifest','/app-icon.svg'];
 
 self.addEventListener('install',event=>{
@@ -59,5 +59,17 @@ self.addEventListener('fetch',event=>{
     }catch{
       return (await caches.match(req))||Response.error();
     }
+  })());
+});
+
+
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  event.waitUntil((async()=>{
+    const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const client of list){
+      try{client.postMessage({type:'OPEN_CHAT'});await client.focus();return}catch{}
+    }
+    if(self.clients.openWindow)await self.clients.openWindow('./');
   })());
 });
