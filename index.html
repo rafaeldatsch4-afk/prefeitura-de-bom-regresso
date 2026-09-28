@@ -1232,7 +1232,7 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.3.0';
+const APP_VERSION='1.3.1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1250,7 +1250,7 @@ const FIREBASE_CONFIG={
 };
 const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','activityLog'];
 let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,chatMediaCollection=null,profileSecretsCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
-let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='';
+let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='',pushBackendConfigured=false;
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
 const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_v2_';
 const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
@@ -1820,8 +1820,22 @@ function getChatNotifySettings(){
   try{return Object.assign({enabled:true,sound:true,vibrate:true,preview:true},JSON.parse(localStorage.getItem(CHAT_NOTIFY_SETTINGS_KEY)||'{}'))}
   catch{return{enabled:true,sound:true,vibrate:true,preview:true}}
 }
-function setChatNotifySetting(key,value){
+async function setChatNotifySetting(key,value){
   const s=getChatNotifySettings();s[key]=!!value;localStorage.setItem(CHAT_NOTIFY_SETTINGS_KEY,JSON.stringify(s));
+  if(key==='enabled'){
+    if(value){
+      if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
+    }else{
+      await unregisterChatPushDevice()
+    }
+  }
+}
+async function unregisterChatPushDevice(){
+  try{
+    if(pushTokensCollection)await pushTokensCollection.doc(pushDeviceId()).delete();
+    if(messaging?.deleteToken)await messaging.deleteToken().catch(()=>{});
+  }catch(err){console.warn('Remover push:',err)}
+  lastPushOperatorId=''
 }
 function playChatTone(){
   const s=getChatNotifySettings();if(!s.sound)return;
@@ -1886,6 +1900,11 @@ async function startPushInfrastructure(){
   pushConfigDoc=fbStore.collection('municipio').doc('push_config_'+DATA_NAMESPACE);
   await loadPushConfig();
   try{
+    const r=await fetch('/api/push',{cache:'no-store'});
+    const j=await r.json();
+    pushBackendConfigured=!!j.configured
+  }catch{pushBackendConfigured=false}
+  try{
     messaging=firebase.messaging();
     messaging.onMessage(payload=>{
       const d=payload?.data||{};
@@ -1893,10 +1912,12 @@ async function startPushInfrastructure(){
     })
   }catch(err){console.warn('FCM não suportado:',err);messaging=null}
   startChatPresence();
-  if(typeof Notification!=='undefined'&&Notification.permission==='granted'&&db.currentOperatorId)ensurePushRegistration(false)
+  const prefs=getChatNotifySettings();
+  if(prefs.enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted'&&db.currentOperatorId)ensurePushRegistration(false)
 }
 async function ensurePushRegistration(askPermission=true){
   if(pushRegistering)return false;
+  const prefs=getChatNotifySettings();if(!prefs.enabled&&!askPermission)return false;
   if(typeof Notification==='undefined')return askPermission&&toast('Este aparelho não oferece notificações push.'),false;
   pushRegistering=true;
   try{
@@ -1913,51 +1934,50 @@ async function ensurePushRegistration(askPermission=true){
         :await messaging.getToken({serviceWorkerRegistration:reg})
     }catch(err){
       console.warn('FCM token:',err);
-      if(askPermission)toast('Notificação local ativada. Para receber com o app fechado, configure o Push FCM nas Configurações.');
+      if(askPermission)toast('Notificação local ativada. O push com o app fechado ainda depende da configuração FCM.');
       return true
     }
     if(!token)return true;
     const p=currentProfile();if(!p)return false;
     await pushTokensCollection.doc(pushDeviceId()).set({
       token,operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',
-      updatedAt:nowISO(),platform:navigator.platform||'',standalone:isStandalone()
+      updatedAt:nowISO(),platform:navigator.platform||'',standalone:isStandalone(),notificationsEnabled:true
     },{merge:true});
     lastPushOperatorId=p.id;
-    if(askPermission)toast('🔔 Notificações ativadas neste aparelho.');
+    if(askPermission)toast(pushBackendConfigured?'🔔 Notificações push ativadas.':'🔔 Notificações locais ativadas; servidor push ainda não está configurado.');
     return true
   }catch(err){
     console.error('Registrar push:',err);
-    if(askPermission)toast(Notification.permission==='granted'?'Notificação local ativada; o push em segundo plano ainda precisa da configuração do Firebase.':'Não foi possível ativar as notificações.');
+    if(askPermission)toast(Notification.permission==='granted'?'Notificação local ativada; o push em segundo plano ainda precisa da configuração do servidor.':'Não foi possível ativar as notificações.');
     return Notification.permission==='granted'
   }finally{pushRegistering=false}
 }
 async function sendChatPush(msg){
-  if(!pushTokensCollection||!fbAuth?.currentUser)return;
+  if(!pushBackendConfigured||!pushTokensCollection||!fbAuth?.currentUser)return;
   try{
     const snap=await pushTokensCollection.get();
-    const tokens=[...new Set(snap.docs.map(d=>d.data()).filter(x=>x?.token&&x.operatorId!==msg.senderId).map(x=>x.token))].slice(0,50);
+    const tokens=[...new Set(snap.docs.map(d=>d.data()).filter(x=>x?.token&&x.notificationsEnabled!==false&&x.operatorId!==msg.senderId).map(x=>x.token))].slice(0,50);
     if(!tokens.length)return;
     const idToken=await fbAuth.currentUser.getIdToken();
     const attachmentLabel=msg.attachment?.kind==='image'?'📷 Imagem':msg.attachment?.kind==='audio'?'🎙️ Mensagem de voz':msg.attachment?'📎 Arquivo':'';
     const body=(msg.text||attachmentLabel||'Nova mensagem').slice(0,180);
-    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({tokens,title:'💬 '+msg.senderName,body,data:{type:'chat'}})});
+    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({tokens,title:'💬 '+msg.senderName,body,data:{type:'chat',messageId:msg.id||'',senderId:msg.senderId||''}})});
     if(!r.ok){const t=await r.text().catch(()=>String(r.status));console.warn('Push não enviado:',r.status,t)}
   }catch(err){console.warn('Push do chat:',err)}
 }
 async function testPushBackend(){
   try{
     const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();
-    toast(j.configured?'Servidor push configurado.':'Servidor push ainda precisa das credenciais do Firebase.')
-  }catch{toast('Não foi possível consultar o servidor push.')}
+    pushBackendConfigured=!!j.configured;
+    toast(pushBackendConfigured?'Servidor push configurado.':'Servidor push ainda precisa das credenciais do Firebase.')
+  }catch{pushBackendConfigured=false;toast('Não foi possível consultar o servidor push.')}
 }
-
 async function showPushDiagnostics(){
   let backend='Indisponível',configured=false;
-  try{const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();configured=!!j.configured;backend=configured?'Configurado':'Falta credencial do Firebase na Vercel'}catch{}
+  try{const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();configured=!!j.configured;pushBackendConfigured=configured;backend=configured?'Configurado':'Falta credencial do Firebase na Vercel'}catch{pushBackendConfigured=false}
   const tokenState=lastPushOperatorId===db.currentOperatorId?'Registrado':'Ainda não registrado neste aparelho';
   showModal('Diagnóstico das notificações',`<div class="push-diag"><div><small>Permissão do aparelho</small><b>${esc(notificationPermissionLabel())}</b></div><div><small>Token FCM deste aparelho</small><b>${esc(tokenState)}</b></div><div><small>Chave Web Push</small><b>${pushVapidPublicKey?'Configurada':'Usando padrão do Firebase'}</b></div><div><small>Servidor de envio</small><b class="${configured?'s-ok':'s-warn'}">${esc(backend)}</b></div></div><div class="actions"><button class="btn btn-primary" onclick="App.requestChatNotifications()">Registrar novamente</button><button class="btn btn-secondary" onclick="App.testChatNotification()">Testar notificação</button></div>`)
 }
-
 function markChatRead(){
   if(!db.currentOperatorId){chatUnread=0;updateChatBadges();return}
   localStorage.setItem(chatLastReadStorageKey(),nowISO());
@@ -2174,7 +2194,7 @@ function startChatSync(){
   },err=>{console.error('Chat Firestore:',err);chatReady=false;if(page==='chat')renderChatMessages();toast('Chat temporariamente indisponível.')})
 }
 async function requestChatNotifications(){
-  setChatNotifySetting('enabled',true);
+  await setChatNotifySetting('enabled',true);
   const ok=await ensurePushRegistration(true);
   if(ok){playChatTone();vibrateChat()}
   if(page==='chat')renderPage()
@@ -2184,14 +2204,15 @@ async function notifyChatMessage(m){
   const label=m.attachment?.kind==='image'?'📷 Imagem':m.attachment?.kind==='audio'?'🎙️ Mensagem de voz':m.attachment?'📎 Arquivo':'';
   const preview=s.preview?(m.text||label||'Nova mensagem').slice(0,120):'Nova mensagem no Chat da Prefeitura';
   const visible=document.visibilityState==='visible';
+  if(visible&&page==='chat'){markChatRead();return}
   if(visible){toast(`💬 ${m.senderName||'Nova mensagem'}: ${preview}`);playChatTone();vibrateChat();return}
   vibrateChat();
-  const hasPush=!!lastPushOperatorId&&Notification.permission==='granted';
-  if(hasPush)return;
+  const hasWorkingPush=pushBackendConfigured&&lastPushOperatorId===db.currentOperatorId&&Notification.permission==='granted';
+  if(hasWorkingPush)return;
   if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
   try{
     const reg=await navigator.serviceWorker?.ready;
-    if(reg)await reg.showNotification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body:preview,icon:'./app-icon.svg',badge:'./app-icon.svg',tag:'bom-regresso-chat',renotify:true,vibrate:s.vibrate?[70,45,70]:undefined,data:{type:'chat'}});
+    if(reg)await reg.showNotification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body:preview,icon:'./app-icon.svg',badge:'./app-icon.svg',tag:'bom-regresso-chat-local',renotify:true,vibrate:s.vibrate?[70,45,70]:undefined,data:{type:'chat',url:'./?open=chat'}});
     else new Notification(`💬 ${m.senderName||'Chat da Prefeitura'}`,{body:preview})
   }catch(err){console.error('Notificação do chat:',err)}
 }
@@ -3276,7 +3297,7 @@ document.addEventListener('focusin',e=>{
   }
 });
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(getTheme().appearance==='auto')applyTheme()});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db.currentOperatorId){touchChatPresence(false);if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db.currentOperatorId){touchChatPresence(false);if(page==='chat')markChatRead();else recalculateChatUnread();if(getChatNotifySettings().enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)}});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;toast('Prefeitura de Bom Regresso instalada.')});
 registerAutoUpdatingServiceWorker();
