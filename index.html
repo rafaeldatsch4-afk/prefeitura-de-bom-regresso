@@ -1231,6 +1231,36 @@ html[data-appearance="dark"] .chat-date-separator span{background:rgba(32,44,51,
   .chat-pending-card,.chat-reply-card{margin-left:7px;margin-right:7px}
 }
 
+
+/* Chat v1.4.1 — acabamento estilo WhatsApp/Instagram */
+.chat-group-avatar,.chat-title-block{cursor:pointer}
+.chat-title-block{border:0;background:transparent;text-align:left;color:inherit;padding:0}
+.chat-composer{grid-template-columns:40px 1fr 42px}
+.chat-emoji-btn{font-size:23px;color:#667781}
+.chat-input-pill{position:relative;padding-right:38px}
+.chat-pill-attach{position:absolute;right:3px;bottom:3px;width:34px;height:34px;border:0;border-radius:50%;background:transparent;color:#667781;font-size:18px;display:grid;place-items:center;cursor:pointer}
+.chat-pill-attach:hover{background:rgba(84,101,111,.08)}
+.chat-mic-btn{background:var(--navy);color:#fff!important;box-shadow:0 3px 10px rgba(11,46,89,.18)}
+.chat-emoji-panel{display:grid;grid-template-columns:repeat(12,1fr);gap:1px;padding:8px 10px;border-top:1px solid var(--border);background:#F0F2F5;max-height:112px;overflow:auto}
+.chat-emoji-panel button{border:0;background:transparent;font-size:21px;padding:5px 2px;border-radius:8px;cursor:pointer}.chat-emoji-panel button:hover{background:rgba(84,101,111,.10)}
+.chat-attach-menu{display:flex;align-items:center;justify-content:flex-start;gap:18px;padding:12px 16px;border-top:1px solid var(--border);background:#F0F2F5}
+.chat-attach-menu button{min-width:62px;border:0;background:transparent;color:var(--text);display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;font-size:9px;cursor:pointer}
+.chat-attach-menu .attach-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:21px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.attach-icon.image{background:#7E57C2}.attach-icon.camera{background:#EC5677}.attach-icon.file{background:#4A89DC}
+.chat-info-card{text-align:center}.chat-info-logo{width:92px;height:92px;border-radius:50%;overflow:hidden;margin:2px auto 10px}.chat-info-logo img{width:100%;height:100%;object-fit:cover}
+.chat-info-card h3{margin:0;font-size:20px}.chat-info-card>p{font-size:11px;color:var(--muted);margin:4px 0 12px}
+.chat-info-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.chat-info-stats>div{padding:10px;border:1px solid var(--border);border-radius:12px}.chat-info-stats b,.chat-info-stats span{display:block}.chat-info-stats b{font-size:19px}.chat-info-stats span{font-size:9px;color:var(--muted)}
+.chat-info-notify{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;margin:9px 0;text-align:left}.chat-info-notify>span{font-size:20px}.chat-info-notify b,.chat-info-notify small{display:block}.chat-info-notify b{font-size:11px}.chat-info-notify small{font-size:9px;color:var(--muted)}
+.chat-info-members{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}.chat-info-members>button{border:0;background:var(--bg);color:var(--text);display:flex;align-items:center;gap:7px;padding:7px;border-radius:10px;text-align:left;cursor:pointer}.chat-info-members b,.chat-info-members small{display:block}.chat-info-members b{font-size:10px}.chat-info-members small{font-size:8px;color:var(--muted)}
+html[data-appearance="dark"] .chat-emoji-panel,html[data-appearance="dark"] .chat-attach-menu{background:#202C33}
+html[data-appearance="dark"] .chat-info-members>button{background:#17232C}
+@media(max-width:760px){
+  .chat-page .chat-shell{height:var(--chat-vh,100dvh)}
+  .chat-emoji-panel{grid-template-columns:repeat(8,1fr);max-height:148px;padding:8px}
+  .chat-attach-menu{justify-content:space-around;gap:4px;padding:11px 8px}
+  .chat-info-members{grid-template-columns:1fr}
+}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1427,7 +1457,7 @@ html[data-appearance="dark"] .chat-date-separator span{background:rgba(32,44,51,
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.4.0';
+const APP_VERSION='1.4.1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -2340,6 +2370,41 @@ function updateChatComposerState(){
   if(mic)mic.classList.toggle('hidden',has);
 }
 
+function toggleChatEmoji(force){
+  const panel=document.getElementById('chatEmojiPanel');if(!panel)return;
+  const show=typeof force==='boolean'?force:panel.classList.contains('hidden');
+  panel.classList.toggle('hidden',!show);
+  if(show){toggleChatAttachMenu(false);setTimeout(()=>document.getElementById('chatInput')?.focus(),20)}
+}
+function insertChatEmoji(emoji){
+  const input=document.getElementById('chatInput');if(!input)return;
+  const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;
+  input.value=input.value.slice(0,start)+emoji+input.value.slice(end);
+  const pos=start+emoji.length;input.setSelectionRange(pos,pos);chatInputChanged(input);input.focus()
+}
+function toggleChatAttachMenu(force){
+  const menu=document.getElementById('chatAttachMenu');if(!menu)return;
+  const show=typeof force==='boolean'?force:menu.classList.contains('hidden');
+  menu.classList.toggle('hidden',!show);
+  if(show)toggleChatEmoji(false)
+}
+function syncChatViewportHeight(){
+  if(page!=='chat')return;
+  const h=Math.round(window.visualViewport?.height||window.innerHeight||0);
+  if(h)document.documentElement.style.setProperty('--chat-vh',h+'px')
+}
+function showChatInfo(){
+  const online=chatOnlineUsers(),participants=(db.operators||[]).filter(o=>o.active!==false),prefs=getChatNotifySettings();
+  const notif=(typeof Notification==='undefined')?'Indisponível':Notification.permission==='granted'&&prefs.enabled?'Ativadas':Notification.permission==='denied'?'Bloqueadas':'Desativadas';
+  showModal('Chat da Prefeitura',`<div class="chat-info-card">
+    <div class="chat-info-logo"><img src="./app-icon.svg" alt=""></div>
+    <h3>Chat da Prefeitura</h3><p>Conversa interna dos perfis cadastrados no sistema.</p>
+    <div class="chat-info-stats"><div><b>${participants.length}</b><span>participantes</span></div><div><b>${online.length}</b><span>online agora</span></div></div>
+    <div class="chat-info-notify"><span>🔔</span><div class="grow"><b>Notificações</b><small>${esc(notif)}</small></div><button class="btn btn-secondary" onclick="App.closeModal();App.requestChatNotifications()">Configurar</button></div>
+    <div class="chat-info-members">${participants.slice(0,16).map(p=>`<button type="button" onclick="App.closeModal();App.openUserProfile('${p.id}')">${profileAvatarHTML(p,'profile-avatar-sm')}<span><b>${esc(p.name)}</b><small>${esc(p.role||'Servidor / Outro')}</small></span></button>`).join('')}</div>
+  </div>`)
+}
+
 function replyChatMessage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m)return;
   chatReplyTarget={id:m.id,senderName:m.senderName||'Usuário',text:(m.text||m.attachment?.name||'Anexo').slice(0,120)};
@@ -2389,11 +2454,11 @@ function chat(c){
     <div class="chat-shell">
       <header class="chat-app-header">
         <button class="chat-back-btn" onclick="App.systemBack()" aria-label="Voltar">‹</button>
-        <div class="chat-group-avatar"><img src="./app-icon.svg" alt=""></div>
-        <div class="chat-title-block grow">
+        <button type="button" class="chat-group-avatar" onclick="App.showChatInfo()" aria-label="Informações do chat"><img src="./app-icon.svg" alt=""></button>
+        <button type="button" class="chat-title-block grow" onclick="App.showChatInfo()">
           <b>Chat da Prefeitura</b>
           <span id="chatPresenceText"><i class="chat-online-dot"></i> Chat sincronizado</span>
-        </div>
+        </button>
         <button class="chat-header-icon ${granted?'is-active':''}" onclick="App.requestChatNotifications()" aria-label="Notificações" title="Notificações">${granted?'🔔':'🔕'}</button>
         <button class="chat-header-icon chat-search-trigger" onclick="App.toggleChatSearch()" aria-label="Pesquisar" title="Pesquisar">⌕</button>
       </header>
@@ -2408,24 +2473,35 @@ function chat(c){
       </div>
       <div id="chatReplyPreview" class="chat-reply-preview"></div>
       <div id="chatAttachmentPreview" class="chat-attachment-preview">${chatAttachmentPreviewHTML()}</div>
+      <div id="chatEmojiPanel" class="chat-emoji-panel hidden">
+        ${['😀','😂','🤣','🥹','😍','😎','🤦‍♂️','👍','👏','🙏','❤️','🔥','🎉','✅','👀','🚜','🚚','💰','🏛️','📄','😅','🤝','💯','👋'].map(e=>`<button type="button" onclick="App.insertChatEmoji('${e}')">${e}</button>`).join('')}
+      </div>
+      <div id="chatAttachMenu" class="chat-attach-menu hidden">
+        <button type="button" onclick="document.getElementById('chatImageInput').click();App.toggleChatAttachMenu(false)"><span class="attach-icon image">🖼️</span><b>Galeria</b></button>
+        <button type="button" onclick="document.getElementById('chatCameraInput').click();App.toggleChatAttachMenu(false)"><span class="attach-icon camera">📷</span><b>Câmera</b></button>
+        <button type="button" onclick="document.getElementById('chatFileInput').click();App.toggleChatAttachMenu(false)"><span class="attach-icon file">📄</span><b>Documento</b></button>
+      </div>
+      <input id="chatImageInput" type="file" accept="image/*" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
+      <input id="chatCameraInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
+      <input id="chatFileInput" type="file" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
       <div id="chatRecordStatus" class="chat-record-status hidden">
         <span><span class="chat-record-dot"></span> Gravando <b id="chatRecordTimer">00:00</b></span>
         <button type="button" onclick="App.cancelChatRecording()">Cancelar</button>
       </div>
       <footer class="chat-composer-wrap">
         <div class="chat-composer">
-          <button type="button" class="chat-round-btn chat-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Anexar">＋</button>
-          <input id="chatFileInput" type="file" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
+          <button type="button" class="chat-round-btn chat-emoji-btn" onclick="App.toggleChatEmoji()" title="Emoji">☺</button>
           <div class="chat-input-pill">
             <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" oninput="App.chatInputChanged(this)" onkeydown="App.chatComposerKey(event)"></textarea>
+            <button type="button" class="chat-pill-attach" onclick="App.toggleChatAttachMenu()" title="Anexar">📎</button>
           </div>
           <button type="button" id="chatMicBtn" class="chat-round-btn chat-mic-btn" onclick="App.toggleChatRecording()" title="Mensagem de voz">🎙</button>
-          <button type="button" class="chat-send-btn hidden" onclick="App.sendChatMessage()" title="Enviar">➤</button>
+          <button type="button" id="chatSendBtn" class="chat-send-btn hidden" onclick="App.sendChatMessage()" title="Enviar">➤</button>
         </div>
       </footer>
     </div>
   </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();
+  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();
   setTimeout(()=>document.getElementById('chatInput')?.focus(),100)
 }
 function startChatSync(){
@@ -2499,10 +2575,10 @@ async function chatChooseFile(file){
       if(dataUrl.length>500000)return toast('Arquivo grande demais para o chat.');
       chatPendingAttachment={kind:'file',name:(file.name||'arquivo').slice(0,100),type:file.type||'application/octet-stream',size:file.size,dataUrl}
     }
-    renderChatAttachmentPreview();toast('Anexo pronto para enviar.')
+    renderChatAttachmentPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);toast('Anexo pronto para enviar.')
   }catch(err){console.error(err);chatPendingAttachment=null;renderChatAttachmentPreview();toast('Não foi possível preparar este arquivo.')}
 }
-function clearChatAttachment(){chatPendingAttachment=null;renderChatAttachmentPreview()}
+function clearChatAttachment(){chatPendingAttachment=null;renderChatAttachmentPreview();updateChatComposerState()}
 async function toggleChatRecording(){
   if(chatRecorder&&chatRecorder.state==='recording'){chatRecorder.stop();return}
   if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined')return toast('Gravação de voz não é suportada neste aparelho.');
@@ -2552,7 +2628,7 @@ async function sendChatMessage(){
     const ref=await chatCollection.add(msg);
     sendChatPush({...msg,id:ref.id});touchChatPresence(false);
     if(input){input.value='';input.style.height='40px';input.focus()}
-    chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();chatAutoScroll=true
+    chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);chatAutoScroll=true
   }catch(err){
     console.error('Enviar chat:',err);
     if(mediaId&&chatMediaCollection)chatMediaCollection.doc(mediaId).delete().catch(()=>{});
@@ -2687,7 +2763,9 @@ async function registerAutoUpdatingServiceWorker(){
     const check=()=>reg.update().catch(()=>{});
     check();
     window.addEventListener('focus',check);
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});
+    window.visualViewport?.addEventListener('resize',()=>{if(page==='chat')syncChatViewportHeight()});
+window.addEventListener('resize',()=>{if(page==='chat')syncChatViewportHeight()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});
     setInterval(check,60000)
   }catch(err){console.error('Atualização automática do aplicativo:',err)}
 }
@@ -3541,7 +3619,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
