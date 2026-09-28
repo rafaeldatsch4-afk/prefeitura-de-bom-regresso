@@ -925,6 +925,16 @@ html[data-appearance="dark"] .activity-line span{background:#24333F;color:#DCE7E
 .avatar-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:520px){.avatar-choice-grid{grid-template-columns:1fr}}
 
+
+.note-preview-box{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  font-size:13px;line-height:1.65;letter-spacing:.01em;
+  border:1px solid #D9E1E8!important;border-radius:14px!important;
+  box-shadow:0 7px 22px rgba(11,46,89,.06);
+  padding:18px!important
+}
+.note-preview-box::first-line{font-weight:900;color:#0B2E59}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1120,7 +1130,7 @@ html[data-appearance="dark"] .activity-line span{background:#24333F;color:#DCE7E
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.0.3';
+const APP_VERSION='1.0.4';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -2191,7 +2201,9 @@ function refreshNoteTargets(){
   if(t==='truck')arr=db.trucks.map(x=>[x.id,`${x.plate} • ${x.model||'-'}`]);
   document.getElementById('noteTarget').innerHTML=arr.length?arr.map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join(''):'<option value="">Não se aplica / sem registros</option>'
 }
-function noteHeader(title){return`PREFEITURA MUNICIPAL DE BOM REGRESSO\n${'='.repeat(58)}\n${title.toUpperCase()}\n${'='.repeat(58)}\n\n`}
+function noteHeader(title){
+  return `PREFEITURA DE BOM REGRESSO\n${title.toUpperCase()}\n\n`
+}
 function generateNote(type,id=''){if(!type)type=val('noteType');if(!id)id=val('noteTarget');let s='';if(type==='general'){const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0),exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);s=noteHeader('Resumo Geral')+`Operador: ${db.currentOperator}\nData: ${todayBR()}\n\nServidores: ${db.employees.length}\nAgendamentos: ${db.appointments.length}\nLicitações: ${db.licitations.length}\nContratos: ${db.contracts.length}\nCaminhões: ${db.trucks.length}\nViagens: ${db.trips.length}\n\nReceitas pagas: ${money(rev)}\nDespesas pagas: ${money(exp)}\nSaldo: ${money(rev-exp)}`}
 else if(type==='finance'){const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0),exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);s=noteHeader('Resumo de Saldo')+`Data: ${todayBR()}\nOperador: ${db.currentOperator}\n\nReceitas: ${money(rev)}\nDespesas: ${money(exp)}\nSaldo: ${money(rev-exp)}\n\nLançamentos registrados: ${db.finance.length}`}
 else if(type==='trip'){const x=db.trips.find(r=>r.id===id);if(x)s=noteHeader('Nota de Viagem')+`Data: ${x.date}\nTransportadora: ${carrierName(x.carrierId,x.carrierName)||'-'}\nCaminhão: ${x.truck||'-'}\nMotorista: ${x.driver||'-'}\nOrigem: ${x.origin||'-'}\nDestino: ${x.destination||'-'}\nCarga / motivo: ${x.cargo||'-'}\nKM inicial: ${x.startKm||0}\nKM final: ${x.endKm||0}\nStatus: ${x.status}\nOperador: ${x.operator}\nObservações: ${x.notes||'-'}`}
@@ -2240,6 +2252,29 @@ function noteFileBase(){
   return `bom-regresso-${names[type]||'documento'}-${new Date().toISOString().slice(0,10)}`;
 }
 function cleanPdfText(s){return String(s||'').replace(/\t/g,'    ').replace(/[═━]/g,'=')}
+function noteTypeLabel(type){
+  return ({general:'RESUMO GERAL',finance:'RESUMO DE SALDO',trip:'NOTA DE VIAGEM',appointment:'ORDEM DA AGRICULTURA',licitation:'NOTA DE LICITAÇÃO',payment:'COMPROVANTE DE PAGAMENTO',refund:'COMPROVANTE DE REEMBOLSO',contract:'RESUMO DE CONTRATO',truck:'FICHA DE CAMINHÃO'}[type]||'DOCUMENTO MUNICIPAL')
+}
+function noteDocumentNumber(){
+  const type=(val('noteType')||'DOC').toUpperCase().replace(/[^A-Z]/g,'').slice(0,4)||'DOC';
+  const id=val('noteTarget')||Date.now().toString(36);
+  const clean=String(id).replace(/[^a-z0-9]/gi,'').toUpperCase();
+  return `${type}-${clean.slice(-6).padStart(6,'0')}`
+}
+function parseNoteRows(text){
+  const lines=cleanPdfText(text).split(/\r?\n/).map(x=>x.trim());
+  const rows=[];
+  for(const line of lines){
+    if(!line||/^[-=]{5,}$/.test(line))continue;
+    if(line.toUpperCase()==='PREFEITURA DE BOM REGRESSO'||line.toUpperCase()==='PREFEITURA MUNICIPAL DE BOM REGRESSO')continue;
+    if(line.toUpperCase()===noteTypeLabel(val('noteType')))continue;
+    const m=line.match(/^([^:]{1,42}):\s*(.*)$/);
+    if(m)rows.push({label:m[1].trim(),value:m[2].trim()||'-'});
+    else if(!/Documento fictício/i.test(line))rows.push({label:'',value:line});
+  }
+  return rows
+}
+
 function ensurePdfLib(){
   if(window.jspdf?.jsPDF)return Promise.resolve(window.jspdf);
   if(pdfLibPromise)return pdfLibPromise;
@@ -2255,43 +2290,98 @@ function ensurePdfLib(){
 }
 function buildNotePdfBlob(){
   if(!window.jspdf?.jsPDF)throw new Error('Biblioteca de PDF não carregou.');
-  const text=cleanPdfText(currentNoteText());
+  const text=currentNoteText();
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const pageW=210,pageH=297,margin=18,usable=pageW-(margin*2);
-  const lines=text.split(/\r?\n/);
-  let y=27;
-  doc.setFillColor(11,46,89);doc.rect(0,0,pageW,22,'F');
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
-  doc.text('PREFEITURA DE BOM REGRESSO',margin,14);
-  doc.setDrawColor(215,169,62);doc.setLineWidth(1.2);doc.line(0,22,pageW,22);
-  doc.setTextColor(38,50,61);
-  for(let i=0;i<lines.length;i++){
-    let line=lines[i];
-    if(i===0&&line.toUpperCase().includes('PREFEITURA MUNICIPAL'))continue;
-    if(/^=+$/.test(line.trim()))continue;
-    const isTitle=i<6&&line.trim()&&line===line.toUpperCase()&&!line.includes(':');
-    doc.setFont('helvetica',isTitle?'bold':'normal');
-    doc.setFontSize(isTitle?14:10.5);
-    if(isTitle){y+=3;doc.setTextColor(11,46,89)}else{doc.setTextColor(38,50,61)}
-    const wrapped=line?doc.splitTextToSize(line,usable):[''];
-    const lineH=isTitle?6.5:5.4;
-    for(const part of wrapped){
-      if(y>pageH-22){
-        doc.addPage();y=20;
-        doc.setDrawColor(215,169,62);doc.setLineWidth(.5);doc.line(margin,12,pageW-margin,12);
-      }
-      doc.text(String(part),margin,y);y+=lineH;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+  const pageW=210,pageH=297,left=16,right=16,usable=pageW-left-right;
+  const navy=[11,46,89],gold=[215,169,62],ink=[32,43,55],muted=[94,108,122],line=[218,225,232],soft=[247,249,251];
+  const title=noteTypeLabel(val('noteType'));
+  const docNo=noteDocumentNumber();
+  const issued=new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+  const rows=parseNoteRows(text);
+
+  function header(){
+    doc.setFillColor(...navy);doc.rect(0,0,pageW,27,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15.5);
+    doc.text('PREFEITURA DE BOM REGRESSO',left,12.5);
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    doc.text('SISTEMA MUNICIPAL INTEGRADO',left,18.5);
+    doc.setFillColor(...gold);doc.rect(0,27,pageW,1.4,'F');
+  }
+  function footer(page,total){
+    doc.setDrawColor(...line);doc.setLineWidth(.3);doc.line(left,pageH-16,pageW-right,pageH-16);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...muted);
+    doc.text('Documento fictício • Sistema Municipal Integrado de Bom Regresso',left,pageH-10);
+    doc.text(`Página ${page} de ${total}`,pageW-right,pageH-10,{align:'right'});
+  }
+  function addPage(){
+    doc.addPage();header();return 40;
+  }
+
+  header();
+  let y=38;
+
+  // Bloco principal do documento.
+  doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(16);
+  doc.text(title,left,y);
+  y+=7;
+  doc.setDrawColor(...gold);doc.setLineWidth(.8);doc.line(left,y,pageW-right,y);
+  y+=8;
+
+  // Número e emissão.
+  const metaW=(usable-6)/2;
+  doc.setFillColor(...soft);doc.roundedRect(left,y,metaW,18,2,2,'F');
+  doc.roundedRect(left+metaW+6,y,metaW,18,2,2,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...muted);
+  doc.text('Nº DO DOCUMENTO',left+5,y+6);
+  doc.text('EMISSÃO',left+metaW+11,y+6);
+  doc.setFontSize(11.5);doc.setTextColor(...ink);
+  doc.text(docNo,left+5,y+13);
+  doc.text(issued,left+metaW+11,y+13);
+  y+=26;
+
+  // Corpo em linhas de "nota".
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i];
+    if(!row.label){
+      const para=doc.splitTextToSize(row.value,usable-10);
+      const h=Math.max(13,para.length*5+7);
+      if(y+h>pageH-23)y=addPage();
+      doc.setFillColor(...soft);doc.roundedRect(left,y,usable,h,2,2,'F');
+      doc.setFont('helvetica','normal');doc.setFontSize(10.5);doc.setTextColor(...ink);
+      doc.text(para,left+5,y+7);
+      y+=h+4;continue;
     }
+
+    const labelW=49;
+    const valueW=usable-labelW-8;
+    const wrapped=doc.splitTextToSize(row.value||'-',valueW);
+    const h=Math.max(12,wrapped.length*5+7);
+    if(y+h>pageH-23)y=addPage();
+
+    if(i%2===0){doc.setFillColor(...soft);doc.roundedRect(left,y,usable,h,1.5,1.5,'F')}
+    doc.setDrawColor(...line);doc.setLineWidth(.25);doc.line(left,y+h,pageW-right,y+h);
+
+    doc.setFont('helvetica','bold');doc.setFontSize(9.2);doc.setTextColor(...navy);
+    doc.text(String(row.label).toUpperCase(),left+4,y+7);
+
+    doc.setFont('helvetica','normal');doc.setFontSize(10.8);doc.setTextColor(...ink);
+    doc.text(wrapped,left+labelW+4,y+7);
+
+    y+=h;
   }
-  doc.setFont('helvetica','italic');doc.setFontSize(8.5);doc.setTextColor(100,112,124);
-  const footer='Documento fictício gerado pelo Sistema Municipal Integrado de Bom Regresso.';
+
+  // Faixa inferior da nota.
+  y+=8;
+  if(y+20>pageH-23)y=addPage();
+  doc.setDrawColor(...line);doc.setFillColor(252,252,252);doc.roundedRect(left,y,usable,18,2,2,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...navy);
+  doc.text('DOCUMENTO GERADO PELO SISTEMA MUNICIPAL INTEGRADO',left+5,y+6.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...muted);
+  doc.text('Uso fictício da Prefeitura de Bom Regresso.',left+5,y+12.5);
+
   const pages=doc.getNumberOfPages();
-  for(let p=1;p<=pages;p++){
-    doc.setPage(p);
-    doc.text(footer,margin,pageH-10);
-    doc.text(`Página ${p} de ${pages}`,pageW-margin,pageH-10,{align:'right'});
-  }
+  for(let p=1;p<=pages;p++){doc.setPage(p);footer(p,pages)}
   return doc.output('blob');
 }
 function triggerBlobDownload(blob,name){
