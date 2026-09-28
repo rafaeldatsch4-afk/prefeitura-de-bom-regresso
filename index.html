@@ -1527,13 +1527,19 @@ html[data-appearance="dark"] .chat-record-status.lock-ready,html[data-appearance
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.5.0';
+const APP_VERSION='1.5.1';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
 let avatarDraft={image:'',emoji:''};
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
 const DATA_NAMESPACE='v2';
+const FEDERATION_PROTOCOL='bom-regresso-federation';
+const FEDERATION_VERSION=1;
+const SYSTEM_ID='prefeitura-bom-regresso';
+const SYSTEM_SCOPE='municipal';
+const MUNICIPALITY_ID='bom-regresso';
+const PARENT_STATE_ID='';
 const PASSWORD_SCHEMA_VERSION=2;
 const FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
@@ -1686,12 +1692,13 @@ async function initCloud(){
     profileSecretsCollection=fbStore.collection('profileSecrets_'+DATA_NAMESPACE);
     const snap=await cloudDoc.get(),legacyCarriers=snap.exists?(snap.data().carriers||[]):[];
     if(snap.exists)applyCloud(snap.data());else await cloudDoc.set(cloudPayload());
+    ensureMunicipalProfileMetadata();
     for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
     persistLocal();
-    cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();await startPushInfrastructure();
+    cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();await startPushInfrastructure();await publishIntegrationDescriptor();
     cloudUnsub=cloudDoc.onSnapshot(s=>{
       if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);
-      const before=JSON.stringify(cloudPayload());applyCloud(data);
+      const before=JSON.stringify(cloudPayload());applyCloud(data);ensureMunicipalProfileMetadata();
       for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
       persistLocal();
       const after=JSON.stringify(cloudPayload());
@@ -1730,6 +1737,104 @@ function isPasswordProtectedProfile(profile){return ['Prefeito','Vice-prefeito',
 function roleDepartment(role){if(role==='RH')return'RH';if(role==='Secretário da Agricultura')return'Agricultura';if(role==='Motorista')return'Frota / Transportes';if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';return'Geral'}
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
+function governmentLevelForRole(role){
+  if(['Presidente','Vice-presidente'].includes(role))return'national';
+  if(['Governador','Vice-governador'].includes(role))return'state';
+  return'municipal'
+}
+function stampMunicipalProfile(profile){
+  if(!profile)return profile;
+  if(!profile.sourceSystem)profile.sourceSystem=SYSTEM_ID;
+  if(!profile.governmentLevel)profile.governmentLevel=governmentLevelForRole(profile.role);
+  if(!profile.jurisdictionId)profile.jurisdictionId=MUNICIPALITY_ID;
+  if(profile.parentJurisdictionId===undefined)profile.parentJurisdictionId=PARENT_STATE_ID;
+  return profile
+}
+function ensureMunicipalProfileMetadata(){
+  let changed=false;
+  for(const p of (db.operators||[])){
+    const before=JSON.stringify([p.sourceSystem,p.governmentLevel,p.jurisdictionId,p.parentJurisdictionId]);
+    stampMunicipalProfile(p);
+    if(before!==JSON.stringify([p.sourceSystem,p.governmentLevel,p.jurisdictionId,p.parentJurisdictionId]))changed=true
+  }
+  if(changed)persistLocal()
+}
+function municipalIntegrationDescriptor(){
+  return {
+    protocol:FEDERATION_PROTOCOL,
+    protocolVersion:FEDERATION_VERSION,
+    system:{
+      id:SYSTEM_ID,name:'Prefeitura de Bom Regresso',scope:SYSTEM_SCOPE,appVersion:APP_VERSION,
+      municipalityId:MUNICIPALITY_ID,parentStateId:PARENT_STATE_ID||null
+    },
+    hierarchy:{
+      roles:['Presidente','Vice-presidente','Governador','Vice-governador','Prefeito','Vice-prefeito','RH','Secretário da Agricultura','Motorista','Servidor / Outro'],
+      localRoles:ROLE_OPTIONS.slice(),
+      exclusiveLocalRoles:['Prefeito','Vice-prefeito','RH']
+    },
+    profileSchema:{
+      id:'string',name:'string',role:'string',sector:'string?',jurisdictionId:'string',
+      parentJurisdictionId:'string?',governmentLevel:'national|state|municipal',sourceSystem:'string'
+    },
+    data:{
+      firebaseProjectId:FIREBASE_CONFIG.projectId,
+      mainDocument:`municipio/dados_${DATA_NAMESPACE}`,
+      carriersCollection:`carriers_${DATA_NAMESPACE}`,
+      chatCollection:`chatMessages_${DATA_NAMESPACE}`,
+      mediaCollection:`chatMedia_${DATA_NAMESPACE}`,
+      profileSecretsCollection:`profileSecrets_${DATA_NAMESPACE}`
+    },
+    modules:['home','chat','users','activity','agri','licit','hr','contracts','finance','fleet','notes'],
+    bridge:{global:'BomRegressoMunicipalBridge',readyEvent:'bomregresso:municipal-ready',manifest:'/integration-manifest.json'}
+  }
+}
+function federatedProfileCompatibility(profile){
+  if(!profile?.role)return{accepted:false,reason:'Perfil sem cargo'};
+  const role=profile.role,level=governmentLevelForRole(role);
+  if(level==='national')return{accepted:true,level,access:'all'};
+  if(level==='state')return{accepted:true,level,access:'state',requiresParentStateMatch:true};
+  const jurisdiction=profile.jurisdictionId||MUNICIPALITY_ID;
+  return{accepted:jurisdiction===MUNICIPALITY_ID,level:'municipal',access:'municipal',municipalityId:jurisdiction}
+}
+async function publishIntegrationDescriptor(){
+  if(!fbStore)return;
+  try{
+    await fbStore.collection('integrationRegistry_'+DATA_NAMESPACE).doc(SYSTEM_ID).set(
+      Object.assign({},municipalIntegrationDescriptor(),{updatedAt:nowISO()}),{merge:true}
+    )
+  }catch(err){console.error('Registro de integração:',err)}
+}
+function installMunicipalIntegrationBridge(){
+  ensureMunicipalProfileMetadata();
+  const bridge={
+    protocol:FEDERATION_PROTOCOL,version:FEDERATION_VERSION,systemId:SYSTEM_ID,scope:SYSTEM_SCOPE,
+    describe:()=>cloneData(municipalIntegrationDescriptor()),
+    currentProfile:()=>cloneData(currentProfile()),
+    compatibility:profile=>cloneData(federatedProfileCompatibility(profile)),
+    snapshot:()=>cloneData({
+      operators:db.operators||[],machinery:db.machinery||[],implements:db.implements||[],
+      appointments:db.appointments||[],licitations:db.licitations||[],employees:db.employees||[],
+      payments:db.payments||[],contracts:db.contracts||[],finance:db.finance||[],
+      trucks:db.trucks||[],trips:db.trips||[],carriers:db.carriers||[]
+    }),
+    navigate:(target='home',targetSub='')=>{if(!canPage(target))return false;go(target,targetSub||'');return true}
+  };
+  window.BomRegressoMunicipalBridge=Object.freeze(bridge);
+  try{window.dispatchEvent(new CustomEvent('bomregresso:municipal-ready',{detail:bridge.describe()}))}catch{}
+}
+function installFederationDiscoveryListener(){
+  window.addEventListener('message',event=>{
+    const msg=event.data;
+    if(!msg||msg.protocol!==FEDERATION_PROTOCOL||msg.type!=='DISCOVER_MUNICIPAL_SYSTEM')return;
+    try{
+      event.source?.postMessage({
+        protocol:FEDERATION_PROTOCOL,type:'MUNICIPAL_SYSTEM_DESCRIPTOR',requestId:msg.requestId||'',
+        payload:municipalIntegrationDescriptor()
+      },event.origin)
+    }catch(err){console.error('Handshake de integração:',err)}
+  })
+}
+
 function isRHProfile(profile){return (profile?.role||'')==='RH'}
 function bytesToBase64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)}
 function base64ToBytes(s){const bin=atob(String(s||''));return Uint8Array.from(bin,ch=>ch.charCodeAt(0))}
@@ -2895,12 +3000,20 @@ function accessDenied(){toast('Seu cargo não possui acesso a esta função.');r
 function requireAction(action){return canAction(action)||accessDenied()}
 function requireFull(){return isFullAccess()||accessDenied()}
 function syncOperatorEmployee(o,oldName=''){
-  if(!o)return;db.employees=db.employees||[];
+  if(!o)return;
+  stampMunicipalProfile(o);
+  db.employees=db.employees||[];
   const norm=s=>String(s||'').trim().toLocaleLowerCase('pt-BR');
   let e=db.employees.find(x=>x.operatorId===o.id);
   if(!e)e=db.employees.find(x=>!x.operatorId&&norm(x.name)===norm(oldName||o.name));
-  if(!e){e={id:uid(),operatorId:o.id,name:o.name,role:o.role||'Servidor / Outro',department:roleDepartment(o.role),admission:todayBR(),status:o.active===false?'Inativo':'Ativo',notes:'Cadastro criado automaticamente a partir do perfil de acesso.',createdAt:nowISO()};db.employees.push(e)}
-  else{e.operatorId=o.id;e.name=o.name;e.role=o.role||'Servidor / Outro';e.department=roleDepartment(o.role);if(o.active===false)e.status='Inativo';else if(!e.status||e.status==='Inativo')e.status='Ativo';e.updatedAt=nowISO()}
+  if(!e){
+    e={id:uid(),operatorId:o.id,name:o.name,role:o.role||'Servidor / Outro',department:roleDepartment(o.role),admission:todayBR(),status:o.active===false?'Inativo':'Ativo',notes:'Cadastro criado automaticamente a partir do perfil de acesso.',createdAt:nowISO(),jurisdictionId:o.jurisdictionId||MUNICIPALITY_ID,parentJurisdictionId:o.parentJurisdictionId||PARENT_STATE_ID,governmentLevel:o.governmentLevel||'municipal',sourceSystem:o.sourceSystem||SYSTEM_ID};
+    db.employees.push(e)
+  }else{
+    e.operatorId=o.id;e.name=o.name;e.role=o.role||'Servidor / Outro';e.department=roleDepartment(o.role);
+    e.jurisdictionId=o.jurisdictionId||MUNICIPALITY_ID;e.parentJurisdictionId=o.parentJurisdictionId||PARENT_STATE_ID;e.governmentLevel=o.governmentLevel||'municipal';e.sourceSystem=o.sourceSystem||SYSTEM_ID;
+    if(o.active===false)e.status='Inativo';else if(!e.status||e.status==='Inativo')e.status='Ativo';e.updatedAt=nowISO()
+  }
 }
 function linkedProfileEmployee(operator){if(!operator)return null;return db.employees.find(e=>e.operatorId===operator.id)||null}
 function syncAllProfileEmployees(){db.employees=db.employees||[];for(const o of (db.operators||[]))syncOperatorEmployee(o)}
@@ -3875,6 +3988,8 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;toast('Prefeitura de Bom Regresso instalada.')});
 registerAutoUpdatingServiceWorker();
+installFederationDiscoveryListener();
+installMunicipalIntegrationBridge();
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='OPEN_CHAT'&&db.currentOperatorId)go('chat')});
 initCloud();
 })();
