@@ -1186,7 +1186,7 @@ html[data-appearance="dark"] .chat-file-card{background:#17232C;color:#F0F4F7}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.1.1';
+const APP_VERSION='1.1.2';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1417,7 +1417,8 @@ async function verifyRHLogin(id){
   }catch(err){console.error(err);toast('Não foi possível verificar a senha.')}
 }
 function completeRHLogin(p){
-  db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();page='home';sub='';pushAppHistory('home','');render();
+  db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();
+  page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();
   if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
 function changeMyRHPassword(){
@@ -1931,7 +1932,9 @@ function saveOperatorRoleAndEnter(id){
   if(!validateRoleSlot(role,o.id))return;
   o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);save();closeModal();
   if(isPasswordProtectedProfile(o)&&!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
-  db.currentOperator=o.name;db.currentOperatorId=o.id;page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')
+  db.currentOperator=o.name;db.currentOperatorId=o.id;
+  page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();toast('Perfil atualizado.');
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
 function shade(hex,percent){const h=safeHex(hex,'#0B2E59').slice(1),n=parseInt(h,16),amt=Math.round(2.55*percent),r=Math.max(0,Math.min(255,(n>>16)+amt)),g=Math.max(0,Math.min(255,((n>>8)&255)+amt)),b=Math.max(0,Math.min(255,(n&255)+amt));return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -2142,7 +2145,8 @@ function enter(){
     if(!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
     rhPasswordLoginModal(o.id);return
   }
-  db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();page='home';sub='';pushAppHistory('home','');render();
+  db.currentOperator=o.name;db.currentOperatorId=o.id;syncOperatorEmployee(o);save();
+  page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();
   if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
 function logout(){db.currentOperator='';db.currentOperatorId='';persistLocal();history.pushState({brApp:true,view:'login',guard:true},'',location.href);loginScreen()}
