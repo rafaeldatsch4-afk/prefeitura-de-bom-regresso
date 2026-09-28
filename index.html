@@ -1527,7 +1527,7 @@ html[data-appearance="dark"] .chat-record-status.lock-ready,html[data-appearance
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.4.3';
+const APP_VERSION='1.5.0';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -2118,12 +2118,18 @@ function getChatNotifySettings(){
 }
 async function setChatNotifySetting(key,value){
   const s=getChatNotifySettings();s[key]=!!value;localStorage.setItem(CHAT_NOTIFY_SETTINGS_KEY,JSON.stringify(s));
-  if(key==='enabled'){
-    if(value){
-      if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
-    }else{
-      await unregisterChatPushDevice()
+  if(key==='enabled'&&!value){await unregisterChatPushDevice();return}
+  if(s.enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    if(pushTokensCollection&&db.currentOperatorId){
+      try{
+        await pushTokensCollection.doc(pushDeviceId()).set({
+          operatorId:db.currentOperatorId,operatorName:db.currentOperator,notificationsEnabled:true,
+          previewEnabled:s.preview!==false,soundEnabled:s.sound!==false,vibrateEnabled:s.vibrate!==false,
+          updatedAt:nowISO(),appVersion:APP_VERSION
+        },{merge:true})
+      }catch{}
     }
+    ensurePushRegistration(false)
   }
 }
 async function unregisterChatPushDevice(){
@@ -2219,7 +2225,10 @@ async function ensurePushRegistration(askPermission=true){
   try{
     let permission=Notification.permission;
     if(permission==='default'&&askPermission)permission=await Notification.requestPermission();
-    if(permission!=='granted'){if(askPermission)toast('As notificações estão bloqueadas no navegador.');return false}
+    if(permission!=='granted'){
+      if(askPermission)toast(permission==='denied'?'Notificações bloqueadas. Libere nas configurações do navegador/aplicativo.':'Notificações não foram autorizadas.');
+      return false
+    }
     if(!pushVapidPublicKey)await loadPushConfig();
     if(!messaging){try{messaging=firebase.messaging()}catch{return false}}
     const reg=await navigator.serviceWorker.ready;
@@ -2234,17 +2243,20 @@ async function ensurePushRegistration(askPermission=true){
       return true
     }
     if(!token)return true;
-    const p=currentProfile();if(!p)return false;
+    const p=currentProfile();if(!p||!pushTokensCollection)return false;
     await pushTokensCollection.doc(pushDeviceId()).set({
       token,operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',
-      updatedAt:nowISO(),platform:navigator.platform||'',standalone:isStandalone(),notificationsEnabled:true
+      updatedAt:nowISO(),lastRegisteredAt:nowISO(),platform:navigator.platform||'',
+      standalone:isStandalone(),notificationsEnabled:true,
+      previewEnabled:prefs.preview!==false,soundEnabled:prefs.sound!==false,vibrateEnabled:prefs.vibrate!==false,
+      appVersion:APP_VERSION
     },{merge:true});
     lastPushOperatorId=p.id;
-    if(askPermission)toast(pushBackendConfigured?'🔔 Notificações push ativadas.':'🔔 Notificações locais ativadas; servidor push ainda não está configurado.');
+    if(askPermission)toast(pushBackendConfigured?'🔔 Notificações completas ativadas.':'🔔 Notificações ativadas neste aparelho.');
     return true
   }catch(err){
     console.error('Registrar push:',err);
-    if(askPermission)toast(Notification.permission==='granted'?'Notificação local ativada; o push em segundo plano ainda precisa da configuração do servidor.':'Não foi possível ativar as notificações.');
+    if(askPermission)toast(Notification.permission==='granted'?'Notificação local ativada; o push com app fechado ainda não respondeu.':'Não foi possível ativar as notificações.');
     return Notification.permission==='granted'
   }finally{pushRegistering=false}
 }
@@ -2252,13 +2264,26 @@ async function sendChatPush(msg){
   if(!pushBackendConfigured||!pushTokensCollection||!fbAuth?.currentUser)return;
   try{
     const snap=await pushTokensCollection.get();
-    const tokens=[...new Set(snap.docs.map(d=>d.data()).filter(x=>x?.token&&x.notificationsEnabled!==false&&x.operatorId!==msg.senderId).map(x=>x.token))].slice(0,50);
-    if(!tokens.length)return;
+    const recipients=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x?.token&&x.notificationsEnabled!==false&&x.operatorId!==msg.senderId);
+    if(!recipients.length)return;
     const idToken=await fbAuth.currentUser.getIdToken();
     const attachmentLabel=msg.attachment?.kind==='image'?'📷 Imagem':msg.attachment?.kind==='audio'?'🎙️ Mensagem de voz':msg.attachment?'📎 Arquivo':'';
-    const body=(msg.text||attachmentLabel||'Nova mensagem').slice(0,180);
-    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({tokens,title:'💬 '+msg.senderName,body,data:{type:'chat',messageId:msg.id||'',senderId:msg.senderId||''}})});
-    if(!r.ok){const t=await r.text().catch(()=>String(r.status));console.warn('Push não enviado:',r.status,t)}
+    const fullBody=(msg.text||attachmentLabel||'Nova mensagem').slice(0,180);
+    const groups=new Map();
+    for(const r of recipients.slice(0,50)){
+      const preview=r.previewEnabled!==false,sound=r.soundEnabled!==false,vibrate=r.vibrateEnabled!==false;
+      const key=[preview?'1':'0',sound?'1':'0',vibrate?'1':'0'].join('');
+      if(!groups.has(key))groups.set(key,{tokens:[],preview,sound,vibrate});
+      groups.get(key).tokens.push(r.token)
+    }
+    for(const g of groups.values()){
+      const body=g.preview?fullBody:'Nova mensagem no Chat da Prefeitura';
+      const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({
+        tokens:g.tokens,title:'💬 '+msg.senderName,body,
+        data:{type:'chat',messageId:msg.id||'',senderId:msg.senderId||'',sound:g.sound?'1':'0',vibrate:g.vibrate?'1':'0',preview:g.preview?'1':'0'}
+      })});
+      if(!r.ok){const t=await r.text().catch(()=>String(r.status));console.warn('Push não enviado:',r.status,t)}
+    }
   }catch(err){console.warn('Push do chat:',err)}
 }
 async function testPushBackend(){
@@ -2270,9 +2295,20 @@ async function testPushBackend(){
 }
 async function showPushDiagnostics(){
   let backend='Indisponível',configured=false;
-  try{const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();configured=!!j.configured;pushBackendConfigured=configured;backend=configured?'Configurado':'Falta credencial do Firebase na Vercel'}catch{pushBackendConfigured=false}
-  const tokenState=lastPushOperatorId===db.currentOperatorId?'Registrado':'Ainda não registrado neste aparelho';
-  showModal('Diagnóstico das notificações',`<div class="push-diag"><div><small>Permissão do aparelho</small><b>${esc(notificationPermissionLabel())}</b></div><div><small>Token FCM deste aparelho</small><b>${esc(tokenState)}</b></div><div><small>Chave Web Push</small><b>${pushVapidPublicKey?'Configurada':'Usando padrão do Firebase'}</b></div><div><small>Servidor de envio</small><b class="${configured?'s-ok':'s-warn'}">${esc(backend)}</b></div></div><div class="actions"><button class="btn btn-primary" onclick="App.requestChatNotifications()">Registrar novamente</button><button class="btn btn-secondary" onclick="App.testChatNotification()">Testar notificação</button></div>`)
+  try{
+    const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();
+    configured=!!j.configured;pushBackendConfigured=configured;
+    backend=configured?'Pronto para enviar com o app fechado':'Falta credencial privada do Firebase na Vercel'
+  }catch{pushBackendConfigured=false}
+  const prefs=getChatNotifySettings(),tokenState=lastPushOperatorId===db.currentOperatorId?'Registrado para este perfil':'Ainda não registrado neste aparelho';
+  showModal('Diagnóstico das notificações',`<div class="push-diag">
+    <div><small>Permissão do aparelho</small><b>${esc(notificationPermissionLabel())}</b></div>
+    <div><small>Aplicativo instalado</small><b>${isStandalone()?'Sim — modo aplicativo':'Não / aberto no navegador'}</b></div>
+    <div><small>Token FCM deste aparelho</small><b>${esc(tokenState)}</b></div>
+    <div><small>Chave Web Push</small><b>${pushVapidPublicKey?'Configurada':'Padrão do Firebase / não informada'}</b></div>
+    <div><small>Servidor para app fechado</small><b class="${configured?'s-ok':'s-warn'}">${esc(backend)}</b></div>
+    <div><small>Preferências</small><b>${prefs.preview?'Prévia':''}${prefs.preview&&prefs.sound?' • ':''}${prefs.sound?'Som':''}${prefs.vibrate?' • Vibração':''}</b></div>
+  </div><div class="actions"><button class="btn btn-primary" onclick="App.requestChatNotifications()">Registrar novamente</button><button class="btn btn-secondary" onclick="App.testChatNotification()">Testar notificação</button></div>`)
 }
 function markChatRead(){
   if(!db.currentOperatorId){chatUnread=0;updateChatBadges();return}
@@ -3112,9 +3148,10 @@ async function enter(){
   page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'home';sub='';pushAppHistory(page,'');render();
   if(typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)
 }
-function logout(){
+async function logout(){
   const p=currentProfile();
   if(p&&chatPresenceCollection)chatPresenceCollection.doc(p.id).set({typing:false,lastSeen:nowISO(),operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro'},{merge:true}).catch(()=>{});
+  await unregisterChatPushDevice();
   db.currentOperator='';db.currentOperatorId='';persistLocal();history.pushState({brApp:true,view:'login',guard:true},'',location.href);loginScreen()
 }
 function navItems(){return[
