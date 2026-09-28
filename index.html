@@ -1314,6 +1314,23 @@ html[data-appearance="dark"] .chat-info-members>button{background:#17232C}
   .chat-message-menu{min-width:30px!important;min-height:30px!important}
 }
 
+
+/* Gravador de voz — toque, segure, deslize e solte */
+.chat-mic-btn{touch-action:none!important;user-select:none!important;-webkit-user-select:none!important}
+.chat-mic-btn.recording{background:#C33A3A!important;color:#fff!important;transform:scale(1.08);box-shadow:0 0 0 7px rgba(195,58,58,.12),0 4px 14px rgba(120,20,20,.24)!important}
+.chat-record-status{min-height:48px;padding:7px 11px;gap:10px}
+.chat-record-main{display:flex;align-items:center;gap:8px;min-width:0}.chat-record-main>b{font-variant-numeric:tabular-nums;font-size:12px;color:#B33131}
+.chat-record-hint{font-size:10px;color:var(--muted);white-space:nowrap}
+.chat-record-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-left:auto}.chat-record-gesture-hint{font-size:9px;color:#768691;white-space:nowrap}
+.chat-record-cancel-btn{padding:5px 7px!important;border-radius:8px!important}
+.chat-record-status.cancel-ready{background:#FCE8E8!important}.chat-record-status.cancel-ready .chat-record-hint{color:#B3261E;font-weight:900}
+.chat-record-status.lock-ready{background:#E8F2FA!important}.chat-record-status.lock-ready .chat-record-hint{color:#0B5D85;font-weight:900}
+.chat-record-status.locked{background:#EDF4F8!important}.chat-record-status.locked .chat-record-hint{color:#34596D;font-weight:900}
+html[data-appearance="dark"] .chat-record-status.cancel-ready{background:#3A2024!important}
+html[data-appearance="dark"] .chat-record-status.lock-ready,html[data-appearance="dark"] .chat-record-status.locked{background:#18313F!important}
+@media(max-width:760px){.chat-record-status{padding:7px 9px;min-height:50px}.chat-record-actions{gap:6px}.chat-record-gesture-hint{font-size:8.5px}.chat-record-hint{max-width:145px;overflow:hidden;text-overflow:ellipsis}}
+@media(max-width:390px){.chat-record-gesture-hint{display:none}.chat-record-hint{max-width:155px}}
+
 @media print{.sidebar,.topbar,.mobile-nav,.actions,.tabs,.no-print{display:none!important}.shell{display:block}.content{padding:0}.panel,.card{box-shadow:none}.note{border:0;min-height:auto}}
 
 /* Ajustes mobile — painel municipal */
@@ -1510,7 +1527,7 @@ html[data-appearance="dark"] .chat-info-members>button{background:#17232C}
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.4.2';
+const APP_VERSION='1.4.3';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1532,7 +1549,8 @@ let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='',pushBacken
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_v2';
 const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_v2_';
 const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_v2';
-let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false;
+let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false,chatRecordingSendOnStop=false;
+let chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false};
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0,chatSending=false;
 const chatMediaCache=new Map();let chatMediaObserver=null;
 let chatPresenceCollection=null,chatPresenceUnsub=null,chatPresence=[],chatTypingTimer=null,chatPresenceTimer=null;
@@ -2022,7 +2040,7 @@ function chatFileSize(n){
 }
 function chatAttachmentMeta(a){
   if(!a)return null;
-  return {kind:a.kind||'file',name:String(a.name||'Anexo').slice(0,120),type:String(a.type||'application/octet-stream').slice(0,120),size:Number(a.size||0)}
+  return {kind:a.kind||'file',name:String(a.name||'Anexo').slice(0,120),type:String(a.type||'application/octet-stream').slice(0,120),size:Number(a.size||0),duration:Number(a.duration||0)||0}
 }
 async function storeChatMedia(a,owner){
   if(!a?.dataUrl||!chatMediaCollection)return {attachment:a,mediaId:''};
@@ -2423,11 +2441,10 @@ function scrollChatBottom(){const root=document.getElementById('chatMessages');i
 function chatAutoGrow(el){if(!el)return;el.style.height='auto';el.style.height=Math.min(116,Math.max(40,el.scrollHeight))+'px'}
 function updateChatComposerState(){
   const input=document.getElementById('chatInput'),send=document.querySelector('.chat-send-btn'),mic=document.getElementById('chatMicBtn');
-  const has=!!String(input?.value||'').trim()||!!chatPendingAttachment||!!chatReplyTarget;
-  if(send)send.classList.toggle('hidden',!has);
-  if(mic)mic.classList.toggle('hidden',has);
+  const hasContent=!!String(input?.value||'').trim()||!!chatPendingAttachment;
+  if(send)send.classList.toggle('hidden',!hasContent);
+  if(mic)mic.classList.toggle('hidden',hasContent);
 }
-
 function toggleChatEmoji(force){
   const panel=document.getElementById('chatEmojiPanel');if(!panel)return;
   const show=typeof force==='boolean'?force:panel.classList.contains('hidden');
@@ -2542,7 +2559,8 @@ function chatAttachmentPreviewHTML(){
   const a=chatPendingAttachment;if(!a)return '';
   const thumb=a.kind==='image'&&a.dataUrl?`<img src="${esc(a.dataUrl)}" alt="">`:`<span class="chat-pending-icon">${a.kind==='audio'?'🎙️':'📎'}</span>`;
   const kind=a.kind==='image'?'Imagem':a.kind==='audio'?'Mensagem de voz':'Arquivo';
-  return `<div class="chat-pending-card">${thumb}<div class="grow"><b>${esc(a.name||kind)}</b><small>${kind} • ${chatFileSize(a.size)}</small></div><button type="button" onclick="App.clearChatAttachment()" aria-label="Remover anexo">✕</button></div>`
+  const duration=a.kind==='audio'&&a.duration?` • ${Math.floor(a.duration/60)}:${String(a.duration%60).padStart(2,'0')}`:'';
+  return `<div class="chat-pending-card">${thumb}<div class="grow"><b>${esc(a.name||kind)}</b><small>${kind}${duration} • ${chatFileSize(a.size)}</small></div><button type="button" onclick="App.clearChatAttachment()" aria-label="Remover anexo">✕</button></div>`
 }
 function renderChatAttachmentPreview(){
   const root=document.getElementById('chatAttachmentPreview');if(root)root.innerHTML=chatAttachmentPreviewHTML();
@@ -2584,8 +2602,8 @@ function chat(c){
       <input id="chatCameraInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
       <input id="chatFileInput" type="file" class="hidden" onchange="App.chatChooseFile(this.files[0]);this.value=''">
       <div id="chatRecordStatus" class="chat-record-status hidden">
-        <span><span class="chat-record-dot"></span> Gravando <b id="chatRecordTimer">00:00</b></span>
-        <button type="button" onclick="App.cancelChatRecording()">Cancelar</button>
+        <div class="chat-record-main"><span class="chat-record-dot"></span><b id="chatRecordTimer">00:00</b><span id="chatRecordHint" class="chat-record-hint">Gravando…</span></div>
+        <div class="chat-record-actions"><span id="chatRecordCancelHint" class="chat-record-gesture-hint">← cancelar</span><span id="chatRecordLockHint" class="chat-record-gesture-hint">↑ travar</span><button type="button" class="chat-record-cancel-btn" onclick="App.cancelChatRecording()">Cancelar</button></div>
       </div>
       <footer class="chat-composer-wrap">
         <div class="chat-composer">
@@ -2594,7 +2612,11 @@ function chat(c){
             <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" onfocus="App.chatInputFocus()" oninput="App.chatInputChanged(this)" onkeydown="App.chatComposerKey(event)"></textarea>
             <button type="button" class="chat-pill-attach" onclick="App.toggleChatAttachMenu()" title="Anexar">📎</button>
           </div>
-          <button type="button" id="chatMicBtn" class="chat-round-btn chat-mic-btn" onclick="App.toggleChatRecording()" title="Mensagem de voz">🎙</button>
+          <button type="button" id="chatMicBtn" class="chat-round-btn chat-mic-btn"
+            onpointerdown="App.chatMicPointerDown(event)" onpointermove="App.chatMicPointerMove(event)"
+            onpointerup="App.chatMicPointerUp(event)" onpointercancel="App.chatMicPointerCancel(event)"
+            onkeydown="App.chatMicKeydown(event)" oncontextmenu="return false"
+            title="Toque para gravar • segure e solte para enviar">🎙</button>
           <button type="button" id="chatSendBtn" class="chat-send-btn hidden" onclick="App.sendChatMessage()" title="Enviar">➤</button>
         </div>
       </footer>
@@ -2683,34 +2705,107 @@ async function chatChooseFile(file){
 }
 function clearChatAttachment(){chatPendingAttachment=null;renderChatAttachmentPreview();updateChatComposerState()}
 async function toggleChatRecording(){
-  if(chatRecorder&&chatRecorder.state==='recording'){chatRecorder.stop();return}
-  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined')return toast('Gravação de voz não é suportada neste aparelho.');
+  if(chatRecorder?.state==='recording'){finishChatRecording(false,true);return}
+  await startChatRecording('tap')
+}
+function resetChatRecordGesture(){
+  if(chatRecordGesture.longPressTimer)clearTimeout(chatRecordGesture.longPressTimer);
+  chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false}
+}
+function setChatRecordUI(mode='tap'){
+  const status=document.getElementById('chatRecordStatus'),mic=document.getElementById('chatMicBtn'),hint=document.getElementById('chatRecordHint'),cancelHint=document.getElementById('chatRecordCancelHint'),lockHint=document.getElementById('chatRecordLockHint');
+  status?.classList.remove('hidden','cancel-ready','lock-ready','locked');mic?.classList.add('recording');
+  if(mode==='hold'){if(hint)hint.textContent='Solte para enviar';cancelHint?.classList.remove('hidden');lockHint?.classList.remove('hidden')}
+  else if(mode==='locked'){status?.classList.add('locked');if(hint)hint.textContent='Travado • toque no microfone para enviar';cancelHint?.classList.add('hidden');lockHint?.classList.add('hidden')}
+  else{if(hint)hint.textContent='Toque no microfone para enviar';cancelHint?.classList.add('hidden');lockHint?.classList.add('hidden')}
+}
+function clearChatRecordUI(){
+  document.getElementById('chatMicBtn')?.classList.remove('recording');
+  const status=document.getElementById('chatRecordStatus');status?.classList.add('hidden');status?.classList.remove('cancel-ready','lock-ready','locked');
+  const timer=document.getElementById('chatRecordTimer');if(timer)timer.textContent='00:00'
+}
+async function startChatRecording(mode='tap'){
+  if(chatRecorder?.state==='recording')return true;
+  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){toast('Gravação de voz não é suportada neste aparelho.');return false}
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});chatRecorderStream=stream;chatAudioChunks=[];chatRecordingCancelled=false;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    chatRecorderStream=stream;chatAudioChunks=[];chatRecordingCancelled=false;chatRecordingSendOnStop=false;
     const preferred=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t));
-    try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000})}catch{chatRecorder=new MediaRecorder(stream)}
+    try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000})}catch{chatRecorder=new MediaRecorder(stream)}
     chatRecorder.ondataavailable=e=>{if(e.data?.size)chatAudioChunks.push(e.data)};
     chatRecorder.onstop=async()=>{
-      clearInterval(chatRecordingTimer);chatRecordingTimer=null;chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;
-      document.getElementById('chatMicBtn')?.classList.remove('recording');document.getElementById('chatRecordStatus')?.classList.add('hidden');
-      if(chatRecordingCancelled){chatAudioChunks=[];chatRecordingCancelled=false;toast('Gravação cancelada.');return}
-      const mime=chatRecorder?.mimeType||chatAudioChunks[0]?.type||'audio/webm',blob=new Blob(chatAudioChunks,{type:mime});chatAudioChunks=[];
-      if(!blob.size)return;if(blob.size>380*1024){toast('O áudio ficou grande demais. Grave uma mensagem mais curta.');return}
-      const dataUrl=await blobToDataURL(blob);
-      chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl};renderChatAttachmentPreview();toast('Mensagem de voz pronta.')
+      clearInterval(chatRecordingTimer);chatRecordingTimer=null;chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;clearChatRecordUI();
+      const cancelled=chatRecordingCancelled,sendAfter=chatRecordingSendOnStop,duration=(Date.now()-chatRecordingStartedAt)/1000;
+      chatRecordingCancelled=false;chatRecordingSendOnStop=false;
+      const mime=chatRecorder?.mimeType||chatAudioChunks[0]?.type||'audio/webm',blob=new Blob(chatAudioChunks,{type:mime});chatAudioChunks=[];chatRecorder=null;
+      if(cancelled){toast('Gravação cancelada.');resetChatRecordGesture();return}
+      if(!blob.size||duration<0.35){toast('Áudio muito curto.');resetChatRecordGesture();return}
+      if(blob.size>520*1024){toast('A mensagem de voz ficou grande demais. Grave um áudio mais curto.');resetChatRecordGesture();return}
+      try{
+        chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl:await blobToDataURL(blob),duration:Math.round(duration)};
+        renderChatAttachmentPreview();
+        if(sendAfter)await sendChatMessage();else toast('Mensagem de voz pronta.')
+      }catch(err){console.error('Preparar áudio:',err);toast('Não foi possível preparar a mensagem de voz.')}
+      resetChatRecordGesture()
     };
-    chatRecorder.start(500);chatRecordingStartedAt=Date.now();
-    document.getElementById('chatMicBtn')?.classList.add('recording');document.getElementById('chatRecordStatus')?.classList.remove('hidden');
+    chatRecorder.start(250);chatRecordingStartedAt=Date.now();
+    if(mode==='hold'&&!chatRecordGesture.pointerDown)mode='tap';
+    chatRecordGesture.mode=mode;setChatRecordUI(mode);navigator.vibrate?.(25);
     chatRecordingTimer=setInterval(()=>{
       const sec=Math.floor((Date.now()-chatRecordingStartedAt)/1000),el=document.getElementById('chatRecordTimer');
       if(el)el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
-      if(sec>=45&&chatRecorder?.state==='recording'){toast('Limite de 45 segundos atingido.');chatRecorder.stop()}
-    },500)
-  }catch(err){console.error(err);chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;toast('Não foi possível acessar o microfone.')}
+      if(sec>=60&&chatRecorder?.state==='recording'){toast('Limite de 1 minuto atingido.');finishChatRecording(false,true)}
+    },250);
+    return true
+  }catch(err){
+    console.error('Microfone:',err);chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;chatRecorder=null;resetChatRecordGesture();
+    toast(err?.name==='NotAllowedError'?'Permita o acesso ao microfone para enviar mensagens de voz.':'Não foi possível acessar o microfone.');return false
+  }
 }
+function finishChatRecording(cancel=false,send=true){
+  if(chatRecorder?.state!=='recording')return;
+  chatRecordingCancelled=!!cancel;chatRecordingSendOnStop=!cancel&&!!send;
+  try{chatRecorder.requestData?.()}catch{};try{chatRecorder.stop()}catch{}
+}
+function chatMicPointerDown(e){
+  if(e.button!==undefined&&e.button!==0&&e.pointerType!=='touch')return;e.preventDefault();
+  try{e.currentTarget.setPointerCapture?.(e.pointerId)}catch{}
+  if(chatRecorder?.state==='recording'){chatRecordGesture.pointerId=e.pointerId;chatRecordGesture.pointerDown=true;chatRecordGesture.startX=e.clientX;chatRecordGesture.startY=e.clientY;return}
+  resetChatRecordGesture();chatRecordGesture.pointerId=e.pointerId;chatRecordGesture.pointerDown=true;chatRecordGesture.startX=e.clientX;chatRecordGesture.startY=e.clientY;
+  chatRecordGesture.longPressTimer=setTimeout(async()=>{if(chatRecordGesture.pointerDown)await startChatRecording('hold')},180)
+}
+function chatMicPointerMove(e){
+  if(!chatRecordGesture.pointerDown||chatRecordGesture.pointerId!==e.pointerId||chatRecorder?.state!=='recording'||chatRecordGesture.mode!=='hold')return;e.preventDefault();
+  const dx=e.clientX-chatRecordGesture.startX,dy=e.clientY-chatRecordGesture.startY,status=document.getElementById('chatRecordStatus'),hint=document.getElementById('chatRecordHint');
+  const cancel=dx<-72,lock=dy<-72&&!cancel;chatRecordGesture.cancelCandidate=cancel;chatRecordGesture.lockCandidate=lock;
+  status?.classList.toggle('cancel-ready',cancel);status?.classList.toggle('lock-ready',lock);
+  if(hint)hint.textContent=cancel?'Solte para cancelar':lock?'Solte para travar':'Solte para enviar'
+}
+function chatMicPointerUp(e){
+  if(chatRecordGesture.pointerId!==e.pointerId)return;e.preventDefault();
+  if(chatRecordGesture.longPressTimer){clearTimeout(chatRecordGesture.longPressTimer);chatRecordGesture.longPressTimer=null}
+  chatRecordGesture.pointerDown=false;try{e.currentTarget.releasePointerCapture?.(e.pointerId)}catch{}
+  if(chatRecorder?.state==='recording'){
+    if(chatRecordGesture.mode==='hold'){
+      if(chatRecordGesture.cancelCandidate){finishChatRecording(true,false);return}
+      if(chatRecordGesture.lockCandidate){chatRecordGesture.locked=true;chatRecordGesture.mode='locked';setChatRecordUI('locked');navigator.vibrate?.([20,35,20]);return}
+      finishChatRecording(false,true);return
+    }
+    finishChatRecording(false,true);return
+  }
+  startChatRecording('tap')
+}
+function chatMicPointerCancel(e){
+  if(chatRecordGesture.pointerId!==e.pointerId)return;
+  if(chatRecordGesture.longPressTimer){clearTimeout(chatRecordGesture.longPressTimer);chatRecordGesture.longPressTimer=null}
+  chatRecordGesture.pointerDown=false;
+  if(chatRecorder?.state==='recording'&&chatRecordGesture.mode==='hold')finishChatRecording(true,false);else resetChatRecordGesture()
+}
+function chatMicKeydown(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleChatRecording()}}
+
 function cancelChatRecording(){
-  if(chatRecorder?.state==='recording'){chatRecordingCancelled=true;chatRecorder.stop();return}
-  chatRecordingCancelled=false
+  if(chatRecorder?.state==='recording'){finishChatRecording(true,false);return}
+  chatRecordingCancelled=false;resetChatRecordGesture()
 }
 async function sendChatMessage(){
   if(chatSending)return;
@@ -3723,7 +3818,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
