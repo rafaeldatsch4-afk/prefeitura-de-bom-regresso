@@ -1120,7 +1120,7 @@ html[data-appearance="dark"] .activity-line span{background:#24333F;color:#DCE7E
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v2';
-const APP_VERSION='1.0.2';
+const APP_VERSION='1.0.3';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1259,7 +1259,23 @@ const THEME_PRESETS={
   graphite:{primary:'#263238',accent:'#C89B3C'}
 };
 const ROLE_OPTIONS=['Prefeito','Vice-prefeito','RH','Secretário da Agricultura','Motorista','Servidor / Outro'];
-function roleOptions(selected=''){return '<option value="">Selecione o cargo</option>'+ROLE_OPTIONS.map(r=>`<option value="${esc(r)}" ${r===selected?'selected':''}>${esc(r)}</option>`).join('')}
+function roleOptions(selected='',currentId=''){
+  const unique=['Prefeito','Vice-prefeito','RH'];
+  return '<option value="">Selecione o cargo</option>'+ROLE_OPTIONS.map(r=>{
+    const occupied=unique.includes(r)&&db.operators.some(o=>o.id!==currentId&&o.role===r);
+    return `<option value="${esc(r)}" ${r===selected?'selected':''} ${occupied?'disabled':''}>${esc(r)}${occupied?' — ocupado':''}</option>`
+  }).join('')
+}
+function isUniqueRole(role){return ['Prefeito','Vice-prefeito','RH'].includes(role)}
+function roleIsOccupied(role,excludeId=''){
+  return isUniqueRole(role)&&db.operators.some(o=>o.id!==excludeId&&o.role===role)
+}
+function validateRoleSlot(role,excludeId=''){
+  if(roleIsOccupied(role,excludeId)){toast(`Já existe um perfil com o cargo ${role}. Só pode haver um ${role} no sistema.`);return false}
+  return true
+}
+function isPasswordProtectedProfile(profile){return ['Prefeito','Vice-prefeito','RH'].includes(profile?.role||'')}
+
 function roleDepartment(role){if(role==='RH')return'RH';if(role==='Secretário da Agricultura')return'Agricultura';if(role==='Motorista')return'Frota / Transportes';if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';return'Geral'}
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
@@ -1275,7 +1291,7 @@ async function deriveRHPassword(password,salt,iterations=120000){
   return bytesToBase64(new Uint8Array(bits))
 }
 async function setRHPasswordForProfile(profile,password){
-  if(!profile||!isRHProfile(profile))throw new Error('Este perfil não é do RH.');
+  if(!profile||!isPasswordProtectedProfile(profile))throw new Error('Este perfil não exige senha.');
   const salt=randomSalt(),iterations=120000;
   profile.rhPasswordSalt=salt;
   profile.rhPasswordHash=await deriveRHPassword(password,salt,iterations);
@@ -1290,22 +1306,22 @@ async function verifyRHPassword(profile,password){
   return hash===profile.rhPasswordHash
 }
 function rhPasswordSetupModal(id,enterAfter=false){
-  const p=db.operators.find(x=>x.id===id);if(!p||!isRHProfile(p))return;
-  showModal('Criar senha do RH',`<div class="rh-lock-card"><div class="rh-lock-icon">🔐</div><p>Este perfil é do <b>RH</b>. Crie uma senha para proteger o acesso.</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">Salvar senha</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
+  const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
+  showModal('Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">🔐</div><p>O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">Salvar senha</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
 }
 async function saveRHPassword(id,enterAfter=false){
   const p=db.operators.find(x=>x.id===id),a=val('rhNewPassword'),b=val('rhConfirmPassword');
-  if(!p||!isRHProfile(p))return toast('Perfil do RH não encontrado.');
+  if(!p||!isPasswordProtectedProfile(p))return toast('Perfil protegido não encontrado.');
   if(String(a).length<4)return toast('A senha precisa ter pelo menos 4 caracteres.');
   if(a!==b)return toast('As senhas não conferem.');
   try{
-    await setRHPasswordForProfile(p,a);closeModal();toast('Senha do RH salva.');
+    await setRHPasswordForProfile(p,a);closeModal();toast('Senha do perfil salva.');
     if(enterAfter)completeRHLogin(p);else loginScreen()
   }catch(err){console.error(err);toast('Não foi possível salvar a senha.')}
 }
 function rhPasswordLoginModal(id){
-  const p=db.operators.find(x=>x.id===id);if(!p||!isRHProfile(p))return;
-  showModal('Senha do RH',`<div class="rh-lock-card"><div class="rh-lock-icon">🔒</div><p>Digite a senha para entrar no perfil de <b>${esc(p.name)}</b>.</p><div class="field"><label>Senha</label><input id="rhLoginPassword" type="password" autocomplete="current-password" placeholder="Senha do RH" onkeydown="if(event.key==='Enter')App.verifyRHLogin('${id}')"></div><div id="rhLoginError" class="rh-login-error hidden">Senha incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.verifyRHLogin('${id}')">Entrar</button></div></div>`,()=>document.getElementById('rhLoginPassword')?.focus())
+  const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
+  showModal('Senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">🔒</div><p>Digite a senha para entrar no perfil de <b>${esc(p.name)}</b> — ${esc(p.role)}.</p><div class="field"><label>Senha</label><input id="rhLoginPassword" type="password" autocomplete="current-password" placeholder="Senha do perfil" onkeydown="if(event.key==='Enter')App.verifyRHLogin('${id}')"></div><div id="rhLoginError" class="rh-login-error hidden">Senha incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.verifyRHLogin('${id}')">Entrar</button></div></div>`,()=>document.getElementById('rhLoginPassword')?.focus())
 }
 async function verifyRHLogin(id){
   const p=db.operators.find(x=>x.id===id),password=val('rhLoginPassword');if(!p)return;
@@ -1319,20 +1335,19 @@ function completeRHLogin(p){
   db.currentOperator=p.name;db.currentOperatorId=p.id;syncOperatorEmployee(p);save();page='home';sub='';pushAppHistory('home','');render()
 }
 function changeMyRHPassword(){
-  const p=currentProfile();if(!p||!isRHProfile(p))return;
-  showModal('Alterar senha do RH',`<div class="rh-lock-card"><div class="field"><label>Senha atual</label><input id="rhCurrentPassword" type="password" autocomplete="current-password"></div><div class="field"><label>Nova senha</label><input id="rhChangeNew" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar nova senha</label><input id="rhChangeConfirm" type="password" minlength="4" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.saveMyRHPasswordChange()"></div><div id="rhChangeError" class="rh-login-error hidden">Senha atual incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.saveMyRHPasswordChange()">Alterar senha</button></div></div>`,()=>document.getElementById('rhCurrentPassword')?.focus())
+  const p=currentProfile();if(!p||!isPasswordProtectedProfile(p))return;
+  showModal('Alterar senha do perfil',`<div class="rh-lock-card"><div class="field"><label>Senha atual</label><input id="rhCurrentPassword" type="password" autocomplete="current-password"></div><div class="field"><label>Nova senha</label><input id="rhChangeNew" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar nova senha</label><input id="rhChangeConfirm" type="password" minlength="4" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.saveMyRHPasswordChange()"></div><div id="rhChangeError" class="rh-login-error hidden">Senha atual incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.saveMyRHPasswordChange()">Alterar senha</button></div></div>`,()=>document.getElementById('rhCurrentPassword')?.focus())
 }
 async function saveMyRHPasswordChange(){
-  const p=currentProfile();if(!p||!isRHProfile(p))return;
+  const p=currentProfile();if(!p||!isPasswordProtectedProfile(p))return;
   const current=val('rhCurrentPassword'),next=val('rhChangeNew'),confirm=val('rhChangeConfirm');
   if(String(next).length<4)return toast('A nova senha precisa ter pelo menos 4 caracteres.');
   if(next!==confirm)return toast('As novas senhas não conferem.');
   try{
     if(p.rhPasswordHash&&!(await verifyRHPassword(p,current))){document.getElementById('rhChangeError')?.classList.remove('hidden');return}
-    await setRHPasswordForProfile(p,next);closeModal();toast('Senha do RH alterada.')
+    await setRHPasswordForProfile(p,next);closeModal();toast('Senha do perfil alterada.')
   }catch(err){console.error(err);toast('Não foi possível alterar a senha.')}
 }
-
 function profileAvatarHTML(profile,extraClass=''){
   const p=profile||{},cls=`profile-avatar ${extraClass}`.trim();
   if(p.avatarImage)return `<span class="${cls}"><img src="${esc(p.avatarImage)}" alt=""></span>`;
@@ -1389,7 +1404,7 @@ function applyAvatarCrop(){
 }
 function openMyProfile(){
   const p=currentProfile();if(!p)return;const s=profileStats(p),recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,5);
-  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isRHProfile(p)?'<div class="rh-profile-security">🔒 Perfil do RH protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyProfile()">✎ Editar minhas informações</button>${isRHProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
+  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isPasswordProtectedProfile(p)?'<div class="rh-profile-security">🔒 Perfil protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyProfile()">✎ Editar minhas informações</button>${isPasswordProtectedProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
 }
 function users(c){
   c.innerHTML=head('Usuários cadastrados','Visualize os perfis cadastrados no sistema. Esta área é somente para consulta.')+
@@ -1540,12 +1555,16 @@ function syncOperatorEmployee(o,oldName=''){
 function linkedProfileEmployee(operator){if(!operator)return null;return db.employees.find(e=>e.operatorId===operator.id)||null}
 function syncAllProfileEmployees(){db.employees=db.employees||[];for(const o of (db.operators||[]))syncOperatorEmployee(o)}
 
-function completeRoleModal(id){const o=db.operators.find(x=>x.id===id);if(!o)return;showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'')}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)}
+function completeRoleModal(id){
+  const o=db.operators.find(x=>x.id===id);if(!o)return;
+  showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'',o.id)}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)
+}
 function saveOperatorRoleAndEnter(id){
   const o=db.operators.find(x=>x.id===id),role=val('completeRole');
   if(!o||!role)return toast('Selecione o cargo.');
+  if(!validateRoleSlot(role,o.id))return;
   o.role=role;o.updatedAt=nowISO();syncOperatorEmployee(o);save();closeModal();
-  if(isRHProfile(o)&&!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
+  if(isPasswordProtectedProfile(o)&&!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
   db.currentOperator=o.name;db.currentOperatorId=o.id;page='home';sub='';pushAppHistory('home','');render();toast('Perfil atualizado.')
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
@@ -1693,26 +1712,33 @@ function addOperator(){
 }
 function saveOperator(){
   if(db.currentOperator&&!isFullAccess())return accessDenied();
-  const name=val('opName'),role=val('opRole');if(!name)return toast('Digite o nome do operador.');if(!role)return toast('Selecione o cargo.');
+  const name=val('opName'),role=val('opRole');
+  if(!name)return toast('Digite o nome do operador.');
+  if(!role)return toast('Selecione o cargo.');
+  if(!validateRoleSlot(role))return;
   const o={id:uid(),name,role,avatarImage:avatarDraft.image||'',avatarEmoji:avatarDraft.emoji||'',active:true,createdAt:nowISO()};
   db.operators.push(o);syncOperatorEmployee(o);recordActivity('users','Cadastro',`${db.currentOperator||name} cadastrou o perfil de ${name} (${role}).`);save();closeModal();
-  if(isRHProfile(o)){rhPasswordSetupModal(o.id,false);return}
+  if(isPasswordProtectedProfile(o)){rhPasswordSetupModal(o.id,false);return}
   loginScreen();toast('Operador cadastrado e incluído no RH.')
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isRHProfile(o)?`<span class="rh-password-badge">${o.rhPasswordHash?'🔒 Protegido':'🔓 Sem senha'}</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">${o.rhPasswordHash?'🔒 Protegido':'🔓 Sem senha'}</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
   if(!requireFull())return;const o=db.operators.find(x=>x.id===id);if(!o)return;
-  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'')}</select></div>${avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
+  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
 }
 function saveRenameOperator(id){
   if(!requireFull())return;
-  const o=db.operators.find(x=>x.id===id),name=val('renameOp'),role=val('renameRole');if(!o||!name)return toast('Digite o nome.');if(!role)return toast('Selecione o cargo.');
-  const old=o.name,oldRole=o.role;o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
-  if(oldRole==='RH'&&role!=='RH'){delete o.rhPasswordSalt;delete o.rhPasswordHash;delete o.rhPasswordIterations;delete o.rhPasswordUpdatedAt}
+  const o=db.operators.find(x=>x.id===id),name=val('renameOp'),role=val('renameRole');
+  if(!o||!name)return toast('Digite o nome.');
+  if(!role)return toast('Selecione o cargo.');
+  if(!validateRoleSlot(role,o.id))return;
+  const old=o.name,oldRole=o.role;
+  o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
+  if(isUniqueRole(oldRole)&&!isPasswordProtectedProfile(o)){delete o.rhPasswordSalt;delete o.rhPasswordHash;delete o.rhPasswordIterations;delete o.rhPasswordUpdatedAt}
   if(db.currentOperatorId===o.id||db.currentOperator===old){db.currentOperator=name;db.currentOperatorId=o.id}
   syncOperatorEmployee(o,old);recordActivity('users','Edição',`${db.currentOperator} editou o perfil de ${old} para ${name} (${role}).`);save();closeModal();render();toast('Perfil e cadastro do RH atualizados.')
 }
@@ -1745,7 +1771,7 @@ function removeOperatorProfile(id){
 function enter(){
   const id=val('loginOp'),o=db.operators.find(x=>x.id===id);if(!o)return;
   if(!o.role){completeRoleModal(o.id);return}
-  if(isRHProfile(o)){
+  if(isPasswordProtectedProfile(o)){
     if(!o.rhPasswordHash){rhPasswordSetupModal(o.id,true);return}
     rhPasswordLoginModal(o.id);return
   }
