@@ -1,5 +1,5 @@
-const CACHE='bom-regresso-pwa-v40';
-const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
+const CACHE='bom-regresso-pwa-v41';
+const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/prefeitura/','/prefeitura/index.html','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
   importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
@@ -17,14 +17,14 @@ try{
     const d=payload.data||{};
     self.registration.showNotification(d.title||'💬 Chat da Prefeitura',{
       body:d.body||'Nova mensagem',
-      icon:'./app-icon.svg',
-      badge:'./app-icon.svg',
+      icon:'/app-icon.svg',
+      badge:'/app-icon.svg',
       tag:'bom-regresso-chat-'+(d.messageId||Date.now()),
       renotify:true,
       silent:d.sound==='0',
       vibrate:d.vibrate==='0'?undefined:[70,45,70],
       timestamp:Date.now(),
-      data:{type:'chat',url:'./?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
+      data:{type:'chat',url:'/prefeitura/?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
       actions:[{action:'open-chat',title:'Abrir chat'}]
     });
   });
@@ -69,11 +69,16 @@ self.addEventListener('fetch',event=>{
         const res=await fetch(req,{cache:'no-store'});
         if(res&&res.ok){
           const cache=await caches.open(CACHE);
-          await cache.put('/index.html',res.clone());
+          await cache.put(req,res.clone());
+          if(url.pathname.startsWith('/prefeitura'))await cache.put('/prefeitura/index.html',res.clone());
+          else if(url.pathname==='/'||url.pathname==='/index.html')await cache.put('/index.html',res.clone());
         }
         return res;
       }catch{
-        return (await caches.match('/index.html'))||Response.error();
+        if(url.pathname.startsWith('/prefeitura')){
+          return (await caches.match(req))||(await caches.match('/prefeitura/index.html'))||Response.error();
+        }
+        return (await caches.match(req))||(await caches.match('/index.html'))||Response.error();
       }
     })());
     return;
@@ -93,11 +98,10 @@ self.addEventListener('fetch',event=>{
   })());
 });
 
-
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   event.waitUntil((async()=>{
-    const target=event.notification?.data?.url||'./?open=chat';
+    const target=event.notification?.data?.url||'/prefeitura/?open=chat';
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of list){
       try{
