@@ -1527,7 +1527,7 @@ html[data-appearance="dark"] .chat-record-status.lock-ready,html[data-appearance
 (() => {
 'use strict';
 const KEY='bom_regresso_web_v5';
-const APP_VERSION='1.6.0';
+const APP_VERSION='1.7.0';
 const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
@@ -1735,7 +1735,15 @@ function validateRoleSlot(role,excludeId=''){
 }
 function isPasswordProtectedProfile(profile){return ['Prefeito','Vice-prefeito','RH'].includes(profile?.role||'')}
 
-function roleDepartment(role){if(role==='RH')return'RH';if(role==='Secretário da Agricultura')return'Agricultura';if(role==='Motorista')return'Frota / Transportes';if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';return'Geral'}
+function roleDepartment(role){
+  if(['Presidente','Vice-presidente'].includes(role))return'Presidência';
+  if(['Governador','Vice-governador'].includes(role))return'Governo Estadual';
+  if(role==='RH')return'RH';
+  if(role==='Secretário da Agricultura')return'Agricultura';
+  if(role==='Motorista')return'Frota / Transportes';
+  if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';
+  return'Geral'
+}
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
 function governmentLevelForRole(role){
@@ -1800,53 +1808,39 @@ function federatedProfileCompatibility(profile){
 async function acceptFederatedProfile(profile){
   const compatibility=federatedProfileCompatibility(profile);
   if(!compatibility.accepted)return{ok:false,reason:compatibility.reason||'Perfil incompatível'};
-  if(compatibility.level!=='municipal')return{ok:false,reason:'Este perfil não pertence à administração municipal.'};
-  if(!['Prefeito','Vice-prefeito'].includes(profile.role))return{ok:false,reason:'Somente Prefeito e Vice-prefeito do portal nacional entram por esta integração.'};
+  const level=compatibility.level;
+  const allowed=level==='national'?['Presidente','Vice-presidente']:level==='state'?['Governador','Vice-governador']:['Prefeito','Vice-prefeito'];
+  if(!allowed.includes(profile.role))return{ok:false,reason:'Cargo incompatível com este nível de governo.'};
   const jurisdiction=profile.jurisdictionId||MUNICIPALITY_ID;
-  if(jurisdiction!==MUNICIPALITY_ID)return{ok:false,reason:'O perfil está vinculado a outro município.'};
+  if(level==='municipal'&&jurisdiction!==MUNICIPALITY_ID)return{ok:false,reason:'O perfil está vinculado a outro município.'};
 
   const sourceSystem=profile.sourceSystem||'pais-bom-regresso';
   let o=(db.operators||[]).find(x=>x.federatedProfileId===profile.id&&x.sourceSystem===sourceSystem);
   if(!o)o=(db.operators||[]).find(x=>x.id===profile.id&&x.sourceSystem===sourceSystem);
 
   if(!o){
-    if(roleIsOccupied(profile.role,''))return{ok:false,reason:`O cargo ${profile.role} já está ocupado no sistema municipal.`};
-    o={
-      id:profile.id||uid(),federatedProfileId:profile.id||'',sourceSystem,
-      name:profile.name||'Perfil integrado',role:profile.role,sector:profile.sector||'Gabinete',
-      avatarImage:profile.photo||profile.avatarImage||'',avatarEmoji:profile.emoji||profile.avatarEmoji||'',
-      active:true,createdAt:nowISO(),governmentLevel:'municipal',jurisdictionId:MUNICIPALITY_ID,
-      parentJurisdictionId:profile.parentJurisdictionId||''
-    };
+    if(level==='municipal'&&roleIsOccupied(profile.role,''))return{ok:false,reason:`O cargo ${profile.role} já está ocupado no sistema municipal.`};
+    o={id:profile.id||uid(),federatedProfileId:profile.id||'',sourceSystem,name:profile.name||'Perfil integrado',role:profile.role,sector:profile.sector||roleDepartment(profile.role),avatarImage:profile.photo||profile.avatarImage||'',avatarEmoji:profile.emoji||profile.avatarEmoji||'',active:true,createdAt:nowISO(),governmentLevel:level,jurisdictionId:level==='municipal'?MUNICIPALITY_ID:(profile.jurisdictionId||''),parentJurisdictionId:profile.parentJurisdictionId||''};
     db.operators.push(o)
   }else{
-    if(roleIsOccupied(profile.role,o.id))return{ok:false,reason:`O cargo ${profile.role} já está ocupado por outro perfil municipal.`};
+    if(level==='municipal'&&roleIsOccupied(profile.role,o.id))return{ok:false,reason:`O cargo ${profile.role} já está ocupado por outro perfil municipal.`};
     const oldName=o.name;
-    o.name=profile.name||o.name;o.role=profile.role;o.sector=profile.sector||o.sector||'Gabinete';
-    o.avatarImage=profile.photo||profile.avatarImage||o.avatarImage||'';
-    o.avatarEmoji=profile.emoji||profile.avatarEmoji||o.avatarEmoji||'';
-    o.federatedProfileId=profile.id||o.federatedProfileId||'';
-    o.sourceSystem=sourceSystem;o.governmentLevel='municipal';o.jurisdictionId=MUNICIPALITY_ID;
-    o.parentJurisdictionId=profile.parentJurisdictionId||o.parentJurisdictionId||'';
-    o.active=true;o.updatedAt=nowISO();
-    syncOperatorEmployee(o,oldName)
+    o.name=profile.name||o.name;o.role=profile.role;o.sector=profile.sector||o.sector||roleDepartment(profile.role);o.avatarImage=profile.photo||profile.avatarImage||o.avatarImage||'';o.avatarEmoji=profile.emoji||profile.avatarEmoji||o.avatarEmoji||'';o.federatedProfileId=profile.id||o.federatedProfileId||'';o.sourceSystem=sourceSystem;o.governmentLevel=level;o.jurisdictionId=level==='municipal'?MUNICIPALITY_ID:(profile.jurisdictionId||o.jurisdictionId||'');o.parentJurisdictionId=profile.parentJurisdictionId||o.parentJurisdictionId||'';o.active=true;o.updatedAt=nowISO();
+    if(level==='municipal')syncOperatorEmployee(o,oldName)
   }
-  syncOperatorEmployee(o);
-  recordActivity('users','Integração',`${o.name} foi sincronizado a partir do Portal do País.`);
+  if(level==='municipal')syncOperatorEmployee(o);
+  recordActivity('users','Integração',`${o.name} foi sincronizado a partir da República Bom Regressense.`);
   save();
 
-  if(isPasswordProtectedProfile(o)){
+  if(level==='municipal'&&isPasswordProtectedProfile(o)){
     if(!profileSecretsCollection)return{ok:true,profileId:o.id,requiresPassword:true,reason:'Conecte-se ao Firebase para validar a senha.'};
     const configured=await protectedProfileHasSecret(o.id);
-    if(!configured)rhPasswordSetupModal(o.id,true,false);
-    else rhPasswordLoginModal(o.id);
+    if(!configured)rhPasswordSetupModal(o.id,true,false);else rhPasswordLoginModal(o.id);
     return{ok:true,profileId:o.id,requiresPassword:true,configured}
   }
-
   db.currentOperator=o.name;db.currentOperatorId=o.id;save();page='home';sub='';render();
-  return{ok:true,profileId:o.id,requiresPassword:false}
+  return{ok:true,profileId:o.id,requiresPassword:false,access:compatibility.access||level}
 }
-
 async function publishIntegrationDescriptor(){
   if(!fbStore)return;
   try{
@@ -2176,7 +2170,9 @@ function removeAvatarPhoto(){
 
 function saveMyAvatar(){const p=currentProfile();if(!p)return;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();save();closeModal();render();toast('Perfil personalizado.')}
 
-function isFullAccess(role=currentRole()){return ['Prefeito','Vice-prefeito','RH'].includes(role)}
+function isFullAccess(role=currentRole()){
+  return ['Presidente','Vice-presidente','Prefeito','Vice-prefeito','RH'].includes(role)
+}
 function canPage(p){
   return ['home','chat','users','activity','agri','licit','hr','contracts','finance','fleet','notes'].includes(p)
 }
