@@ -798,7 +798,7 @@ html[data-appearance="dark"] .readonly-banner{
 .avatar-editor{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:#F8FAFC}
 .avatar-editor-top{display:flex;align-items:center;gap:13px;margin-bottom:12px}
 .avatar-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.avatar-upload-label{display:flex;align-items:center;justify-content:center;cursor:pointer}
+.avatar-upload-label{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .emoji-picker-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .emoji-choice{width:42px;height:42px;border:1px solid var(--border);border-radius:11px;background:#fff;font-size:22px;cursor:pointer}
 .emoji-choice:hover{background:#F0F4F8}
@@ -810,7 +810,7 @@ html[data-appearance="dark"] .readonly-banner{
 .avatar-profile-button{border:0;background:transparent;padding:0;display:grid;justify-items:center;gap:4px;cursor:pointer;color:var(--navy);font-weight:800}.avatar-profile-button small{font-size:11px}
 .avatar-preview-picker{display:grid;justify-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:800;color:var(--navy)}
 .avatar-preview-picker .profile-avatar-xl{outline:2px solid var(--gold);outline-offset:3px}
-.avatar-upload-label input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.avatar-upload-label input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 html[data-appearance="dark"] .profile-stat,html[data-appearance="dark"] .avatar-editor{background:#131C24}
 html[data-appearance="dark"] .profile-hero h2,html[data-appearance="dark"] .profile-stat strong{color:#F2F6FA}
 html[data-appearance="dark"] .emoji-choice{background:#1A2731;color:#fff}
@@ -1599,7 +1599,7 @@ const defaults=()=>({
   machinery:[], implements:[],
   appointments:[], licitations:[], employees:[], payments:[], contracts:[], finance:[], trucks:[], trips:[], carriers:[], activityLog:[]
 });
-let db=load(); let page='home'; let sub=''; let selectedImps=[]; let historyReady=false;
+let db=load(); for(const o of db.operators||[]){if(o.role==='RH'||o.role==='DRH'){o.role='Assistente universal';if(!o.sector||o.sector==='RH')o.sector='Administração geral'}} let page='home'; let sub=''; let selectedImps=[]; let historyReady=false;
 function load(){try{const raw=localStorage.getItem(KEY); if(!raw)return defaults(); const d=JSON.parse(raw); return Object.assign(defaults(),d)}catch{return defaults()}}
 function persistLocal(){localStorage.setItem(KEY,JSON.stringify(db))}
 function cloudPayload(){
@@ -1619,6 +1619,7 @@ function applyCloud(data){
   const operator=db.currentOperator||'',operatorId=db.currentOperatorId||'',carriers=db.carriers||[];
   applyingCloud=true;
   db=Object.assign(defaults(),data||{});
+  for(const o of db.operators||[]){if(o.role==='RH'||o.role==='DRH'){o.role='Assistente universal';if(!o.sector||o.sector==='RH')o.sector='Administração geral'}}
   db.currentOperator=operator;db.currentOperatorId=operatorId;db.carriers=carriers;
   persistLocal();applyingCloud=false
 }
@@ -1728,7 +1729,7 @@ async function initCloud(){
       for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
       persistLocal();
       const after=JSON.stringify(SHARED_KEYS.map(k=>db[k]||[]));
-      if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}
+      if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden')){if(!document.activeElement?.closest?.('input,select,textarea,[contenteditable="true"]'))renderPage()}else loginScreen()}
     },err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});
     loginScreen()
   }catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}
@@ -1742,15 +1743,15 @@ const THEME_PRESETS={
   royal:{primary:'#3E3A86',accent:'#E4B441'},
   graphite:{primary:'#263238',accent:'#C89B3C'}
 };
-const ROLE_OPTIONS=['Prefeito','Vice-prefeito','RH','Secretário da Agricultura','Motorista','Servidor / Outro'];
+const ROLE_OPTIONS=['Prefeito','Vice-prefeito','Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'];
 function roleOptions(selected='',currentId=''){
-  const unique=['Prefeito','Vice-prefeito','RH'];
+  const unique=['Prefeito','Vice-prefeito','Assistente universal'];
   return '<option value="">Selecione o cargo</option>'+ROLE_OPTIONS.map(r=>{
     const occupied=unique.includes(r)&&db.operators.some(o=>o.id!==currentId&&o.role===r);
     return `<option value="${esc(r)}" ${r===selected?'selected':''} ${occupied?'disabled':''}>${esc(r)}${occupied?' — ocupado':''}</option>`
   }).join('')
 }
-function isUniqueRole(role){return ['Prefeito','Vice-prefeito','RH'].includes(role)}
+function isUniqueRole(role){return ['Prefeito','Vice-prefeito','Assistente universal'].includes(role)}
 function roleIsOccupied(role,excludeId=''){
   return isUniqueRole(role)&&db.operators.some(o=>o.id!==excludeId&&o.role===role)
 }
@@ -1758,12 +1759,12 @@ function validateRoleSlot(role,excludeId=''){
   if(roleIsOccupied(role,excludeId)){toast(`Já existe um perfil com o cargo ${role}. Só pode haver um ${role} no sistema.`);return false}
   return true
 }
-function isPasswordProtectedProfile(profile){return ['Prefeito','Vice-prefeito','RH'].includes(profile?.role||'')}
+function isPasswordProtectedProfile(profile){return ['Prefeito','Vice-prefeito','Assistente universal'].includes(profile?.role||'')}
 
 function roleDepartment(role){
   if(['Presidente','Vice-presidente'].includes(role))return'Presidência';
   if(['Governador','Vice-governador'].includes(role))return'Governo Estadual';
-  if(role==='RH')return'RH';
+  if(role==='Assistente universal')return'Administração geral';
   if(role==='Secretário da Agricultura')return'Agricultura';
   if(role==='Motorista')return'Frota / Transportes';
   if(role==='Prefeito'||role==='Vice-prefeito')return'Gabinete';
@@ -1772,7 +1773,7 @@ function roleDepartment(role){
 function currentProfile(){return db.operators.find(o=>o.id===db.currentOperatorId)||db.operators.find(o=>o.name===db.currentOperator)||null}
 function currentRole(){return currentProfile()?.role||'Servidor / Outro'}
 function governmentLevelForRole(role){
-  if(['Presidente','Vice-presidente'].includes(role))return'national';
+  if(['Presidente','Vice-presidente','Assistente universal'].includes(role))return'national';
   if(['Governador','Vice-governador'].includes(role))return'state';
   return'municipal'
 }
@@ -1802,9 +1803,9 @@ function municipalIntegrationDescriptor(){
       municipalityId:MUNICIPALITY_ID,parentStateId:PARENT_STATE_ID||null
     },
     hierarchy:{
-      roles:['Presidente','Vice-presidente','Governador','Vice-governador','Prefeito','Vice-prefeito','RH','Secretário da Agricultura','Motorista','Servidor / Outro'],
+      roles:['Presidente','Vice-presidente','Governador','Vice-governador','Prefeito','Vice-prefeito','Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'],
       localRoles:ROLE_OPTIONS.slice(),
-      exclusiveLocalRoles:['Prefeito','Vice-prefeito','RH']
+      exclusiveLocalRoles:['Prefeito','Vice-prefeito','Assistente universal']
     },
     profileSchema:{
       id:'string',name:'string',role:'string',sector:'string?',jurisdictionId:'string',
@@ -1835,10 +1836,10 @@ async function acceptFederatedProfile(profile){
   if(!compatibility.accepted)return{ok:false,reason:compatibility.reason||'Perfil incompatível'};
   const level=compatibility.level;
   const allowed=level==='national'
-    ?['Presidente','Vice-presidente']
+    ?['Presidente','Vice-presidente','Assistente universal']
     :level==='state'
       ?['Governador','Vice-governador']
-      :['Prefeito','Vice-prefeito','RH','Secretário da Agricultura','Motorista','Servidor / Outro'];
+      :['Prefeito','Vice-prefeito','Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'];
   if(!allowed.includes(profile.role))return{ok:false,reason:'Cargo incompatível com este nível de governo.'};
   const jurisdiction=profile.jurisdictionId||MUNICIPALITY_ID;
   if(level==='municipal'&&jurisdiction!==MUNICIPALITY_ID)return{ok:false,reason:'O perfil está vinculado a outro município.'};
@@ -1939,7 +1940,7 @@ function installFederationDiscoveryListener(){
     }
   })
 }
-function isRHProfile(profile){return (profile?.role||'')==='RH'}
+function isRHProfile(profile){return (profile?.role||'')==='Assistente universal'}
 function bytesToBase64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)}
 function base64ToBytes(s){const bin=atob(String(s||''));return Uint8Array.from(bin,ch=>ch.charCodeAt(0))}
 function randomSalt(){const a=new Uint8Array(16);crypto.getRandomValues(a);return bytesToBase64(a)}
@@ -2079,7 +2080,7 @@ function cancelAvatarCrop(){avatarCropState.img=null;document.getElementById('av
 function chooseAvatarEmoji(emoji){cancelAvatarCrop();avatarDraft.image='';avatarDraft.emoji=String(emoji||'').trim().slice(0,8);updateAvatarDraftPreview()}
 function useAvatarInitials(){cancelAvatarCrop();avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview()}
 function loadAvatarFile(file){
-  if(!file)return;if(!String(file.type||'').startsWith('image/'))return toast('Escolha um arquivo de imagem.');if(file.size>12*1024*1024)return toast('A imagem é muito grande. Use uma foto de até 12 MB.');
+  if(!file)return;if(file.type&&!String(file.type).startsWith('image/'))return toast('Escolha um arquivo de imagem.');if(file.size>12*1024*1024)return toast('A imagem é muito grande. Use uma foto de até 12 MB.');
   avatarLoading=true;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{avatarCropState={img,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};document.getElementById('avatarCropArea')?.classList.remove('hidden');const z=document.getElementById('avatarZoom');if(z)z.value='1';bindAvatarCropCanvas();drawAvatarCrop();avatarLoading=false;const input=document.getElementById('avatarFile');if(input)input.value=''};img.onerror=()=>{avatarLoading=false;toast('Não foi possível abrir essa imagem.')};img.src=reader.result};reader.onerror=()=>{avatarLoading=false;toast('Não foi possível ler essa imagem.')};reader.readAsDataURL(file)
 }
 function bindAvatarCropCanvas(){
@@ -2220,7 +2221,7 @@ function removeAvatarPhoto(){
 function saveMyAvatar(){const p=currentProfile();if(!p||!avatarReadyToSave())return;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();save();closeModal();render();toast('Perfil personalizado.')}
 
 function isFullAccess(role=currentRole()){
-  return ['Presidente','Vice-presidente','Prefeito','Vice-prefeito','RH'].includes(role)
+  return ['Presidente','Vice-presidente','Prefeito','Vice-prefeito','Assistente universal'].includes(role)
 }
 function canPage(p){
   if(CHAT_ONLY)return p==='chat';
@@ -3310,7 +3311,7 @@ function saveOperator(){
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">🔒 Protegido</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button>${isPasswordProtectedProfile(o)&&o.id!==db.currentOperatorId?`<button class="btn btn-secondary" onclick="App.resetProtectedProfilePassword('${o.id}')">🔑 Resetar senha</button>`:''}<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button></td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">🔒 Protegido</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button>${isPasswordProtectedProfile(o)&&o.id!==db.currentOperatorId?`<button class="btn btn-secondary" onclick="App.resetProtectedProfilePassword('${o.id}')">🔑 Resetar senha</button>`:''}${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button>`:""}</td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
@@ -3345,11 +3346,23 @@ function removableOperatorSnapshot(o){
   delete copy.rhPasswordHash;delete copy.rhPasswordSalt;delete copy.rhPasswordIterations;delete copy.rhPasswordUpdatedAt;
   return copy
 }
+async function removeRepublicProfileForMunicipal(o){
+  if(o.sourceSystem!=='pais-bom-regresso'||!o.federatedProfileId)return;
+  if(!cloudReady||!fbStore)throw new Error('Conecte-se ao Firebase para remover este perfil compartilhado.');
+  const ref=fbStore.collection('republica').doc('dados_v1');
+  await fbStore.runTransaction(async transaction=>{
+    const snapshot=await transaction.get(ref);if(!snapshot.exists)return;
+    const profiles=snapshot.data().profiles||[];
+    if(profiles.some(profile=>profile.id===o.federatedProfileId))transaction.update(ref,{profiles:profiles.filter(profile=>profile.id!==o.federatedProfileId),updatedAt:nowISO()})
+  })
+}
 async function removeOperatorProfile(id){
   if(!requireFull())return;
   const o=db.operators.find(x=>x.id===id);if(!o)return toast('Perfil não encontrado.');
+  if(['Prefeito','Vice-prefeito'].includes(currentRole())&&['national','state'].includes(o.governmentLevel))return accessDenied();
   if(db.currentOperatorId===id)return toast('Troque para outro perfil autorizado antes de remover o perfil que está em uso.');
   if(!confirm(`Remover "${o.name}" do sistema? Isso não é banimento: o perfil poderá ser cadastrado novamente depois. Os pagamentos e históricos antigos serão preservados.`))return;
+  try{await removeRepublicProfileForMunicipal(o)}catch(err){console.error('Remover perfil compartilhado:',err);return toast(err.message||'Não foi possível remover o perfil compartilhado.')}
   const opBefore=removableOperatorSnapshot(o);
   const linked=db.employees.filter(e=>e.operatorId===id).map(cloneData);
   db.operators=db.operators.filter(x=>x.id!==id);
@@ -3595,7 +3608,7 @@ function employeeList(v){
       <td class="status ${statusClass(o.active===false?'Inativo':(e.status||'Ativo'))}">${esc(o.active===false?'Inativo':(e.status||'Ativo'))}</td>
       <td class="small-actions">
         ${editable&&e.id?`<button class="btn btn-primary" onclick="App.paymentForm('${e.id}')">Pagar</button>`:''}
-        ${editable?`<button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar perfil</button><button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button>`:''}
+        ${editable?`<button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar perfil</button>${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button>`:""}`:''}
       </td>
     </tr>`
   }).join('');
