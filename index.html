@@ -36,12 +36,41 @@ html[data-theme="dark"] .role-step{background:#132332}
 html[data-theme="dark"] .role-step-primary{background:#193047;border-color:#45617B}
 html[data-theme="dark"] .role-step select{background:#0E1C2B}
 @media(max-width:520px){.role-step{padding:10px}}
+
+/* Ajuste unificado de proporção da República, Governo Estadual e Prefeitura */
+.content{max-width:1600px;width:100%}
+.cards{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.grid{grid-template-columns:minmax(0,1.45fr) minmax(300px,.85fr)}
+.embedded-app-toolbar{height:58px;display:flex;align-items:center;gap:11px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);position:relative;z-index:2}
+.embedded-app-toolbar>div{min-width:0;display:flex;flex-direction:column;gap:2px}.embedded-app-toolbar b{color:var(--navy);font-size:14px}.embedded-app-toolbar small{color:var(--muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.embedded-app-toolbar small[data-ok="1"]{color:#2E7D55;font-weight:800}
+.embedded-app-frame-wrap{width:100%;height:calc(100dvh - 58px);overflow:hidden;background:#EEF3F7}
+.embedded-app-frame-wrap iframe{display:block;width:100%;height:100%;border:0;background:#EEF3F7}
+body.embedded-app-view{overflow:hidden}
+body.embedded-app-view .shell{grid-template-columns:1fr;height:100dvh;min-height:0}
+body.embedded-app-view .side,body.embedded-app-view .top,body.embedded-app-view .mobile{display:none!important}
+body.embedded-app-view main{height:100dvh;min-height:0}
+body.embedded-app-view .content{max-width:none;height:100dvh;padding:0;margin:0}
+body.embedded-app-view .municipal-app-panel{border:0;border-radius:0;box-shadow:none}
+html[data-theme="dark"] .embedded-app-toolbar{background:#182838}
+@media(max-width:900px){
+  .content{max-width:none}
+  .grid{grid-template-columns:1fr}
+  .embedded-app-toolbar{height:54px;padding:6px 8px}
+  .embedded-app-frame-wrap{height:calc(100dvh - 54px)}
+  .embedded-back{padding:8px 10px;min-height:38px}
+  .municipal-open-full{display:none}
+}
+@media(min-width:901px) and (max-width:1180px){
+  .shell{grid-template-columns:220px minmax(0,1fr)}
+  .side{padding-left:9px;padding-right:9px}
+  .content{padding:20px}
+}
 </style><link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="República Bom Regressense">
 </head><body><div id="loginScreen" class="login-screen" hidden></div><div class="shell" id="shell"><aside class="side"><div class="brand"><img src="pais/brasao.svg" alt="Brasão de Bom Regresso"><b>Bom Regresso</b><small>Presidência · Sistema nacional</small></div><nav class="nav" id="nav"></nav></aside><main><div class="top"><img class="top-logo" src="pais/brasao.svg" alt=""><div class="top-title"><strong>REPÚBLICA BOM REGRESSENSE</strong><small id="topSubtitle">SISTEMA DA PRESIDÊNCIA</small></div><button type="button" class="top-profile" data-page="perfil" aria-label="Abrir meu perfil" id="topProfile"></button></div><div class="content" id="content"></div></main></div><nav class="mobile" id="mobile"></nav><div class="more-backdrop" id="moreBackdrop" hidden><div class="more-sheet"><div class="more-head"><b>Mais opções</b><button type="button" class="close-more" aria-label="Fechar menu" data-close-more>×</button></div><div id="moreItems"></div></div></div><script>
-(()=>{'use strict';const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'){p.role='RH';if(!p.sector||p.sector==='DRH')p.sector='RH';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));if(data.municipios.length===1)data.municipios[0].nome='Bom Regresso';let page='inicio';let photoDraft='';let editStateId='',editCityId='',editUserId='';let loginMode=data.profiles.length?'select':'create';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),num=n=>Number(n||0).toLocaleString('pt-BR'),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),save=()=>{localStorage.setItem(KEY,JSON.stringify(data));render()},balance=()=>Number(data.cofreInicial||0)+data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),current=()=>data.profiles.find(p=>p.id===data.currentProfileId),avatar=(p,size='')=>p?.photo?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:`<span class="avatar ${size}">${esc(p?.emoji||'👤')}</span>`,ROLE_GROUPS={
+(()=>{'use strict';const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'){p.role='RH';if(!p.sector||p.sector==='DRH')p.sector='RH';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));if(data.municipios.length===1)data.municipios[0].nome='Bom Regresso';let page=new URLSearchParams(location.search).get('open')==='chat'?'chat':'inicio';let photoDraft='';let editStateId='',editCityId='',editUserId='';let loginMode=data.profiles.length?'select':'create';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),num=n=>Number(n||0).toLocaleString('pt-BR'),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),save=()=>{localStorage.setItem(KEY,JSON.stringify(data));render()},balance=()=>Number(data.cofreInicial||0)+data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),current=()=>data.profiles.find(p=>p.id===data.currentProfileId),avatar=(p,size='')=>p?.photo?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:`<span class="avatar ${size}">${esc(p?.emoji||'👤')}</span>`,ROLE_GROUPS={
   presidencia:{label:'Presidência',icon:'🏛️',roles:['Presidente','Vice-presidente']},
   estadual:{label:'Governo estadual',icon:'🗺️',roles:['Governador','Vice-governador']},
   prefeitura:{label:'Prefeitura',icon:'🏘️',roles:['Prefeito','Vice-prefeito']},
@@ -70,15 +99,33 @@ roleOptions=(selected='',excludeId='',mode=roleMode(selected))=>{
 sectorForRole=role=>presidencyRoles.includes(role)?'Presidência':stateRoles.includes(role)?'Governo Estadual':municipalRoles.includes(role)?'Prefeitura':role==='RH'?'RH':role==='Secretário da Agricultura'?'Secretaria da Agricultura':role==='Motorista'?'Frota / Transportes':'Geral',
 roleDescription=role=>presidencyRoles.includes(role)?'Atuação nacional':stateRoles.includes(role)?'Atuação estadual':municipalRoles.includes(role)?'Atuação municipal':role==='RH'?'Administração de pessoal':role==='Secretário da Agricultura'?'Servidor da Secretaria da Agricultura':role==='Motorista'?'Servidor de Frota / Transportes':'Servidor público',
 municipalTargetCity=()=>data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso')||null,
-municipalSystem=()=>{const p=current(),city=municipalTargetCity();if(!p||!city)return false;const level=scope(p);return level==='nacional'||(level==='municipal'&&p.jurisdictionId===city.id)},
+municipalSystem=()=>{const p=current(),city=municipalTargetCity();if(!p||!city)return false;const level=scope(p);if(level==='nacional')return true;if(level==='estadual')return p.jurisdictionId===city.estado;if(level==='municipal')return p.jurisdictionId===city.id;return true},
 scope=p=>presidencyRoles.includes(p?.role)?'nacional':stateRoles.includes(p?.role)?'estadual':municipalRoles.includes(p?.role)?'municipal':'administrativo',
-canPage=k=>{const level=scope(current());if(level==='nacional')return true;if(level==='estadual')return ['inicio','estados','municipios','adminmunicipio','aparencia','perfil'].includes(k);if(level==='municipal')return ['inicio','municipios','adminmunicipio','aparencia','perfil'].includes(k);return ['inicio','aparencia','perfil'].includes(k)},
+canPage=k=>{const level=scope(current());if(level==='nacional')return true;if(level==='estadual')return ['inicio','chat','estados','municipios','adminmunicipio','aparencia','perfil'].includes(k);if(level==='municipal')return ['inicio','chat','municipios','adminmunicipio','aparencia','perfil'].includes(k);return ['inicio','chat','municipios','aparencia','perfil'].includes(k)},
 canState=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.id),
 canCity=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.estado)||(scope(current())==='municipal'&&current()?.jurisdictionId===x.id),
 jurisdictionFields=(role,selected='')=>{const group=roleDescription(role);if(group==='Atuação nacional'||group==='Administração de pessoal'||group==='Atuação geral')return '';const isState=group==='Atuação estadual',items=isState?data.estados:data.municipios;return `<label class="field">${isState?'Estado de atuação':'Município de atuação'}<select name="jurisdictionId" id="jurisdictionSelect"><option value="">${items.length?'Vincular depois':'Território ainda não cadastrado'}</option>${items.map(x=>`<option value="${x.id}" ${x.id===selected?'selected':''}>${esc(x.nome)}${!isState?' · '+esc(data.estados.find(e=>e.id===x.estado)?.sigla||''):''}</option>`).join('')}</select><small>Opcional agora. A Presidência pode vincular depois em Perfis.</small></label>`},tr=(rows,cols)=>`<div class="tablebox"><table class="table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${cols.length}" class="empty">Nenhum registro ainda.</td></tr>`}</tbody></table></div>`;
-function render(){const user=current();$('loginScreen').hidden=!!user;$('shell').hidden=!user;$('mobile').hidden=!user;if(!user){renderLogin();return}if(!canPage(page))page='inicio';$('topSubtitle').textContent=scope(user)==='nacional'?'SISTEMA DA PRESIDÊNCIA':scope(user)==='estadual'?'PAINEL DO GOVERNO ESTADUAL':scope(user)==='municipal'?'PAINEL DA PREFEITURA':'PAINEL ADMINISTRATIVO';$('topProfile').innerHTML=avatar(user)+`<span><b>${esc(user.name)}</b><small>${esc(user.role)}</small></span>`;const visible=sections.filter(([k])=>canPage(k)),primary=visible.filter(([k])=>!['adminmunicipio','economia','aparencia','perfil'].includes(k)).slice(0,4),more=visible.filter(([k])=>!primary.some(([p])=>p===k));$('nav').innerHTML=visible.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span class="nav-icon">${icon}</span>${label}</button>`).join('');$('mobile').style.gridTemplateColumns=`repeat(${primary.length+1},minmax(0,1fr))`;$('mobile').innerHTML=primary.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span>${icon}</span><b>${label}</b></button>`).join('')+`<button class="${more.some(([k])=>k===page)?'active':''}" data-more><span>☰</span><b>Mais</b></button>`;$('moreItems').innerHTML=more.map(([key,icon,label])=>`<button data-page="${key}"><span>${icon}</span>${label}</button>`).join('');$('content').innerHTML=({inicio,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil})[page]();}
-const heading=(title,desc)=>`<h1>${title}</h1><p class="lead muted">${desc}</p>`,card=(label,value,detail)=>`<div class="card"><span class="card-icon" aria-hidden="true">${({'Cofre público':'💰','Estados':'🗺️','Municípios':'🏘️','PIB':'📈','Saldo atual':'💰','Movimentações':'📋','PIB anual':'📈','População cadastrada':'👥','PIB por habitante':'◫'})[label]||'◆'}</span><small>${label}</small><strong>${value}</strong><small>${detail}</small></div>`;
-
+function render(){
+  const user=current();
+  $('loginScreen').hidden=!!user;$('shell').hidden=!user;$('mobile').hidden=!user;
+  document.body.classList.remove('embedded-app-view');
+  if(!user){renderLogin();return}
+  if(!canPage(page))page='inicio';
+  const level=scope(user),embeddedView=page==='chat'||(page==='municipios'&&!!municipalTargetCity()&&municipalSystem());
+  document.body.classList.toggle('embedded-app-view',embeddedView);
+  document.body.dataset.government=level;
+  document.body.dataset.page=page;
+  $('topSubtitle').textContent=level==='nacional'?'SISTEMA DA PRESIDÊNCIA':level==='estadual'?'PAINEL DO GOVERNO ESTADUAL':level==='municipal'?'PAINEL DA PREFEITURA':'PAINEL ADMINISTRATIVO';
+  $('topProfile').innerHTML=avatar(user)+`<span><b>${esc(user.name)}</b><small>${esc(user.role)}</small></span>`;
+  const visible=sections.filter(([k])=>canPage(k));
+  const primary=visible.filter(([k])=>!['adminmunicipio','economia','aparencia','perfil'].includes(k)).slice(0,4);
+  const more=visible.filter(([k])=>!primary.some(([p])=>p===k));
+  $('nav').innerHTML=visible.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span class="nav-icon">${icon}</span>${label}</button>`).join('');
+  $('mobile').style.gridTemplateColumns=`repeat(${primary.length+1},minmax(0,1fr))`;
+  $('mobile').innerHTML=primary.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span>${icon}</span><b>${label}</b></button>`).join('')+`<button class="${more.some(([k])=>k===page)?'active':''}" data-more><span>☰</span><b>Mais</b></button>`;
+  $('moreItems').innerHTML=more.map(([key,icon,label])=>`<button data-page="${key}"><span>${icon}</span>${label}</button>`).join('');
+  $('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil})[page]()
+}
 function renderLogin(){
   const showCreate=!data.profiles.length||loginMode==='create';
   const defaultRole=firstAvailableRole('Presidente');
@@ -100,20 +147,33 @@ function perfil(){
 function municipalProfilePayload(){
   const p=current(),city=municipalTargetCity();if(!p||!city)return null;
   const level=scope(p);
-  if(level==='estadual')return null;
+  if(level==='estadual'&&p.jurisdictionId!==city.estado)return null;
   if(level==='municipal'&&p.jurisdictionId!==city.id)return null;
+  const govLevel=level==='administrativo'?'municipal':level;
   return {
     id:p.id,name:p.name,role:p.role,sector:p.sector||sectorForRole(p.role),
-    jurisdictionId:level==='municipal'?'bom-regresso':city.id,
+    jurisdictionId:govLevel==='municipal'?'bom-regresso':(p.jurisdictionId||city.id),
     parentJurisdictionId:city.estado||p.parentJurisdictionId||'',
-    governmentLevel:level,sourceSystem:'pais-bom-regresso',
+    governmentLevel:govLevel,sourceSystem:'pais-bom-regresso',
     photo:p.photo||'',emoji:p.emoji||''
   }
 }
-function connectMunicipalFrame(){
-  const frame=$('municipalAppFrame'),status=$('municipalBridgeStatus'),p=municipalProfilePayload();
-  if(!frame||!p||!municipalSystem())return;
-  const requestId='municipal-'+Date.now().toString(36);
+function chatProfilePayload(){
+  const p=current();if(!p)return null;
+  const city=municipalTargetCity(),level=scope(p),govLevel=level==='administrativo'?'municipal':level;
+  return {
+    id:p.id,name:p.name,role:p.role,sector:p.sector||sectorForRole(p.role),
+    jurisdictionId:govLevel==='municipal'?'bom-regresso':(p.jurisdictionId||''),
+    parentJurisdictionId:city?.estado||p.parentJurisdictionId||'',
+    governmentLevel:govLevel,sourceSystem:'pais-bom-regresso',
+    photo:p.photo||'',emoji:p.emoji||''
+  }
+}
+
+function connectFederatedFrame(frameId,statusId,payload,successLabel='Perfil conectado.'){
+  const frame=$(frameId),status=$(statusId),p=payload;
+  if(!frame||!p)return;
+  const requestId='federation-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   let handoffSent=false,finished=false;
   const setStatus=(text,ok=false)=>{if(status){status.textContent=text;status.dataset.ok=ok?'1':'0'}};
   const target=/^https?:$/.test(location.protocol)?location.origin:'*';
@@ -121,35 +181,39 @@ function connectMunicipalFrame(){
     const msg=e.data;
     if(e.source!==frame.contentWindow||!msg||msg.protocol!==FEDERATION_PROTOCOL||msg.requestId!==requestId)return;
     if(msg.type==='MUNICIPAL_SYSTEM_DESCRIPTOR'&&!handoffSent){
-      handoffSent=true;setStatus('Sistema municipal localizado. Entrando no perfil…');
+      handoffSent=true;setStatus('Conectando seu perfil…');
       frame.contentWindow.postMessage({protocol:FEDERATION_PROTOCOL,type:'HANDOFF_PROFILE',requestId,payload:p},target);
       return
     }
     if(msg.type==='HANDOFF_RESULT'){
       finished=true;
-      if(msg.payload?.ok)setStatus(msg.payload.requiresPassword?'Perfil sincronizado. Confirme a senha municipal para continuar.':'Perfil conectado ao sistema municipal.',true);
-      else setStatus(msg.payload?.reason||'Não foi possível conectar o perfil municipal.');
-      setTimeout(()=>window.removeEventListener('message',onMessage),4000)
+      if(msg.payload?.ok)setStatus(msg.payload.requiresPassword?'Perfil sincronizado. Confirme a senha para continuar.':successLabel,true);
+      else setStatus(msg.payload?.reason||'Não foi possível conectar este perfil.');
+      setTimeout(()=>window.removeEventListener('message',onMessage),3500)
     }
   };
   window.addEventListener('message',onMessage);
-  const discover=()=>{
-    if(finished)return;
-    try{frame.contentWindow?.postMessage({protocol:FEDERATION_PROTOCOL,type:'DISCOVER_MUNICIPAL_SYSTEM',requestId},target)}catch{}
-  };
-  frame.addEventListener('load',()=>setTimeout(discover,140),{once:true});
-  setTimeout(discover,380);
-  setTimeout(()=>{if(!finished&&!handoffSent)setStatus('O sistema municipal abriu. Se o login integrado não responder, use o perfil municipal normalmente.')},3500)
+  const discover=()=>{if(!finished){try{frame.contentWindow?.postMessage({protocol:FEDERATION_PROTOCOL,type:'DISCOVER_MUNICIPAL_SYSTEM',requestId},target)}catch{}}};
+  frame.addEventListener('load',()=>setTimeout(discover,120),{once:true});
+  setTimeout(discover,320);
+  setTimeout(()=>{if(!finished&&!handoffSent)setStatus('O módulo abriu, mas a integração automática ainda está conectando…')},3200)
+}
+function connectMunicipalFrame(){connectFederatedFrame('municipalAppFrame','municipalBridgeStatus',municipalProfilePayload(),'Perfil conectado ao município.')}
+function connectRepublicChat(){connectFederatedFrame('republicChatFrame','republicChatStatus',chatProfilePayload(),'Perfil conectado ao Chat da República.')}
+
+function chatPortal(){
+  setTimeout(connectRepublicChat,0);
+  return `<div class="embedded-app-toolbar"><button class="btn secondary embedded-back" data-page="inicio">← República</button><div class="grow"><b>💬 Chat da República</b><small id="republicChatStatus">Abrindo conversa integrada…</small></div></div><section class="embedded-app-frame-wrap"><iframe id="republicChatFrame" class="republic-chat-frame" title="Chat da República Bom Regressense" src="./prefeitura/?embedded=1&federated=1&open=chat&chatonly=1" loading="eager" allow="microphone; notifications; clipboard-read; clipboard-write"></iframe></section>`
 }
 function prefeitura(){
   const city=municipalTargetCity();
   if(!city)return heading('Municípios','Cadastre Bom Regresso para liberar o sistema municipal.');
-  if(!municipalSystem()&&scope(current())!=='nacional')return heading('Sistema municipal','Este perfil não possui vínculo com Bom Regresso.');
+  if(!municipalSystem())return heading('Sistema municipal','Este perfil não possui vínculo com Bom Regresso.');
   setTimeout(connectMunicipalFrame,0);
-  const frame=location.protocol==='file:'&&MUNICIPAL_EMBED?`srcdoc="${esc(MUNICIPAL_EMBED)}"`:'src="./prefeitura/?embedded=1&federated=1"';
-  return `<div class="municipal-tab-head"><div><span class="municipal-tab-kicker">MUNICÍPIO</span><h1>Bom Regresso</h1><p class="lead muted">A Prefeitura funciona dentro da República Bom Regressense, neste painel municipal.</p></div><a class="btn secondary municipal-open-full" href="./prefeitura/" target="_top">Abrir em tela cheia</a></div><div class="municipal-integrated-head"><div><b>🏛️ Prefeitura de Bom Regresso</b><small id="municipalBridgeStatus">Abrindo o sistema municipal integrado…</small></div></div><section class="panel municipal-app-panel"><iframe id="municipalAppFrame" class="municipal-app-frame" title="Sistema municipal de Bom Regresso" ${frame} loading="eager" allow="microphone; notifications; clipboard-read; clipboard-write"></iframe></section>`
+  const frame=location.protocol==='file:'&&MUNICIPAL_EMBED?`srcdoc="${esc(MUNICIPAL_EMBED)}"`:'src="./prefeitura/?embedded=1&federated=1&appview=1"';
+  return `<div class="embedded-app-toolbar"><button class="btn secondary embedded-back" data-page="inicio">← República</button><div class="grow"><b>🏛️ Prefeitura de Bom Regresso</b><small id="municipalBridgeStatus">Abrindo sistema municipal integrado…</small></div><a class="btn secondary municipal-open-full" href="./prefeitura/" target="_top">Tela cheia</a></div><section class="embedded-app-frame-wrap"><iframe id="municipalAppFrame" class="municipal-app-frame" title="Sistema municipal de Bom Regresso" ${frame} loading="eager" allow="microphone; notifications; clipboard-read; clipboard-write"></iframe></section>`
 }
-function inicio(){const p=current(),level=scope(p);if(level!=='nacional'){const state=data.estados.find(x=>x.id===p.jurisdictionId),city=data.municipios.find(x=>x.id===p.jurisdictionId);if(level==='estadual'){if(!state)return heading('Governo estadual','Este perfil ainda não está vinculado a um estado.')+`<section class="panel"><h2>Aguardando estado</h2><p>A Presidência precisa cadastrar um estado e selecionar <b>Perfis → Atribuir</b> para vincular este governo.</p></section>`;const cities=data.municipios.filter(x=>x.estado===state.id),transfers=data.lancamentos.filter(x=>x.estado===state.id);return heading(`Governo de ${esc(state.nome)}`,`Governante: ${esc(state.governante||p.name)}`)+`<div class="cards">${card('Municípios',num(cities.length),'Neste estado')}${card('População cadastrada',num(cities.reduce((a,x)=>a+Number(x.populacao),0)),'Soma dos municípios')}${card('Verba prevista',money(state.verba),'Planejamento estadual')}${card('Movimentações',num(transfers.length),'Lançamentos ligados ao estado')}</div><div class="panel"><h2>Administração estadual</h2><p class="muted">Edite os dados do estado e acompanhe seus municípios.</p><div class="actions"><button class="btn secondary" data-page="estados">Editar meu estado</button><button class="btn secondary" data-page="adminmunicipio">Ver municípios</button></div></div>`}if(!city)return heading('Prefeitura','Este perfil ainda não está vinculado a um município.')+`<section class="panel"><h2>Aguardando município</h2><p>A Presidência precisa cadastrar um município e selecionar <b>Perfis → Atribuir</b> para vincular esta prefeitura.</p></section>`;const parent=data.estados.find(x=>x.id===city.estado);return heading(`Prefeitura de ${esc(city.nome)}`,`${esc(parent?.nome||'Estado não localizado')} · Prefeito(a): ${esc(city.prefeito||p.name)}`)+`<div class="cards">${card('População cadastrada',num(city.populacao),'Habitantes fictícios')}${card('Estado',esc(parent?.sigla||'—'),'Vínculo estadual')}</div><div class="panel"><h2>Administração municipal</h2><p class="muted">Atualize os dados do seu município.</p><button class="btn secondary" data-page="adminmunicipio">Editar município</button>${municipalSystem()?'<button class="btn" data-page="municipios">🏛️ Abrir sistema municipal completo</button>':''}</div>`}
+function inicio(){const p=current(),level=scope(p);if(level==='administrativo'){const city=municipalTargetCity();return heading('Painel administrativo',`${esc(p.role)} · República Bom Regressense`)+`<div class="cards">${card('Municípios',num(data.municipios.length),'Cadastrados')}${card('Estados',num(data.estados.length),'Na República')}</div><div class="grid"><section class="panel"><h2>Atuação de ${esc(p.role)}</h2><p class="muted">Seu perfil atua no sistema municipal de Bom Regresso de acordo com as permissões do cargo.</p><div class="actions"><button class="btn" data-page="municipios">🏛️ Abrir Prefeitura</button><button class="btn secondary" data-page="chat">💬 Abrir Chat</button></div></section><section class="panel"><h2>Status</h2><p class="muted">${city?'Município de Bom Regresso disponível.':'Aguardando cadastro do município de Bom Regresso.'}</p></section></div>`}if(level!=='nacional'){const state=data.estados.find(x=>x.id===p.jurisdictionId),city=data.municipios.find(x=>x.id===p.jurisdictionId);if(level==='estadual'){if(!state)return heading('Governo estadual','Este perfil ainda não está vinculado a um estado.')+`<section class="panel"><h2>Aguardando estado</h2><p>A Presidência precisa cadastrar um estado e selecionar <b>Perfis → Atribuir</b> para vincular este governo.</p></section>`;const cities=data.municipios.filter(x=>x.estado===state.id),transfers=data.lancamentos.filter(x=>x.estado===state.id);return heading(`Governo de ${esc(state.nome)}`,`Governante: ${esc(state.governante||p.name)}`)+`<div class="cards">${card('Municípios',num(cities.length),'Neste estado')}${card('População cadastrada',num(cities.reduce((a,x)=>a+Number(x.populacao),0)),'Soma dos municípios')}${card('Verba prevista',money(state.verba),'Planejamento estadual')}${card('Movimentações',num(transfers.length),'Lançamentos ligados ao estado')}</div><div class="panel"><h2>Administração estadual</h2><p class="muted">Edite os dados do estado e acompanhe seus municípios.</p><div class="actions"><button class="btn secondary" data-page="estados">Editar meu estado</button><button class="btn secondary" data-page="adminmunicipio">Ver municípios</button></div></div>`}if(!city)return heading('Prefeitura','Este perfil ainda não está vinculado a um município.')+`<section class="panel"><h2>Aguardando município</h2><p>A Presidência precisa cadastrar um município e selecionar <b>Perfis → Atribuir</b> para vincular esta prefeitura.</p></section>`;const parent=data.estados.find(x=>x.id===city.estado);return heading(`Prefeitura de ${esc(city.nome)}`,`${esc(parent?.nome||'Estado não localizado')} · Prefeito(a): ${esc(city.prefeito||p.name)}`)+`<div class="cards">${card('População cadastrada',num(city.populacao),'Habitantes fictícios')}${card('Estado',esc(parent?.sigla||'—'),'Vínculo estadual')}</div><div class="panel"><h2>Administração municipal</h2><p class="muted">Atualize os dados do seu município.</p><button class="btn secondary" data-page="adminmunicipio">Editar município</button>${municipalSystem()?'<button class="btn" data-page="municipios">🏛️ Abrir sistema municipal completo</button>':''}</div>`}
 const linkedGov=data.profiles.some(x=>scope(x)==='estadual'&&data.estados.some(e=>e.id===x.jurisdictionId)),linkedMayor=data.profiles.some(x=>scope(x)==='municipal'&&data.municipios.some(e=>e.id===x.jurisdictionId));const setupSteps=[['1','Cadastrar estado',data.estados.length>0,'estados'],['2','Vincular governador',linkedGov,'usuarios'],['3','Cadastrar município',data.municipios.length>0,'adminmunicipio'],['4','Vincular prefeito',linkedMayor,'usuarios']];const setup=setupSteps.every(x=>x[2])?'':`<section class="panel setup-panel"><h2>Organizar o país</h2><p class="muted">Siga as etapas para liberar os painéis estadual e municipal.</p><div class="setup-list">${setupSteps.map(([number,label,done,target])=>`<button class="setup-step ${done?'done':''}" data-page="${target}"><span>${done?'✓':number}</span><b>${label}</b><small>${done?'Concluído':'Abrir'}</small></button>`).join('')}</div></section>`;const despesas=data.lancamentos.filter(x=>x.tipo==='Saída').reduce((s,x)=>s+Number(x.valor),0),entradas=data.lancamentos.filter(x=>x.tipo==='Entrada').reduce((s,x)=>s+Number(x.valor),0);return heading('Painel da Presidência','Administração da República Bom Regressense.')+`<div class="cards">${card('Cofre público',money(balance()),'Saldo disponível')}${card('Estados',num(data.estados.length),'Cadastrados')}${card('Municípios',num(data.municipios.length),'Cadastrados')}${card('PIB',money(data.pib),`Ano ${esc(data.ano)}`)}</div>${setup}<div class="grid"><section class="panel"><h2>Movimentação recente</h2>${data.lancamentos.length?`<div class="recent-list">${data.lancamentos.slice().reverse().slice(0,6).map(x=>`<div class="recent-item"><span class="recent-icon">${x.tipo==='Entrada'?'↙':'↗'}</span><div><b>${esc(x.descricao)}</b><small>${esc(x.data)} · ${esc(x.tipo)}</small></div><strong>${x.tipo==='Entrada'?'+':'−'} ${money(x.valor)}</strong></div>`).join('')}</div>`:'<div class="empty-home"><span>📋</span><b>Nenhuma movimentação ainda</b><small>Os registros de verbas aparecerão aqui.</small></div>'}</section><section class="panel finance-panel"><h2>Resumo do cofre</h2><div class="kpi-line"><span>Entradas</span><b>${money(entradas)}</b></div><div class="kpi-line"><span>Saídas</span><b>${money(despesas)}</b></div><div class="kpi-line"><span>Saldo atual</span><b>${money(balance())}</b></div><div class="actions"><button class="btn secondary" data-page="cofre">＋ Registrar verba</button><button class="btn secondary" data-page="estados">🗺️ Administrar estados</button></div></section></div>`}
 function estados(){const national=scope(current())==='nacional',items=data.estados.filter(canState),edit=items.find(x=>x.id===editStateId);return heading('Estados',national?'Administre os estados da República.':'Edite os dados do seu estado.')+(national?`<section class="panel"><h2>Novo estado</h2><form id="estadoForm" class="form"><label class="field">Nome<input name="nome" required maxlength="80"></label><label class="field">Sigla<input name="sigla" required maxlength="3"></label><label class="field">Governante<input name="governante" maxlength="80"></label><label class="field">Verba prevista<input name="verba" type="number" min="0" step="0.01" value="0" required></label><div class="field wide"><button class="btn">Adicionar estado</button></div></form></section>`:'')+(edit?`<section class="panel" style="margin-top:14px"><h2>Editar ${esc(edit.nome)}</h2><form id="stateEditForm" class="form"><input type="hidden" name="id" value="${edit.id}"><label class="field">Município<input name="nome" value="Bom Regresso" readonly></label><label class="field">Sigla<input name="sigla" value="${esc(edit.sigla)}" required maxlength="3"></label><label class="field">Governante<input name="governante" value="${esc(edit.governante||'')}" maxlength="80"></label><label class="field">Verba prevista<input name="verba" value="${esc(edit.verba)}" type="number" min="0" step="0.01" required></label><div class="field wide actions"><button class="btn">Salvar estado</button><button type="button" class="btn secondary" data-cancel-edit>Cancelar</button></div></form></section>`:'')+`<section class="panel" style="margin-top:14px"><h2>${national?'Estados cadastrados':'Meu estado'}</h2>${tr(items.map(x=>`<tr><td>${esc(x.nome)} <span class="pill">${esc(x.sigla)}</span></td><td>${esc(x.governante||'—')}</td><td>${money(x.verba)}</td><td class="actions-cell"><button class="btn secondary" data-edit-state="${x.id}">Editar</button>${national?` <button class="btn danger" data-delete="estados" data-id="${x.id}">Excluir</button>`:''}</td></tr>`).join(''),['Estado','Governante','Verba prevista','Ações'])}</section>`}
 function adminmunicipio(){const level=scope(current()),national=level==='nacional',allowedStates=data.estados.filter(canState),items=data.municipios.filter(canCity),edit=items.find(x=>x.id===editCityId),canCreate=level!=='municipal'&&!data.municipios.length;return heading('Municípios',level==='municipal'?'Edite os dados do seu município.':'Bom Regresso é o único município do país.')+(canCreate?`<section class="panel"><h2>Novo município</h2><form id="municipioForm" class="form"><label class="field">Município<input name="nome" value="Bom Regresso" readonly></label><label class="field">Estado<select name="estado" required><option value="">Selecione</option>${allowedStates.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></label><label class="field">Prefeito(a)<input name="prefeito" maxlength="80"></label><label class="field">População fictícia<input name="populacao" type="number" min="0" step="1" value="0" required></label><div class="field wide"><button class="btn" ${!allowedStates.length?'disabled':''}>Adicionar município</button></div></form>${!allowedStates.length?'<p class="note">É preciso cadastrar ou vincular um estado antes de adicionar municípios.</p>':''}</section>`:'')+(edit?`<section class="panel" style="margin-top:14px"><h2>Editar ${esc(edit.nome)}</h2><form id="cityEditForm" class="form"><input type="hidden" name="id" value="${edit.id}"><label class="field">Município<input name="nome" value="Bom Regresso" readonly></label><label class="field">Prefeito(a)<input name="prefeito" value="${esc(edit.prefeito||'')}" maxlength="80"></label><label class="field">População fictícia<input name="populacao" type="number" min="0" step="1" value="${esc(edit.populacao)}" required></label><div class="field wide actions"><button class="btn">Salvar município</button><button type="button" class="btn secondary" data-cancel-edit>Cancelar</button></div></form></section>`:'')+`<section class="panel" style="margin-top:14px"><h2>${level==='municipal'?'Meu município':'Municípios cadastrados'}</h2>${tr(items.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(data.estados.find(e=>e.id===x.estado)?.nome||'—')}</td><td>${esc(x.prefeito||'—')}</td><td>${num(x.populacao)}</td><td class="actions-cell"><button class="btn secondary" data-edit-city="${x.id}">Editar</button>${level!=='municipal'?` <button class="btn danger" data-delete="municipios" data-id="${x.id}">Excluir</button>`:''}</td></tr>`).join(''),['Município','Estado','Prefeito(a)','População','Ações'])}</section>`}
@@ -194,6 +258,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-register-profil
 });document.addEventListener('input',e=>{if(e.target.id==='editEmoji'){const p=current(),preview=$('content')?.querySelector('.profile-hero .avatar');if(preview&&!p.photo)preview.outerHTML=avatar({...p,emoji:e.target.value},'large')}});render()})();
 </script><script>
 if('serviceWorker' in navigator && location.protocol!=='file:'){
+  navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='OPEN_CHAT'){const login=localStorage.getItem('bom_regresso_pais_v2');try{const d=JSON.parse(login||'{}');if(d.currentProfileId){location.href='/?open=chat'}}catch{}}});
   navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(reg=>{
     reg.update().catch(()=>{});
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
