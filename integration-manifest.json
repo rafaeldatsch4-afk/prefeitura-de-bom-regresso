@@ -17,7 +17,7 @@
       "Vice-governador",
       "Prefeito",
       "Vice-prefeito",
-      "RH",
+      "Assistente universal",
       "Secretário da Agricultura",
       "Motorista",
       "Servidor / Outro"
@@ -25,7 +25,7 @@
     "localRoles": [
       "Prefeito",
       "Vice-prefeito",
-      "RH",
+      "Assistente universal",
       "Secretário da Agricultura",
       "Motorista",
       "Servidor / Outro"
@@ -33,7 +33,7 @@
     "exclusiveLocalRoles": [
       "Prefeito",
       "Vice-prefeito",
-      "RH"
+      "Assistente universal"
     ]
   },
   "profileSchema": {
