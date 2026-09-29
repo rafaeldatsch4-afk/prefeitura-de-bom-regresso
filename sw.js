@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v43';
+const CACHE='bom-regresso-pwa-v44';
 const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/prefeitura/','/prefeitura/index.html','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
@@ -15,7 +15,7 @@ try{
   const messaging=firebase.messaging();
   messaging.onBackgroundMessage(payload=>{
     const d=payload.data||{};
-    self.registration.showNotification(d.title||'💬 Chat da Prefeitura',{
+    self.registration.showNotification(d.title||'💬 Chat da República',{
       body:d.body||'Nova mensagem',
       icon:'/app-icon.svg',
       badge:'/app-icon.svg',
@@ -24,7 +24,7 @@ try{
       silent:d.sound==='0',
       vibrate:d.vibrate==='0'?undefined:[70,45,70],
       timestamp:Date.now(),
-      data:{type:'chat',url:'/prefeitura/?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
+      data:{type:'chat',url:'/?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
       actions:[{action:'open-chat',title:'Abrir chat'}]
     });
   });
@@ -101,7 +101,7 @@ self.addEventListener('fetch',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   event.waitUntil((async()=>{
-    const target=event.notification?.data?.url||'/prefeitura/?open=chat';
+    const target=event.notification?.data?.url||'/?open=chat';
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of list){
       try{
