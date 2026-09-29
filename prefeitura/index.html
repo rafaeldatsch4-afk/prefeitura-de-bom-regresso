@@ -807,6 +807,10 @@ html[data-appearance="dark"] .readonly-banner{
 .avatar-crop-frame{width:min(320px,100%);aspect-ratio:1;margin:0 auto 10px;border-radius:22px;overflow:hidden;border:3px solid var(--gold);background:#E8EEF4;touch-action:none}
 .avatar-crop-frame canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .avatar-crop-frame canvas:active{cursor:grabbing}
+.avatar-profile-button{border:0;background:transparent;padding:0;display:grid;justify-items:center;gap:4px;cursor:pointer;color:var(--navy);font-weight:800}.avatar-profile-button small{font-size:11px}
+.avatar-preview-picker{display:grid;justify-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:800;color:var(--navy)}
+.avatar-preview-picker .profile-avatar-xl{outline:2px solid var(--gold);outline-offset:3px}
+.avatar-upload-label input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 html[data-appearance="dark"] .profile-stat,html[data-appearance="dark"] .avatar-editor{background:#131C24}
 html[data-appearance="dark"] .profile-hero h2,html[data-appearance="dark"] .profile-stat strong{color:#F2F6FA}
 html[data-appearance="dark"] .emoji-choice{background:#1A2731;color:#fff}
@@ -1549,6 +1553,7 @@ const THEME_KEY='bom_regresso_theme_v1';
 let deferredInstallPrompt=null;
 let pdfLibPromise=null;
 let avatarDraft={image:'',emoji:''};
+let avatarLoading=false;
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
 const DATA_NAMESPACE='v5';
 const CHAT_ONLY=new URLSearchParams(location.search).get('chatonly')==='1';
@@ -2060,21 +2065,22 @@ function resetAvatarDraft(profile={}){
 function avatarEditorHTML(profile={}){
   resetAvatarDraft(profile);
   return `<div class="avatar-editor">
-    <div class="avatar-editor-top"><div id="avatarDraftPreview">${profileAvatarHTML(profile,'profile-avatar-xl')}</div><div class="grow"><b>Foto ou emoji</b><div class="muted" style="font-size:12px;margin-top:4px">A foto usa proporção quadrada automática. Arraste e use o zoom para ajustar.</div></div></div>
-    <div class="avatar-choice-grid"><label class="btn btn-secondary avatar-upload-label">📷 Enviar foto<input id="avatarFile" type="file" accept="image/*" hidden onchange="App.loadAvatarFile(this.files[0])"></label><button type="button" class="btn btn-secondary" onclick="App.removeAvatarPhoto()">🗑 Remover foto</button><button type="button" class="btn btn-secondary" onclick="App.useAvatarInitials()">AB Usar iniciais</button></div>
+    <div class="avatar-editor-top"><label for="avatarFile" class="avatar-preview-picker"><span id="avatarDraftPreview">${profileAvatarHTML(profile,'profile-avatar-xl')}</span><span>📷 Alterar foto</span></label><div class="grow"><b>Foto ou emoji</b><div class="muted" style="font-size:12px;margin-top:4px">Toque na foto para escolher uma imagem. Arraste e use o zoom para ajustar.</div></div></div>
+    <div class="avatar-choice-grid"><label class="btn btn-secondary avatar-upload-label">📷 Escolher foto<input id="avatarFile" type="file" accept="image/*" onchange="App.loadAvatarFile(this.files[0])"></label><button type="button" class="btn btn-secondary" onclick="App.removeAvatarPhoto()">🗑 Remover foto</button><button type="button" class="btn btn-secondary" onclick="App.useAvatarInitials()">AB Usar iniciais</button></div>
     <div class="field"><label>Ou escolha um emoji</label><div class="emoji-picker-row">${['👤','🙂','😎','👑','🧑‍💼','🚜','🚚','🛠️','🌱','💼'].map(e=>`<button type="button" class="emoji-choice" onclick="App.chooseAvatarEmoji('${e}')">${e}</button>`).join('')}<input id="customAvatarEmoji" class="emoji-custom" maxlength="8" placeholder="Outro" oninput="App.chooseAvatarEmoji(this.value)"></div></div>
-    <div id="avatarCropArea" class="avatar-crop-area hidden"><div class="avatar-crop-frame"><canvas id="avatarCropCanvas" width="320" height="320"></canvas></div><div class="field"><label>Zoom da foto</label><input id="avatarZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="App.setAvatarZoom(this.value)"></div><div class="row wrap"><button type="button" class="btn btn-secondary" onclick="App.centerAvatarCrop()">Centralizar</button><button type="button" class="btn btn-primary" onclick="App.applyAvatarCrop()">Usar este recorte</button></div></div>
+    <div id="avatarCropArea" class="avatar-crop-area hidden"><div class="avatar-crop-frame"><canvas id="avatarCropCanvas" width="320" height="320"></canvas></div><div class="field"><label>Zoom da foto</label><input id="avatarZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="App.setAvatarZoom(this.value)"></div><div class="row wrap"><button type="button" class="btn btn-secondary" onclick="App.centerAvatarCrop()">Centralizar</button><button type="button" class="btn btn-primary" onclick="App.applyAvatarCrop()">✓ Confirmar recorte</button><button type="button" class="btn btn-secondary" onclick="App.cancelAvatarCrop()">× Cancelar</button></div></div>
   </div>`
 }
 function updateAvatarDraftPreview(){
   const box=document.getElementById('avatarDraftPreview');if(!box)return;
   box.innerHTML=profileAvatarHTML({name:currentProfile()?.name||val('opName')||val('renameOp')||'Perfil',avatarImage:avatarDraft.image,avatarEmoji:avatarDraft.emoji},'profile-avatar-xl')
 }
-function chooseAvatarEmoji(emoji){avatarDraft.image='';avatarDraft.emoji=String(emoji||'').trim().slice(0,8);updateAvatarDraftPreview()}
-function useAvatarInitials(){avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview()}
+function cancelAvatarCrop(){avatarCropState.img=null;document.getElementById('avatarCropArea')?.classList.add('hidden')}
+function chooseAvatarEmoji(emoji){cancelAvatarCrop();avatarDraft.image='';avatarDraft.emoji=String(emoji||'').trim().slice(0,8);updateAvatarDraftPreview()}
+function useAvatarInitials(){cancelAvatarCrop();avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview()}
 function loadAvatarFile(file){
   if(!file)return;if(!String(file.type||'').startsWith('image/'))return toast('Escolha um arquivo de imagem.');if(file.size>12*1024*1024)return toast('A imagem é muito grande. Use uma foto de até 12 MB.');
-  const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{avatarCropState={img,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};document.getElementById('avatarCropArea')?.classList.remove('hidden');const z=document.getElementById('avatarZoom');if(z)z.value='1';bindAvatarCropCanvas();drawAvatarCrop()};img.onerror=()=>toast('Não foi possível abrir essa imagem.');img.src=reader.result};reader.readAsDataURL(file)
+  avatarLoading=true;const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{avatarCropState={img,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};document.getElementById('avatarCropArea')?.classList.remove('hidden');const z=document.getElementById('avatarZoom');if(z)z.value='1';bindAvatarCropCanvas();drawAvatarCrop();avatarLoading=false;const input=document.getElementById('avatarFile');if(input)input.value=''};img.onerror=()=>{avatarLoading=false;toast('Não foi possível abrir essa imagem.')};img.src=reader.result};reader.onerror=()=>{avatarLoading=false;toast('Não foi possível ler essa imagem.')};reader.readAsDataURL(file)
 }
 function bindAvatarCropCanvas(){
   const canvas=document.getElementById('avatarCropCanvas');if(!canvas)return;
@@ -2092,11 +2098,12 @@ function centerAvatarCrop(){avatarCropState.offsetX=0;avatarCropState.offsetY=0;
 function applyAvatarCrop(){
   const source=document.getElementById('avatarCropCanvas');if(!source||!avatarCropState.img)return;const out=document.createElement('canvas');out.width=192;out.height=192;out.getContext('2d').drawImage(source,0,0,192,192);
   let q=.78,data=out.toDataURL('image/jpeg',q);while(data.length>45000&&q>.48){q-=.08;data=out.toDataURL('image/jpeg',q)}
-  avatarDraft.image=data;avatarDraft.emoji='';document.getElementById('avatarCropArea')?.classList.add('hidden');updateAvatarDraftPreview();toast('Recorte aplicado.')
+  avatarDraft.image=data;avatarDraft.emoji='';avatarCropState.img=null;document.getElementById('avatarCropArea')?.classList.add('hidden');updateAvatarDraftPreview();toast('Recorte aplicado.')
 }
+function avatarReadyToSave(){if(avatarLoading){toast('Aguarde a foto abrir.');return false}if(avatarCropState.img)applyAvatarCrop();return true}
 function openMyProfile(){
   const p=currentProfile();if(!p)return;const s=profileStats(p),recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,5);
-  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isPasswordProtectedProfile(p)?'<div class="rh-profile-security">🔒 Perfil protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyProfile()">✎ Editar minhas informações</button>${isPasswordProtectedProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
+  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero"><button type="button" class="avatar-profile-button" onclick="App.editMyAvatar()" aria-label="Alterar foto do perfil" title="Alterar foto">${profileAvatarHTML(p,'profile-avatar-xxl')}<small>📷 Alterar</small></button><div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isPasswordProtectedProfile(p)?'<div class="rh-profile-security">🔒 Perfil protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><div class="actions"><button class="btn btn-primary" onclick="App.editMyProfile()">✎ Editar minhas informações</button>${isPasswordProtectedProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
 }
 function users(c){
   c.innerHTML=head('Usuários cadastrados','Visualize os perfis cadastrados no sistema. Esta área é somente para consulta.')+
@@ -2190,13 +2197,14 @@ function openUserProfile(id){
   </div>`)
 }
 
-function editMyAvatar(){const p=currentProfile();if(!p)return;showModal('Personalizar perfil',avatarEditorHTML(p)+`<div class="actions"><button class="btn btn-primary" onclick="App.saveMyAvatar()">Salvar foto / emoji</button></div>`)}
+function editMyAvatar(){const p=currentProfile();if(!p)return;showModal('Personalizar perfil',avatarEditorHTML(p)+`<div class="actions"><button class="btn btn-primary" onclick="App.saveMyAvatar()">✓ Salvar foto / emoji</button></div>`)}
 function editMyProfile(){
   const p=currentProfile();if(!p)return;
   showModal('Editar meu perfil',`<div class="field"><label>Nome</label><input id="myProfileName" value="${esc(p.name||'')}"></div><div class="field"><label>Cargo / função</label><input value="${esc(p.role||'Servidor / Outro')}" disabled></div>${avatarEditorHTML(p)}<div class="actions"><button class="btn btn-primary" onclick="App.saveMyProfile()">Salvar meu perfil</button></div>`)
 }
 function saveMyProfile(){
   const p=currentProfile();if(!p)return;
+  if(!avatarReadyToSave())return;
   const name=val('myProfileName');if(!name)return toast('Digite o nome.');
   const old=p.name;
   p.name=name;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();
@@ -2206,10 +2214,10 @@ function saveMyProfile(){
   save();closeModal();render();toast('Perfil atualizado.')
 }
 function removeAvatarPhoto(){
-  avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview();toast('Foto removida. Ao salvar, o perfil usará as iniciais.')
+  cancelAvatarCrop();avatarDraft.image='';avatarDraft.emoji='';updateAvatarDraftPreview();toast('Foto removida. Ao salvar, o perfil usará as iniciais.')
 }
 
-function saveMyAvatar(){const p=currentProfile();if(!p)return;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();save();closeModal();render();toast('Perfil personalizado.')}
+function saveMyAvatar(){const p=currentProfile();if(!p||!avatarReadyToSave())return;p.avatarImage=avatarDraft.image||'';p.avatarEmoji=avatarDraft.emoji||'';p.updatedAt=nowISO();save();closeModal();render();toast('Perfil personalizado.')}
 
 function isFullAccess(role=currentRole()){
   return ['Presidente','Vice-presidente','Prefeito','Vice-prefeito','RH'].includes(role)
@@ -3288,6 +3296,7 @@ function addOperator(){
   showModal('Cadastrar operador',`<div class="field"><label>Nome do operador</label><input id="opName" placeholder="Ex.: Vitor"></div><div class="field"><label>Cargo / função</label><select id="opRole">${roleOptions()}</select></div>${avatarEditorHTML(blank)}<div class="actions"><button class="btn btn-primary" onclick="App.saveOperator()">Salvar operador</button></div>`,()=>document.getElementById('opName')?.focus())
 }
 function saveOperator(){
+  if(!avatarReadyToSave())return;
   const loginVisible=!document.getElementById('login')?.classList.contains('hidden');
   if(!loginVisible&&db.currentOperator&&!isFullAccess())return accessDenied();
   const name=val('opName'),role=val('opRole');
@@ -3309,6 +3318,7 @@ function renameOperator(id){
   showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
 }
 async function saveRenameOperator(id){
+  if(!avatarReadyToSave())return;
   if(!requireFull())return;
   const o=db.operators.find(x=>x.id===id),name=val('renameOp'),role=val('renameRole');
   if(!o||!name)return toast('Digite o nome.');
@@ -4074,7 +4084,7 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
