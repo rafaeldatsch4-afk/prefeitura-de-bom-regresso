@@ -1571,6 +1571,7 @@ const FIREBASE_CONFIG={
 };
 const SHARED_KEYS=['operators','machinery','implements','appointments','licitations','employees','payments','contracts','finance','trucks','trips','activityLog'];
 let fbAuth=null,fbStore=null,cloudDoc=null,carrierCollection=null,chatCollection=null,chatMediaCollection=null,profileSecretsCollection=null,pushTokensCollection=null,pushConfigDoc=null,messaging=null,cloudReady=false,applyingCloud=false,cloudUnsub=null,carrierUnsub=null,chatUnsub=null;
+let cloudInitialization=null;
 let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='',pushBackendConfigured=false;
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_'+DATA_NAMESPACE;
 const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_'+DATA_NAMESPACE+'_';
@@ -1916,7 +1917,14 @@ function installFederationDiscoveryListener(){
     }
     if(msg.type==='HANDOFF_PROFILE'){
       let result;
-      try{result=await acceptFederatedProfile(msg.payload||{})}
+      try{
+        if(cloudInitialization)await cloudInitialization;
+        if(CHAT_ONLY&&!cloudReady){
+          result={ok:false,reason:'O Firebase não conectou. Reabra o chat quando a conexão voltar.'};
+        }else{
+          result=await acceptFederatedProfile(msg.payload||{});
+        }
+      }
       catch(err){console.error('Handoff de perfil:',err);result={ok:false,reason:'Falha ao integrar o perfil municipal.'}}
       try{
         event.source?.postMessage({
@@ -4089,7 +4097,7 @@ registerAutoUpdatingServiceWorker();
 installFederationDiscoveryListener();
 installMunicipalIntegrationBridge();
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='OPEN_CHAT'&&db.currentOperatorId)go('chat')});
-initCloud();
+cloudInitialization=initCloud();
 })();
 </script>
 </body>
