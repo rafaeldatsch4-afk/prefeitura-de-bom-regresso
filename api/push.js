@@ -91,7 +91,7 @@ module.exports=async function handler(req,res){
   const bodyObj=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
   const tokens=[...new Set(Array.isArray(bodyObj.tokens)?bodyObj.tokens.filter(x=>typeof x==='string'&&x.length>20):[])].slice(0,50);
   if(!tokens.length)return res.status(200).json({sent:0,failed:0});
-  const title=String(bodyObj.title||'Chat da Prefeitura').slice(0,90);
+  const title=String(bodyObj.title||'Chat da República').slice(0,90);
   const body=String(bodyObj.body||'Nova mensagem').slice(0,220);
   const data=bodyObj.data&&typeof bodyObj.data==='object'?bodyObj.data:{};
   try{
