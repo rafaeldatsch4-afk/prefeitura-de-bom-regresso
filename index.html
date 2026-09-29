@@ -179,8 +179,10 @@ async function initCountryCloud(){
     const doc=store.collection('republica').doc('dados_v1');
     const existing=await doc.get();
     if(!countryEnabled)return;
-    if(!localStorage.getItem(COUNTRY_MIGRATED_KEY)&&countryHasRecords(data)){
-      const localCopy=countryPayload();
+    let savedBackup=null;
+    try{savedBackup=JSON.parse(localStorage.getItem(COUNTRY_BACKUP_KEY)||'null')}catch{}
+    const localCopy=savedBackup&&countryHasRecords(savedBackup)?mergeCountryData(countryPayload(),savedBackup):countryPayload();
+    if(!localStorage.getItem(COUNTRY_MIGRATED_KEY)&&countryHasRecords(localCopy)){
       if(existing.exists&&countryFingerprint(existing.data())!==countryFingerprint(localCopy)&&!localStorage.getItem(COUNTRY_BACKUP_KEY))localStorage.setItem(COUNTRY_BACKUP_KEY,JSON.stringify(data));
       await store.runTransaction(async transaction=>{
         const snapshot=await transaction.get(doc);
