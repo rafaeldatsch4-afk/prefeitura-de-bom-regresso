@@ -1719,10 +1719,10 @@ async function initCloud(){
     cloudReady=true;startCarrierSync(legacyCarriers);startChatSync();await startPushInfrastructure();await publishIntegrationDescriptor();
     cloudUnsub=cloudDoc.onSnapshot(s=>{
       if(!s.exists)return;const data=s.data();migrateLegacyCarriers(data.carriers||[]);
-      const before=JSON.stringify(cloudPayload());applyCloud(data);ensureMunicipalProfileMetadata();
+      const before=JSON.stringify(SHARED_KEYS.map(k=>db[k]||[]));applyCloud(data);ensureMunicipalProfileMetadata();
       for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
       persistLocal();
-      const after=JSON.stringify(cloudPayload());
+      const after=JSON.stringify(SHARED_KEYS.map(k=>db[k]||[]));
       if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden'))renderPage();else loginScreen()}
     },err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});
     loginScreen()
@@ -3539,11 +3539,11 @@ function saveAsset(type,id){
   save();closeModal();renderPage();toast('Cadastro salvo.')
 }
 function licit(c){
-  let t=sub||'history';
+  let t=sub||(isFullAccess()?'send':'history');
   const editable=isFullAccess();
   const tbs=editable?[['send','📨 Enviar'],['confirm','✓ Confirmar'],['history','📋 Histórico']]:[['history','📋 Histórico']];
   if(!editable&&t!=='history')t='history';
-  c.innerHTML=head('Licitações','Fluxo fictício e simplificado de envio e confirmação.')+readOnlyNotice('licit')+tabs(tbs,t)+`<div id="subview"></div>`;
+  c.innerHTML=head('Licitações','Fluxo fictício e simplificado de envio e confirmação.')+(editable?'':`<div class="readonly-banner">👁 Este perfil pode consultar licitações. Para enviar ou confirmar, entre com um perfil de Presidente, Vice-presidente, Prefeito, Vice-prefeito ou RH.</div>`)+tabs(tbs,t)+`<div id="subview"></div>`;
   const v=document.getElementById('subview');if(t==='confirm')licitConfirm(v);else if(t==='send')licitSend(v);else licitHistory(v)
 }
 function licitSend(v){v.innerHTML=`<div class="panel"><h3>Enviar licitação</h3><div class="sub">Somente nome e data são suficientes; os demais campos são opcionais.</div><div class="form-grid"><div class="field"><label>Nome da licitação</label><input id="lTitle"></div><div class="field"><label>Data</label><input id="lDate" value="${todayBR()}"></div><div class="field wide"><label>Resumo / itens</label><textarea id="lItem" rows="3"></textarea></div><div class="field wide"><label>Observações</label><textarea id="lNotes" rows="3"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveLicit()">Enviar licitação</button></div></div>`}
