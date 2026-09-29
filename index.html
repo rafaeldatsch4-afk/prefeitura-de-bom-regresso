@@ -111,6 +111,7 @@ jurisdictionFields=(role,selected='')=>{const group=roleDescription(role);if(gro
 const COUNTRY_FIELDS=['cofreInicial','estados','municipios','lancamentos','pib','ano','profiles'];
 const COUNTRY_BACKUP_KEY=KEY+'_backup_before_cloud';
 const COUNTRY_DIRTY_KEY=KEY+'_pending_sync';
+const COUNTRY_MIGRATED_KEY=KEY+'_initial_merge_done';
 const COUNTRY_FIREBASE_CONFIG={
   apiKey:'AIzaSyAZRB9eqv2GFqObXfOP_PZDPDg2VSyjyow',
   authDomain:'prefeitura-de-bom-regresso.firebaseapp.com',
@@ -123,6 +124,30 @@ let countryLoading=!!window.firebase&&location.protocol!=='file:',countryEnabled
 const countryPayload=()=>Object.fromEntries(COUNTRY_FIELDS.map(k=>[k,data[k]]));
 const countryFingerprint=value=>JSON.stringify(COUNTRY_FIELDS.map(k=>k==='profiles'?(value?.profiles||[]).map(p=>({...p,lastUsedAt:0})):value?.[k]));
 const countryHasRecords=value=>!!(value?.profiles?.length||value?.estados?.length||value?.municipios?.length||value?.lancamentos?.length);
+function mergeCountryData(remote,local){
+  const merged={...remote},stateIds=new Map(),cityIds=new Map();
+  const combine=(key,match,source=local[key])=>{
+    const items=Array.isArray(remote[key])?remote[key].slice():[];
+    for(const entry of Array.isArray(source)?source:[]){
+      const found=items.find(x=>x.id===entry.id||match?.(x,entry));
+      if(found){if(key==='estados')stateIds.set(entry.id,found.id);if(key==='municipios')cityIds.set(entry.id,found.id)}
+      else items.push({...entry});
+    }
+    merged[key]=items;
+  };
+  combine('estados',(a,b)=>!!a.sigla&&!!b.sigla&&a.sigla.trim().toLowerCase()===b.sigla.trim().toLowerCase()||!!a.nome&&!!b.nome&&a.nome.trim().toLowerCase()===b.nome.trim().toLowerCase());
+  const localCities=(local.municipios||[]).map(city=>({...city,estado:stateIds.get(city.estado)||city.estado}));
+  combine('municipios',(a,b)=>!!a.nome&&!!b.nome&&a.nome.trim().toLowerCase()===b.nome.trim().toLowerCase(),localCities);
+  if(merged.municipios.length>1){
+    const chosen=merged.municipios.find(x=>x.nome?.trim().toLowerCase()==='bom regresso')||merged.municipios[0];
+    for(const city of merged.municipios)cityIds.set(city.id,chosen.id);
+    merged.municipios=[chosen];
+  }
+  const append=(key,values)=>{const ids=new Set((merged[key]||[]).map(x=>x.id));merged[key]=[...(merged[key]||[])];for(const entry of values){if(!ids.has(entry.id)){merged[key].push(entry);ids.add(entry.id)}}};
+  append('lancamentos',(local.lancamentos||[]).map(x=>({...x,estado:stateIds.get(x.estado)||x.estado})));
+  append('profiles',(local.profiles||[]).map(x=>({...x,jurisdictionId:stateIds.get(x.jurisdictionId)||cityIds.get(x.jurisdictionId)||x.jurisdictionId})));
+  return merged;
+}
 function applyCountryCloud(remote){
   const selected=data.currentProfileId;
   data=Object.assign(defaults(),Object.fromEntries(COUNTRY_FIELDS.map(k=>[k,remote[k]??defaults()[k]])));
@@ -154,16 +179,23 @@ async function initCountryCloud(){
     const doc=store.collection('republica').doc('dados_v1');
     const existing=await doc.get();
     if(!countryEnabled)return;
-    if(!existing.exists&&countryHasRecords(data)){
-      await store.runTransaction(async transaction=>{const snapshot=await transaction.get(doc);if(!snapshot.exists)transaction.set(doc,{...countryPayload(),updatedAt:new Date().toISOString()})})
+    if(!localStorage.getItem(COUNTRY_MIGRATED_KEY)&&countryHasRecords(data)){
+      const localCopy=countryPayload();
+      if(existing.exists&&countryFingerprint(existing.data())!==countryFingerprint(localCopy)&&!localStorage.getItem(COUNTRY_BACKUP_KEY))localStorage.setItem(COUNTRY_BACKUP_KEY,JSON.stringify(data));
+      await store.runTransaction(async transaction=>{
+        const snapshot=await transaction.get(doc);
+        const merged=snapshot.exists?mergeCountryData(snapshot.data(),localCopy):localCopy;
+        if(!snapshot.exists||countryFingerprint(merged)!==countryFingerprint(snapshot.data()))transaction.set(doc,{...merged,updatedAt:new Date().toISOString()});
+      });
+      localStorage.removeItem(COUNTRY_DIRTY_KEY);
+      localStorage.setItem(COUNTRY_MIGRATED_KEY,'1');
     }else if(localStorage.getItem(COUNTRY_DIRTY_KEY)==='1'){
       await doc.set({...countryPayload(),updatedAt:new Date().toISOString()},{merge:true});
       localStorage.removeItem(COUNTRY_DIRTY_KEY)
-    }else if(existing.exists&&!countryHasRecords(existing.data())&&countryHasRecords(data)){
-      await doc.set({...countryPayload(),updatedAt:new Date().toISOString()},{merge:true})
     }
     const snapshot=await doc.get();
     if(!countryEnabled)return;
+    localStorage.setItem(COUNTRY_MIGRATED_KEY,'1');
     const remote=snapshot.data();
     if(remote&&countryFingerprint(remote)!==countryFingerprint(data)){
       if(countryHasRecords(data)&&!localStorage.getItem(COUNTRY_BACKUP_KEY))localStorage.setItem(COUNTRY_BACKUP_KEY,JSON.stringify(data));
