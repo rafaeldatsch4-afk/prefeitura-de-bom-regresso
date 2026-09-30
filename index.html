@@ -41,9 +41,9 @@ html[data-theme="dark"] .role-step select{background:#0E1C2B}
 .content{max-width:1600px;width:100%}
 .cards{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 .grid{grid-template-columns:minmax(0,1.45fr) minmax(300px,.85fr)}
-.embedded-app-toolbar{height:58px;display:flex;align-items:center;gap:11px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);position:relative;z-index:2}
-.embedded-app-toolbar>div{min-width:0;display:flex;flex-direction:column;gap:2px}.embedded-app-toolbar b{color:var(--navy);font-size:14px}.embedded-app-toolbar small{color:var(--muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.embedded-app-toolbar small[data-ok="1"]{color:#2E7D55;font-weight:800}
-.embedded-app-frame-wrap{width:100%;height:calc(100dvh - 58px);overflow:hidden;background:#EEF3F7}
+.embedded-app-toolbar{height:62px;display:flex;align-items:center;gap:11px;padding:8px 14px;background:linear-gradient(135deg,#0B2E59,#123F73);border-bottom:3px solid var(--gold);box-shadow:0 5px 16px #0b2e5924;position:relative;z-index:2}
+.embedded-app-toolbar>div{min-width:0;display:flex;flex-direction:column;gap:2px}.embedded-app-toolbar b{color:#fff;font-size:14px}.embedded-app-toolbar small{color:#d4e3ee;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.embedded-app-toolbar small[data-ok="1"]{color:#baf0d0;font-weight:800}.embedded-app-toolbar .btn{background:#ffffff25;color:#fff;border:1px solid #ffffff35}.embedded-app-toolbar .btn:hover{background:#ffffff38}
+.embedded-app-frame-wrap{width:100%;height:calc(100dvh - 62px);overflow:hidden;background:#EEF3F7}
 .embedded-app-frame-wrap iframe{display:block;width:100%;height:100%;border:0;background:#EEF3F7}
 body.embedded-app-view{overflow:hidden}
 body.embedded-app-view .shell{grid-template-columns:1fr;height:100dvh;min-height:0}
@@ -225,7 +225,7 @@ async function initCountryCloud(){
   }catch(err){console.error('Firebase da República indisponível:',err);countryReady=false;countryLoading=false;countryNotice='⚠ Sem conexão; dados salvos neste aparelho';render()}
   finally{countryInitializing=false}
 }
-window.addEventListener('online',()=>{if(countryEnabled&&!countryReady)initCountryCloud()});
+window.addEventListener('online',()=>{if(countryEnabled&&!countryReady)initCountryCloud()});window.addEventListener('storage',e=>{if(e.key===THEME_KEY&&['claro','escuro','sistema'].includes(e.newValue)){theme=e.newValue;applyTheme();if(page==='aparencia'){formEditing=false;render()}}});
 function render(){
   if(formEditing)return;
   if(countryLoading){$('loginScreen').hidden=false;$('shell').hidden=true;$('mobile').hidden=true;$('loginScreen').innerHTML='<div class="login-card"><h1>Bom Regresso</h1><p>Conectando os dados da República…</p><button class="btn secondary" data-country-local>Usar dados deste aparelho</button></div>';return}
