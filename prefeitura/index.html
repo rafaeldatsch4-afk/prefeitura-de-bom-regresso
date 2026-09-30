@@ -1526,6 +1526,57 @@ html.chat-only .chat-limit-note{padding-bottom:max(8px,env(safe-area-inset-botto
   html.chat-only .chat-page,html.chat-only .chat-shell{height:100dvh!important}
 }
 html[data-embedded="1"] .content{max-width:none}
+
+/* A mesma hierarquia visual do painel da República, mantendo os setores da Prefeitura. */
+html,body,.app,.shell,.content-wrap{max-width:100%;min-width:0}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+.shell{grid-template-columns:250px minmax(0,1fr)}
+.sidebar{padding:17px 12px}
+.brand{display:flex;align-items:center;gap:12px;text-align:left;padding:6px 12px 18px;margin-bottom:14px;border-bottom:1px solid #ffffff25}
+.brand img{width:74px;height:74px;max-height:none;object-fit:contain;flex:none}
+.brand small{font-size:13px;line-height:1.25;letter-spacing:.035em}
+.nav button{min-height:46px;font-weight:700}
+.operator-chip{margin:0 2px 14px;padding:9px}
+.content{width:100%;max-width:1600px}
+.topbar{min-height:68px;height:auto;background:linear-gradient(135deg,#0B2E59,#123F73);border-bottom:3px solid var(--gold);box-shadow:0 5px 16px #0b2e5924;color:#fff}
+.topbar strong,.topbar .muted{color:#fff}
+.topbar .muted{font-size:12px}
+.topbar-profile,.topbar-settings{background:#ffffff25!important;border-color:#ffffff35!important;color:#fff!important}
+.page-head h2{font-size:29px;font-weight:850;letter-spacing:-.02em}
+.cards{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.card,.panel{min-width:0;border-radius:18px;box-shadow:0 7px 20px #0b2e5912}
+.card{border-top:5px solid var(--gold)}
+.card .accent{display:none}
+.card .label{letter-spacing:.04em;text-transform:uppercase}
+.card .value{overflow-wrap:anywhere}
+.grid2{grid-template-columns:minmax(0,1.45fr) minmax(0,.85fr)}
+.grid2>*{min-width:0}
+.kpi-line{gap:12px;min-width:0}
+.kpi-line span{flex:0 0 auto}
+.kpi-line b{min-width:0;text-align:right;overflow-wrap:anywhere}
+.small-actions .btn{min-height:40px}
+.btn{min-height:42px;font-weight:800}
+.btn:focus-visible,.nav button:focus-visible,.mobile-nav button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+html[data-appearance="dark"] .topbar{background:linear-gradient(135deg,#0B2E59,#123F73);color:#fff}
+html[data-appearance="dark"] .topbar strong,html[data-appearance="dark"] .topbar .muted{color:#fff}
+@media(max-width:1050px) and (min-width:761px){.shell{grid-template-columns:220px minmax(0,1fr)}}
+@media(max-width:760px){
+  .shell{display:block}
+  .brand{display:none}
+  .topbar{min-height:64px;padding:8px 13px;background:linear-gradient(135deg,#0B2E59,#123F73)}
+  .topbar strong,.topbar-city{color:#fff}
+  .topbar .muted{background:#ffffff24;color:#fff;max-width:125px;overflow:hidden;text-overflow:ellipsis}
+  .page-head h2{font-size:24px}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card{min-height:108px}
+  .grid2{grid-template-columns:1fr}
+  .kpi-line{align-items:flex-start}
+  .kpi-line span{font-size:13px}
+  .kpi-line b{font-size:13px}
+  .small-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .small-actions .btn{white-space:normal}
+}
+@media(max-width:360px){.cards{grid-template-columns:1fr}}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1590,6 +1641,7 @@ const todayBR=()=>new Date().toLocaleDateString('pt-BR');
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const moneySummary=v=>{const n=Number(v||0);if(Math.abs(n)<1e9)return money(n);const scales=[[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão']];const [scale,unit]=scales.find(([size])=>Math.abs(n)>=size)||scales.at(-1);const amount=Math.abs(n)/scale;return `${n<0?'-':''}R$ ${amount.toLocaleString('pt-BR',{maximumFractionDigits:2})} ${amount===1?unit:unit.replace('ão','ões')}`};
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 const val=id=>(document.getElementById(id)?.value||'').trim();
 const nval=id=>Number((val(id)||'0').replace(/\./g,'').replace(',','.'))||0;
@@ -3143,7 +3195,7 @@ async function saveOperatorRoleAndEnter(id){
 }
 function safeHex(v,fallback){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:fallback}
 function shade(hex,percent){const h=safeHex(hex,'#0B2E59').slice(1),n=parseInt(h,16),amt=Math.round(2.55*percent),r=Math.max(0,Math.min(255,(n>>16)+amt)),g=Math.max(0,Math.min(255,((n>>8)&255)+amt)),b=Math.max(0,Math.min(255,(n&255)+amt));return'#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
-function getTheme(){try{return Object.assign({primary:'#0B2E59',accent:'#D7A93E',appearance:'light'},JSON.parse(localStorage.getItem(THEME_KEY)||'{}'))}catch{return{primary:'#0B2E59',accent:'#D7A93E',appearance:'light'}}}
+function getTheme(){let selected;try{selected=Object.assign({primary:'#0B2E59',accent:'#D7A93E',appearance:'light'},JSON.parse(localStorage.getItem(THEME_KEY)||'{}'))}catch{selected={primary:'#0B2E59',accent:'#D7A93E',appearance:'light'}}if(new URLSearchParams(location.search).get('appview')==='1'){const country=localStorage.getItem('bom_regresso_pais_theme_v1');if(['claro','escuro','sistema'].includes(country))selected.appearance=({claro:'light',escuro:'dark',sistema:'auto'})[country]}return selected}
 function applyTheme(theme=getTheme()){
   const primary=safeHex(theme.primary,'#0B2E59'),accent=safeHex(theme.accent,'#D7A93E');
   const root=document.documentElement;
@@ -3156,7 +3208,7 @@ function applyTheme(theme=getTheme()){
   root.dataset.appearance=dark?'dark':'light';
   const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=primary;
 }
-function saveTheme(theme){localStorage.setItem(THEME_KEY,JSON.stringify(theme));applyTheme(theme)}
+function saveTheme(theme){localStorage.setItem(THEME_KEY,JSON.stringify(theme));if(new URLSearchParams(location.search).get('appview')==='1')localStorage.setItem('bom_regresso_pais_theme_v1',({light:'claro',dark:'escuro',auto:'sistema'})[theme.appearance]||'claro');applyTheme(theme)}
 function setThemePreset(name){
   const p=THEME_PRESETS[name]||THEME_PRESETS.classic;
   const a=document.getElementById('themePrimary'),b=document.getElementById('themeAccent');
@@ -3462,9 +3514,9 @@ function home(c){
     </div>
     <div class="panel home-finance-panel">
       <h3>Resumo financeiro</h3><div class="sub">Lançamentos marcados como pagos.</div>
-      <div class="kpi-line"><span>Receitas</span><b class="s-ok">${money(rev)}</b></div>
-      <div class="kpi-line"><span>Despesas</span><b class="s-bad">${money(exp)}</b></div>
-      <div class="kpi-line"><span>Saldo</span><b>${money(rev-exp)}</b></div>
+      <div class="kpi-line"><span>Receitas</span><b class="s-ok" title="${esc(money(rev))}">${moneySummary(rev)}</b></div>
+      <div class="kpi-line"><span>Despesas</span><b class="s-bad" title="${esc(money(exp))}">${moneySummary(exp)}</b></div>
+      <div class="kpi-line"><span>Saldo</span><b title="${esc(money(rev-exp))}">${moneySummary(rev-exp)}</b></div>
       ${quick.length?`<div class="sep"></div><div class="small-actions">${quick.join('')}</div>`:''}
     </div>
   </div>`
