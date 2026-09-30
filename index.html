@@ -264,7 +264,12 @@ function render(){
   $('mobile').style.gridTemplateColumns=`repeat(${primary.length+1},minmax(0,1fr))`;
   $('mobile').innerHTML=primary.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span>${icon}</span><b>${label}</b></button>`).join('')+`<button class="${more.some(([k])=>k===page)?'active':''}" data-more><span>☰</span><b>Mais</b></button>`;
   $('moreItems').innerHTML=more.map(([key,icon,label])=>`<button data-page="${key}"><span>${icon}</span>${label}</button>`).join('');
-  $('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil})[page]()
+  // Chat and the municipal module are iframes: rebuilding them on every cloud update reloaded the
+  // conversation for everyone. Keep the live frame while the page and the profile sent to it stay the same.
+  const frameId=page==='chat'?'republicChatFrame':embeddedView?'municipalAppFrame':'';
+  const embedKey=frameId?page+'|'+JSON.stringify(page==='chat'?chatProfilePayload():municipalProfilePayload()):'';
+  if(!embedKey||!$(frameId)||$('content').dataset.embedKey!==embedKey)$('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil})[page]();
+  $('content').dataset.embedKey=embedKey
 }
 const heading=(title,desc)=>`<h1>${title}</h1><p class="lead muted">${desc}</p>`,card=(label,value,detail)=>`<div class="card"><span class="card-icon" aria-hidden="true">${({'Cofre público':'💰','Estados':'🗺️','Municípios':'🏘️','PIB':'📈','Saldo atual':'💰','Movimentações':'📋','PIB anual':'📈','População cadastrada':'👥','PIB por habitante':'◫'})[label]||'◆'}</span><small>${label}</small><strong>${value}</strong><small>${detail}</small></div>`;
 

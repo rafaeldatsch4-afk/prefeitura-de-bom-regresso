@@ -2600,6 +2600,8 @@ function chatAttachmentHTML(m){
   const a=m.attachment;if(!a)return '';
   if(a.kind==='image'){
     if(a.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage('${m.id}')"><img src="${esc(a.dataUrl)}" alt="${esc(a.name||'Imagem')}" loading="lazy"></button>`;
+    const cached=a.mediaId?chatMediaCache.get(a.mediaId):null;
+    if(cached?.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage('${m.id}')"><img src="${esc(cached.dataUrl)}" alt="${esc(a.name||'Imagem')}"></button>`;
     return `<button type="button" class="chat-image-wrap chat-image-lazy" data-chat-media-id="${esc(a.mediaId||'')}" onclick="App.openChatImage('${m.id}')"><div class="chat-image-placeholder">📷<span>${esc(a.name||'Imagem')}</span></div></button>`
   }
   if(a.kind==='audio'){
@@ -2654,10 +2656,10 @@ function toggleChatSearch(force){
 
 function renderChatMessages(forceBottom=false){
   const root=document.getElementById('chatMessages');if(!root)return;
-  if(!chatReady){root.innerHTML='<div class="chat-loading"><span class="chat-spinner"></span><b>Carregando conversa…</b></div>';return}
+  if(!chatReady){root._chatHTML='';root.innerHTML='<div class="chat-loading"><span class="chat-spinner"></span><b>Carregando conversa…</b></div>';return}
   const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
   const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
-  if(!list.length){root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
+  if(!list.length){root._chatHTML='';root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
   let lastDay='',html='';
   for(let i=0;i<list.length;i++){
     const m=list[i],d=new Date(m.createdAt),today=new Date(),yesterday=new Date(Date.now()-86400000);
@@ -2670,7 +2672,9 @@ function renderChatMessages(forceBottom=false){
     if(day&&day!==lastDay){html+=`<div class="chat-date-separator"><span>${esc(day)}</span></div>`;lastDay=day}
     html+=chatMessageHTML(m,list[i-1]||null,list[i+1]||null)
   }
-  root.innerHTML=html;hydrateChatMedia();
+  // Presence updates from every open chat re-run this; rebuilding identical HTML re-decoded photos and made the screen flash.
+  if(root._chatHTML===html){if(forceBottom)requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()});return}
+  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
