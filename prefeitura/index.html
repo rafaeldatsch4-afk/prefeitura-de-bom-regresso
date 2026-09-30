@@ -1608,6 +1608,8 @@ let avatarLoading=false;
 let avatarCropState={img:null,zoom:1,offsetX:0,offsetY:0,dragging:false,lastX:0,lastY:0};
 const DATA_NAMESPACE='v5';
 const CHAT_ONLY=new URLSearchParams(location.search).get('chatonly')==='1';
+const FEDERATED_EMBED=new URLSearchParams(location.search).get('federated')==='1'&&window.parent!==window;
+const STANDALONE_MUNICIPAL=!CHAT_ONLY&&!FEDERATED_EMBED&&window.top===window;
 if(CHAT_ONLY)document.documentElement.classList.add('chat-only');
 const PUSH_CONFIG_NAMESPACE='v2';
 const FEDERATION_PROTOCOL='bom-regresso-federation';
@@ -3337,6 +3339,12 @@ function systemBack(){
 function showModal(title,html,onReady){document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" id="mb"><div class="modal"><div class="row"><h3 class="grow">${esc(title)}</h3><button class="btn btn-secondary" onclick="App.closeModal()">✕</button></div><div class="sep"></div>${html}</div></div>`; onReady?.()}
 function closeModal(){municipalFormEditing=false;document.getElementById('modalRoot').innerHTML=''}
 function loginScreen(){
+  if(FEDERATED_EMBED){
+    if(db.currentOperatorId){render();return}
+    const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');
+    root.innerHTML='<div class="login-card"><h1>Prefeitura de Bom Regresso</h1><p>Conectando seu perfil da República…</p></div>';
+    return
+  }
   db.currentOperator='';db.currentOperatorId='';persistLocal();
   const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');
   const ops=db.operators.filter(o=>o.active!==false);
@@ -4174,7 +4182,8 @@ registerAutoUpdatingServiceWorker();
 installFederationDiscoveryListener();
 installMunicipalIntegrationBridge();
 if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='OPEN_CHAT'&&db.currentOperatorId)go('chat')});
-cloudInitialization=initCloud();
+if(STANDALONE_MUNICIPAL){location.replace('/'+(location.search.includes('open=chat')?'?open=chat':''))}
+else cloudInitialization=initCloud();
 })();
 </script>
 </body>
