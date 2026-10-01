@@ -1899,21 +1899,25 @@ async function acceptFederatedProfile(profile){
   if(level==='municipal'&&jurisdiction!==MUNICIPALITY_ID)return{ok:false,reason:'O perfil está vinculado a outro município.'};
 
   const sourceSystem=profile.sourceSystem||'pais-bom-regresso';
+  const SYNC_FIELDS=[['name','nome'],['role','cargo'],['sector','setor'],['avatarImage','foto'],['avatarEmoji','emoji'],['avatarColor','cor'],['jurisdictionId','território'],['active','ativação']];
+  let created=false,changed=[];
   let o=(db.operators||[]).find(x=>x.federatedProfileId===profile.id&&x.sourceSystem===sourceSystem);
   if(!o)o=(db.operators||[]).find(x=>x.id===profile.id&&x.sourceSystem===sourceSystem);
 
   if(!o){
     if(level==='municipal'&&roleIsOccupied(profile.role,''))return{ok:false,reason:`O cargo ${profile.role} já está ocupado no sistema municipal.`};
     o={id:profile.id||uid(),federatedProfileId:profile.id||'',sourceSystem,name:profile.name||'Perfil integrado',role:profile.role,sector:profile.sector||roleDepartment(profile.role),avatarImage:profile.photo||profile.avatarImage||'',avatarEmoji:profile.emoji||profile.avatarEmoji||'',avatarColor:validAvatarColor(profile.color),active:true,createdAt:nowISO(),governmentLevel:level,jurisdictionId:level==='municipal'?MUNICIPALITY_ID:(profile.jurisdictionId||''),parentJurisdictionId:profile.parentJurisdictionId||''};
-    db.operators.push(o)
+    db.operators.push(o);created=true
   }else{
     if(level==='municipal'&&roleIsOccupied(profile.role,o.id))return{ok:false,reason:`O cargo ${profile.role} já está ocupado por outro perfil municipal.`};
-    const oldName=o.name;
-    o.name=profile.name||o.name;o.role=profile.role;o.sector=profile.sector||o.sector||roleDepartment(profile.role);if('photo' in profile||'avatarImage' in profile)o.avatarImage=profile.photo||profile.avatarImage||'';if('emoji' in profile||'avatarEmoji' in profile)o.avatarEmoji=profile.emoji||profile.avatarEmoji||'';if('color' in profile)o.avatarColor=validAvatarColor(profile.color);o.federatedProfileId=profile.id||o.federatedProfileId||'';o.sourceSystem=sourceSystem;o.governmentLevel=level;o.jurisdictionId=level==='municipal'?MUNICIPALITY_ID:(profile.jurisdictionId||o.jurisdictionId||'');o.parentJurisdictionId=profile.parentJurisdictionId||o.parentJurisdictionId||'';o.active=true;o.updatedAt=nowISO();
+    const oldName=o.name,before=SYNC_FIELDS.map(([k])=>JSON.stringify(o[k]??''));
+    o.name=profile.name||o.name;o.role=profile.role;o.sector=profile.sector||o.sector||roleDepartment(profile.role);if('photo' in profile||'avatarImage' in profile)o.avatarImage=profile.photo||profile.avatarImage||'';if('emoji' in profile||'avatarEmoji' in profile)o.avatarEmoji=profile.emoji||profile.avatarEmoji||'';if('color' in profile)o.avatarColor=validAvatarColor(profile.color);o.federatedProfileId=profile.id||o.federatedProfileId||'';o.sourceSystem=sourceSystem;o.governmentLevel=level;o.jurisdictionId=level==='municipal'?MUNICIPALITY_ID:(profile.jurisdictionId||o.jurisdictionId||'');o.parentJurisdictionId=profile.parentJurisdictionId||o.parentJurisdictionId||'';o.active=true;changed=SYNC_FIELDS.filter(([k],n)=>JSON.stringify(o[k]??'')!==before[n]).map(([,label])=>label);if(changed.length)o.updatedAt=nowISO();
     if(level==='municipal')syncOperatorEmployee(o,oldName)
   }
   if(level==='municipal')syncOperatorEmployee(o);
-  recordActivity('users','Integração',`${o.name} foi sincronizado a partir da República Bom Regressense.`);
+  // Abrir a Prefeitura pela República acontece toda hora: só registra a primeira entrada ou o que mudou de fato.
+  if(created)recordActivity('users','Integração',`${o.name} entrou pela primeira vez a partir da República Bom Regressense (${o.role}).`);
+  else if(changed.length)recordActivity('users','Integração',`${o.name} foi atualizado a partir da República Bom Regressense: ${changed.join(', ')}.`);
   save();
 
   // No chat da República o login do portal principal já identifica o usuário:
@@ -2180,10 +2184,12 @@ function activity(c){
   `<div class="panel activity-panel"><div class="activity-toolbar"><input id="activitySearch" placeholder="Pesquisar pessoa, ação ou descrição" oninput="App.filterActivity()"><select id="activityArea" onchange="App.filterActivity()"><option value="">Todos os setores</option><option value="agri">Agricultura</option><option value="fleet">Frota</option><option value="hr">RH</option><option value="licit">Licitações</option><option value="finance">Finanças</option><option value="contracts">Contratos</option><option value="users">Usuários</option><option value="system">Sistema</option></select></div><div id="activityList" class="activity-list"></div></div>`;
   filterActivity()
 }
+// Registros antigos de "foi sincronizado" se repetiam a cada abertura pela República; ficam ocultos.
+const isRepeatedSyncLog=e=>e?.area==='users'&&e.action==='Integração'&&/ foi sincronizado a partir da República Bom Regressense\.$/.test(e.description||'');
 function filterActivity(){
   const q=(val('activitySearch')||'').toLocaleLowerCase('pt-BR'),area=val('activityArea');
   const root=document.getElementById('activityList');if(!root)return;
-  const items=(db.activityLog||[]).filter(e=>(!area||e.area===area)&&(!q||JSON.stringify([e.actor,e.role,e.action,e.description,e.area]).toLocaleLowerCase('pt-BR').includes(q))).slice(0,200);
+  const items=(db.activityLog||[]).filter(e=>!isRepeatedSyncLog(e)&&(!area||e.area===area)&&(!q||JSON.stringify([e.actor,e.role,e.action,e.description,e.area]).toLocaleLowerCase('pt-BR').includes(q))).slice(0,200);
   root.innerHTML=items.map(e=>{
     const undoable=!!e.records?.length,canRecover=isFullAccess()&&undoable;
     return `<div class="activity-item ${e.undoneAt?'is-undone':''}">

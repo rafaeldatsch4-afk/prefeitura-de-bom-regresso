@@ -612,7 +612,7 @@ function loadMunicipalLog(force){
   municipalLog.loading=true;municipalLog.error='';refreshActivityLists();
   countryStore.collection('municipio').doc('dados_v5').get().then(snap=>{
     const log=snap.exists?(snap.data()?.activityLog||[]):[];
-    municipalLog.items=(Array.isArray(log)?log:[]).slice(0,300).map(e=>({id:'pm-'+e.id,at:e.at||'',autor:e.actor||'Sistema',cargo:e.role||'',nivel:'prefeitura',estado:city.estado||'',municipio:city.id,area:MUNICIPAL_AREAS[e.area]||'Prefeitura',acao:e.action||'Alteração',texto:e.description||'',desfeito:!!e.undoneAt}))
+    municipalLog.items=(Array.isArray(log)?log:[]).filter(e=>!(e?.area==='users'&&e.action==='Integração'&&/ foi sincronizado a partir da República Bom Regressense\.$/.test(e.description||''))).slice(0,300).map(e=>({id:'pm-'+e.id,at:e.at||'',autor:e.actor||'Sistema',cargo:e.role||'',nivel:'prefeitura',estado:city.estado||'',municipio:city.id,area:MUNICIPAL_AREAS[e.area]||'Prefeitura',acao:e.action||'Alteração',texto:e.description||'',desfeito:!!e.undoneAt}))
   }).catch(()=>{municipalLog.error='Não foi possível carregar o histórico do sistema da Prefeitura agora.'}).finally(()=>{municipalLog.loading=false;municipalLog.at=Date.now();refreshActivityLists()})
 }
 const actFilters={},actFilterFor=ctx=>actFilters[ctx]||(actFilters[ctx]={nivel:'',estado:'',municipio:'',periodo:'',q:'',limit:50});
