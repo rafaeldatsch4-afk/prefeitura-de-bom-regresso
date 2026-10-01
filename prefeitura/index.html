@@ -2238,7 +2238,7 @@ function openUserProfile(id){
   const p=(db.operators||[]).find(o=>o.id===id);if(!p)return toast('Perfil não encontrado.');
   const s=profileStats(p),employee=s.employee||{},recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,6);
   showModal('Perfil de usuário',`<div class="profile-sheet public-profile-sheet">
-    <div class="profile-viewonly-badge">👁 Somente visualização</div>
+    ${p.id===db.currentOperatorId?`<div class="actions"><button class="btn btn-primary" onclick="App.openRepublicProfile()">✎ Personalizar meu perfil</button></div>`:isFullAccess()&&p.federatedProfileId?`<div class="actions"><button class="btn btn-secondary" onclick="App.openRepublicProfile('${esc(p.federatedProfileId)}')">🖼️ Editar foto na República</button></div>`:'<div class="profile-viewonly-badge">👁 Somente visualização</div>'}
     <div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name||'Sem nome')}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>
     <div class="public-profile-info">
       <div><small>Status</small><b class="${p.active!==false?'s-ok':'s-muted'}">${p.active!==false?'Ativo':'Inativo'}</b></div>
@@ -2260,7 +2260,7 @@ function openUserProfile(id){
 }
 
 // A personalização do perfil fica só na República: aqui o perfil apenas espelha o que vem de lá.
-function openRepublicProfile(){closeModal();if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'OPEN_REPUBLIC_PROFILE'},location.origin);return}catch{}}window.top.location.href='/?open=perfil'}
+function openRepublicProfile(profileId=''){closeModal();if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'OPEN_REPUBLIC_PROFILE',profileId},location.origin);return}catch{}}window.top.location.href='/?open=perfil'}
 function editMyAvatar(){openRepublicProfile()}
 function editMyProfile(){openRepublicProfile()}
 function saveMyProfile(){
@@ -3386,7 +3386,7 @@ function manageOperators(){
 }
 function renameOperator(id){
   if(!requireFull())return;const o=db.operators.find(x=>x.id===id);if(!o)return;
-  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${o.federatedProfileId?(resetAvatarDraft(o),'<p class="muted">Foto, emoji e cor deste perfil são definidos pela própria pessoa no perfil da República.</p>'):avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
+  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${o.federatedProfileId?(resetAvatarDraft(o),`<p class="muted">A foto deste perfil fica na República.</p><div class="actions"><button class="btn btn-secondary" type="button" onclick="App.openRepublicProfile('${esc(o.federatedProfileId)}')">🖼️ Editar foto, emoji e cor</button></div>`):avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
 }
 async function saveRenameOperator(id){
   if(!avatarReadyToSave())return;
