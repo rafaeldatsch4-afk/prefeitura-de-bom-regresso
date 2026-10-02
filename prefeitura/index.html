@@ -1694,10 +1694,10 @@ html[data-appearance="dark"] .ui-tilt::after{background:radial-gradient(circle a
 <div id="main" class="app hidden"></div>
 <div id="modalRoot"></div>
 <div id="toast" class="toast hidden"></div>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" integrity="sha384-ZaR6mWzmJtrRibZ1Vm7SoHFr8OXjyAuGAXalGDKqbxFT18oi/z+oZLIRFkpeNor1" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" integrity="sha384-I1LYojsZ5RM1cOda44Z2h42Qa6YfsQ1XkXxREnhp4ueYBR/4d1pG1K+NZM537Vsj" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" integrity="sha384-Ke0FJhH7LyRqDxZ0wt+/OXV38yfQVu7g9VPEEGjYmB4RVOY/ta04uecRhsMwT7V3" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js" integrity="sha384-HY9kcCUNf5iP55Q7dt4qtyKGMq0L6BbtAwNb4LYA6MXDWUL8DRlsj1xhtwKBZ2BL" crossorigin="anonymous"></script>
 <script>
 (() => {
 'use strict';
@@ -1759,7 +1759,9 @@ const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const moneySummary=v=>{const n=Number(v||0);if(Math.abs(n)<1e9)return money(n);const scales=[[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão']];const [scale,unit]=scales.find(([size])=>Math.abs(n)>=size)||scales.at(-1);const amount=Math.abs(n)/scale;return `${n<0?'-':''}R$ ${amount.toLocaleString('pt-BR',{maximumFractionDigits:2})} ${amount===1?unit:unit.replace('ão','ões')}`};
-const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
+const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))
+// Valor dentro de onclick="...": vira texto JavaScript (JSON) e depois é escapado para o atributo. Só esc() não basta: o navegador desfaz o &#39; antes de rodar o código.
+const jsArg=v=>esc(JSON.stringify(String(v??'')));
 const val=id=>(document.getElementById(id)?.value||'').trim();
 const nval=id=>Number((val(id)||'0').replace(/\./g,'').replace(',','.'))||0;
 const initials=n=>{const p=String(n||'?').trim().split(/\s+/);return (p.length>1?p[0][0]+p.at(-1)[0]:p[0].slice(0,2)).toUpperCase()};
@@ -2082,7 +2084,8 @@ async function acceptFederatedProfile(profile){
     return{ok:true,profileId:o.id,requiresPassword:false,access:'chat'}
   }
 
-  if(level==='municipal'&&isPasswordProtectedProfile(o)){
+  // A senha dos cargos protegidos é pedida na entrada da República; aqui só se pede se ela não tiver sido conferida lá.
+  if(level==='municipal'&&isPasswordProtectedProfile(o)&&profile.passwordVerified!==true){
     if(!profileSecretsCollection)return{ok:true,profileId:o.id,requiresPassword:true,reason:'Conecte-se ao Firebase para validar a senha.'};
     const configured=await protectedProfileHasSecret(o.id);
     if(!configured)rhPasswordSetupModal(o.id,true,false);else rhPasswordLoginModal(o.id);
@@ -2122,6 +2125,8 @@ function installFederationDiscoveryListener(){
   window.addEventListener('message',async event=>{
     const msg=event.data;
     if(!msg||msg.protocol!==FEDERATION_PROTOCOL)return;
+    // Só a República deste mesmo site (a janela que abriu o sistema) pode conversar com ele.
+    if(event.origin!==location.origin||event.source!==window.parent)return;
     if(msg.type==='DISCOVER_MUNICIPAL_SYSTEM'){
       try{
         event.source?.postMessage({
@@ -2155,6 +2160,17 @@ function isRHProfile(profile){return (profile?.role||'')==='Assistente universal
 function bytesToBase64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)}
 function base64ToBytes(s){const bin=atob(String(s||''));return Uint8Array.from(bin,ch=>ch.charCodeAt(0))}
 function randomSalt(){const a=new Uint8Array(16);crypto.getRandomValues(a);return bytesToBase64(a)}
+// PBKDF2-SHA-256: 600 mil rodadas para senhas novas (recomendação atual da OWASP). Senhas antigas (120 mil) são refeitas no próximo login certo.
+const PASSWORD_ITERATIONS=600000,PASSWORD_MIN=6;
+const WEAK_PASSWORDS=new Set(['123456','1234567','12345678','123456789','654321','111111','000000','123123','abcdef','qwerty','senha1','senha123','abc123','bomregresso']);
+function passwordProblem(p){
+  p=String(p||'');
+  if(p.length<PASSWORD_MIN)return `A senha precisa ter pelo menos ${PASSWORD_MIN} caracteres.`;
+  if(WEAK_PASSWORDS.has(p.toLowerCase())||/^(.)\1+$/.test(p))return 'Essa senha é muito fácil de adivinhar. Escolha outra.';
+  return ''
+}
+// Comparação sem atalho: leva o mesmo tempo acertando ou errando no começo.
+function sameHash(a,b){a=String(a||'');b=String(b||'');let d=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)d|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return d===0}
 async function deriveRHPassword(password,salt,iterations=120000){
   if(!window.crypto?.subtle)throw new Error('Criptografia do navegador indisponível.');
   const enc=new TextEncoder();
@@ -2165,7 +2181,7 @@ async function deriveRHPassword(password,salt,iterations=120000){
 async function setRHPasswordForProfile(profile,password){
   if(!profile||!isPasswordProtectedProfile(profile))throw new Error('Este perfil não exige senha.');
   if(!profileSecretsCollection)throw new Error('Banco de credenciais indisponível.');
-  const salt=randomSalt(),iterations=120000,hash=await deriveRHPassword(password,salt,iterations);
+  const salt=randomSalt(),iterations=PASSWORD_ITERATIONS,hash=await deriveRHPassword(password,salt,iterations);
   await profileSecretsCollection.doc(profile.id).set({
     hash,salt,iterations,role:profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()
   },{merge:false});
@@ -2177,9 +2193,21 @@ async function verifyRHPassword(profile,password){
   if(!profile?.id)return false;
   const secret=await getProtectedProfileSecret(profile.id);
   if(!secret?.hash||!secret?.salt||Number(secret.schemaVersion||0)<PASSWORD_SCHEMA_VERSION)return false;
-  const hash=await deriveRHPassword(password,secret.salt,secret.iterations||120000);
-  return hash===secret.hash
+  const iterations=Number(secret.iterations)||120000,hash=await deriveRHPassword(password,secret.salt,iterations);
+  if(!sameHash(hash,secret.hash))return false;
+  if(iterations<PASSWORD_ITERATIONS)upgradeRHPassword(profile,password,secret).catch(err=>console.warn('Atualizar proteção da senha:',err));
+  return true
 }
+// Refaz o resumo da senha com mais rodadas, sem a pessoa perceber.
+async function upgradeRHPassword(profile,password,secret){
+  if(!profileSecretsCollection)return;
+  const salt=randomSalt(),hash=await deriveRHPassword(password,salt,PASSWORD_ITERATIONS);
+  await profileSecretsCollection.doc(profile.id).set({hash,salt,iterations:PASSWORD_ITERATIONS,role:secret.role||profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()},{merge:false})
+}
+// Depois de 3 erros seguidos, espera cada vez maior antes da próxima tentativa (5 s, 10 s, 20 s… até 5 min).
+const loginFails=new Map();
+function loginWait(id){const f=loginFails.get(id);if(!f||f.n<3)return 0;return Math.max(0,f.until-Date.now())}
+function noteLoginFail(id){const f=loginFails.get(id)||{n:0,until:0};f.n++;if(f.n>=3)f.until=Date.now()+Math.min(300000,5000*2**(f.n-3));loginFails.set(id,f)}
 async function getProtectedProfileSecret(profileId){
   if(!profileSecretsCollection||!profileId)return null;
   try{
@@ -2198,12 +2226,12 @@ function clearLegacyPasswordFields(profile){
 
 function rhPasswordSetupModal(id,enterAfter=false,isRecovery=false){
   const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
-  showModal(isRecovery?'Redefinir senha do perfil':'Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">${isRecovery?'🔑':'🔐'}</div><p>${isRecovery?`A credencial deste perfil precisa ser redefinida <b>uma única vez</b> após a correção de sincronização. Defina a nova senha de ${esc(p.name)}. Depois disso, a senha ficará isolada dos dados gerais do sistema.`:`O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.`}</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword('${id}',${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword('${id}',${enterAfter?'true':'false'})">${isRecovery?'Definir nova senha':'Salvar senha'}</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
+  showModal(isRecovery?'Redefinir senha do perfil':'Criar senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">${isRecovery?'🔑':'🔐'}</div><p>${isRecovery?`A credencial deste perfil precisa ser redefinida <b>uma única vez</b> após a correção de sincronização. Defina a nova senha de ${esc(p.name)}. Depois disso, a senha ficará isolada dos dados gerais do sistema.`:`O cargo <b>${esc(p.role)}</b> exige senha. Crie uma senha para proteger o acesso a este perfil.`}</p><div class="field"><label>Nova senha</label><input id="rhNewPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div><div class="field"><label>Confirmar senha</label><input id="rhConfirmPassword" type="password" minlength="4" autocomplete="new-password" placeholder="Digite novamente" onkeydown="if(event.key==='Enter')App.saveRHPassword(${jsArg(id)},${enterAfter?'true':'false'})"></div><div class="actions"><button class="btn btn-primary" onclick="App.saveRHPassword(${jsArg(id)},${enterAfter?'true':'false'})">${isRecovery?'Definir nova senha':'Salvar senha'}</button></div></div>`,()=>document.getElementById('rhNewPassword')?.focus())
 }
 async function saveRHPassword(id,enterAfter=false){
   const p=db.operators.find(x=>x.id===id),a=val('rhNewPassword'),b=val('rhConfirmPassword');
   if(!p||!isPasswordProtectedProfile(p))return toast('Perfil protegido não encontrado.');
-  if(String(a).length<4)return toast('A senha precisa ter pelo menos 4 caracteres.');
+  const weak=passwordProblem(a);if(weak)return toast(weak);
   if(a!==b)return toast('As senhas não conferem.');
   try{
     await setRHPasswordForProfile(p,a);closeModal();toast('Senha do perfil salva.');
@@ -2212,14 +2240,15 @@ async function saveRHPassword(id,enterAfter=false){
 }
 function rhPasswordLoginModal(id){
   const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return;
-  showModal('Senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">🔒</div><p>Digite a senha para entrar no perfil de <b>${esc(p.name)}</b> — ${esc(p.role)}.</p><div class="field"><label>Senha</label><input id="rhLoginPassword" type="password" autocomplete="current-password" placeholder="Senha do perfil" onkeydown="if(event.key==='Enter')App.verifyRHLogin('${id}')"></div><div id="rhLoginError" class="rh-login-error hidden">Senha incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.verifyRHLogin('${id}')">Entrar</button></div></div>`,()=>document.getElementById('rhLoginPassword')?.focus())
+  showModal('Senha do perfil',`<div class="rh-lock-card"><div class="rh-lock-icon">🔒</div><p>Digite a senha para entrar no perfil de <b>${esc(p.name)}</b> — ${esc(p.role)}.</p><div class="field"><label>Senha</label><input id="rhLoginPassword" type="password" autocomplete="current-password" placeholder="Senha do perfil" onkeydown="if(event.key==='Enter')App.verifyRHLogin(${jsArg(id)})"></div><div id="rhLoginError" class="rh-login-error hidden">Senha incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.verifyRHLogin(${jsArg(id)})">Entrar</button></div></div>`,()=>document.getElementById('rhLoginPassword')?.focus())
 }
 async function verifyRHLogin(id){
   const p=db.operators.find(x=>x.id===id),password=val('rhLoginPassword');if(!p)return;
+  const wait=loginWait(id);if(wait)return toast(`Muitas tentativas erradas. Aguarde ${Math.ceil(wait/1000)} s.`);
   try{
     const ok=await verifyRHPassword(p,password);
-    if(!ok){document.getElementById('rhLoginError')?.classList.remove('hidden');document.getElementById('rhLoginPassword')?.select();return}
-    closeModal();completeRHLogin(p)
+    if(!ok){noteLoginFail(id);document.getElementById('rhLoginError')?.classList.remove('hidden');document.getElementById('rhLoginPassword')?.select();return}
+    loginFails.delete(id);closeModal();completeRHLogin(p)
   }catch(err){console.error(err);toast('Não foi possível verificar a senha.')}
 }
 async function resetProtectedProfilePassword(id){
@@ -2244,16 +2273,18 @@ function completeRHLogin(p){
 }
 function changeMyRHPassword(){
   const p=currentProfile();if(!p||!isPasswordProtectedProfile(p))return;
-  showModal('Alterar senha do perfil',`<div class="rh-lock-card"><div class="field"><label>Senha atual</label><input id="rhCurrentPassword" type="password" autocomplete="current-password"></div><div class="field"><label>Nova senha</label><input id="rhChangeNew" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 4 caracteres"></div><div class="field"><label>Confirmar nova senha</label><input id="rhChangeConfirm" type="password" minlength="4" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.saveMyRHPasswordChange()"></div><div id="rhChangeError" class="rh-login-error hidden">Senha atual incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.saveMyRHPasswordChange()">Alterar senha</button></div></div>`,()=>document.getElementById('rhCurrentPassword')?.focus())
+  showModal('Alterar senha do perfil',`<div class="rh-lock-card"><div class="field"><label>Senha atual</label><input id="rhCurrentPassword" type="password" autocomplete="current-password"></div><div class="field"><label>Nova senha</label><input id="rhChangeNew" type="password" minlength="4" autocomplete="new-password" placeholder="Mínimo de 6 caracteres"></div><div class="field"><label>Confirmar nova senha</label><input id="rhChangeConfirm" type="password" minlength="4" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.saveMyRHPasswordChange()"></div><div id="rhChangeError" class="rh-login-error hidden">Senha atual incorreta.</div><div class="actions"><button class="btn btn-primary" onclick="App.saveMyRHPasswordChange()">Alterar senha</button></div></div>`,()=>document.getElementById('rhCurrentPassword')?.focus())
 }
 async function saveMyRHPasswordChange(){
   const p=currentProfile();if(!p||!isPasswordProtectedProfile(p))return;
   const current=val('rhCurrentPassword'),next=val('rhChangeNew'),confirm=val('rhChangeConfirm');
-  if(String(next).length<4)return toast('A nova senha precisa ter pelo menos 4 caracteres.');
+  const weak=passwordProblem(next);if(weak)return toast(weak);
   if(next!==confirm)return toast('As novas senhas não conferem.');
   try{
     const configured=await protectedProfileHasSecret(p.id);
-    if(configured&&!(await verifyRHPassword(p,current))){document.getElementById('rhChangeError')?.classList.remove('hidden');return}
+    const wait=loginWait(p.id);if(wait)return toast(`Muitas tentativas erradas. Aguarde ${Math.ceil(wait/1000)} s.`);
+    if(configured&&!(await verifyRHPassword(p,current))){noteLoginFail(p.id);document.getElementById('rhChangeError')?.classList.remove('hidden');return}
+    loginFails.delete(p.id);
     await setRHPasswordForProfile(p,next);closeModal();toast('Senha do perfil alterada.')
   }catch(err){console.error(err);toast('Não foi possível alterar a senha.')}
 }
@@ -2280,7 +2311,7 @@ function avatarEditorHTML(profile={}){
   return `<div class="avatar-editor">
     <div class="avatar-editor-top"><label for="avatarFile" class="avatar-preview-picker"><span id="avatarDraftPreview">${profileAvatarHTML(profile,'profile-avatar-xl')}</span><span>📷 Alterar foto</span></label><div class="grow"><b>Foto ou emoji</b><div class="muted" style="font-size:12px;margin-top:4px">Toque na foto para escolher uma imagem. Arraste e use o zoom para ajustar.</div></div></div>
     <div class="avatar-choice-grid"><label class="btn btn-secondary avatar-upload-label">📷 Escolher foto<input id="avatarFile" type="file" accept="image/*" onchange="App.loadAvatarFile(this.files[0])"></label><button type="button" class="btn btn-secondary" onclick="App.removeAvatarPhoto()">🗑 Remover foto</button><button type="button" class="btn btn-secondary" onclick="App.useAvatarInitials()">AB Usar iniciais</button></div>
-    <div class="field"><label>Ou escolha um emoji</label><div class="emoji-picker-row">${['👤','🙂','😎','👑','🧑‍💼','🚜','🚚','🛠️','🌱','💼'].map(e=>`<button type="button" class="emoji-choice" onclick="App.chooseAvatarEmoji('${e}')">${e}</button>`).join('')}<input id="customAvatarEmoji" class="emoji-custom" maxlength="8" placeholder="Outro" oninput="App.chooseAvatarEmoji(this.value)"></div></div>
+    <div class="field"><label>Ou escolha um emoji</label><div class="emoji-picker-row">${['👤','🙂','😎','👑','🧑‍💼','🚜','🚚','🛠️','🌱','💼'].map(e=>`<button type="button" class="emoji-choice" onclick="App.chooseAvatarEmoji(${jsArg(e)})">${e}</button>`).join('')}<input id="customAvatarEmoji" class="emoji-custom" maxlength="8" placeholder="Outro" oninput="App.chooseAvatarEmoji(this.value)"></div></div>
     <div id="avatarCropArea" class="avatar-crop-area hidden"><div class="avatar-crop-frame"><canvas id="avatarCropCanvas" width="320" height="320"></canvas></div><div class="field"><label>Zoom da foto</label><input id="avatarZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="App.setAvatarZoom(this.value)"></div><div class="row wrap"><button type="button" class="btn btn-secondary" onclick="App.centerAvatarCrop()">Centralizar</button><button type="button" class="btn btn-primary" onclick="App.applyAvatarCrop()">✓ Confirmar recorte</button><button type="button" class="btn btn-secondary" onclick="App.cancelAvatarCrop()">× Cancelar</button></div></div>
   </div>`
 }
@@ -2316,7 +2347,7 @@ function applyAvatarCrop(){
 function avatarReadyToSave(){if(avatarLoading){toast('Aguarde a foto abrir.');return false}if(avatarCropState.img)applyAvatarCrop();return true}
 function openMyProfile(){
   const p=currentProfile();if(!p)return;const s=profileStats(p),recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,5);
-  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero"><div class="avatar-profile-button">${profileAvatarHTML(p,'profile-avatar-xxl')}</div><div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isPasswordProtectedProfile(p)?'<div class="rh-profile-security">🔒 Perfil protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><p class="muted republic-profile-note">Nome, foto, emoji e cor são definidos no seu perfil da República e aparecem aqui automaticamente.</p><div class="actions"><button class="btn btn-primary" onclick="App.openRepublicProfile()">✎ Personalizar na República</button>${isPasswordProtectedProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator('${p.id}')">Editar perfil completo</button>`:''}</div></div>`)
+  showModal('Meu perfil',`<div class="profile-sheet"><div class="profile-hero"><div class="avatar-profile-button">${profileAvatarHTML(p,'profile-avatar-xxl')}</div><div><h2>${esc(p.name)}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>${isPasswordProtectedProfile(p)?'<div class="rh-profile-security">🔒 Perfil protegido por senha</div>':''}<div class="profile-stats"><div class="profile-stat"><small>Saldo recebido</small><strong>${money(s.balance)}</strong></div><div class="profile-stat"><small>Pagamentos recebidos</small><strong>${s.count}</strong></div><div class="profile-stat"><small>Pagamentos válidos</small><strong>${s.validCount}</strong></div><div class="profile-stat"><small>Reembolsado</small><strong>${money(s.refunded)}</strong></div></div><div class="panel profile-payment-panel"><h3>Últimos pagamentos</h3>${recent.length?`<div class="profile-payment-list">${recent.map(x=>`<div><span>${esc(x.date||'-')} • ${esc(x.reference||'Sem referência')}</span><b class="${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado • ':''}${money(x.value)}</b></div>`).join('')}</div>`:'<div class="empty">Nenhum pagamento recebido ainda.</div>'}</div><p class="muted republic-profile-note">Nome, foto, emoji e cor são definidos no seu perfil da República e aparecem aqui automaticamente.</p><div class="actions"><button class="btn btn-primary" onclick="App.openRepublicProfile()">✎ Personalizar na República</button>${isPasswordProtectedProfile(p)?'<button class="btn btn-secondary" onclick="App.changeMyRHPassword()">🔑 Alterar senha</button>':''}${isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.renameOperator(${jsArg(p.id)})">Editar perfil completo</button>`:''}</div></div>`)
 }
 function users(c){
   c.innerHTML=head('Usuários cadastrados','Visualize os perfis cadastrados no sistema. Esta área é somente para consulta.')+
@@ -2353,8 +2384,8 @@ function filterActivity(){
         <div class="activity-meta">${new Date(e.at).toLocaleString('pt-BR')}${e.role?' • '+esc(e.role):''}${e.undoneAt?' • Desfeito por '+esc(e.undoneBy||'-'):''}</div>
       </div>
       <div class="activity-actions">
-        ${canRecover&&!e.undoneAt?`<button class="btn btn-secondary" onclick="App.undoActivity('${e.id}')">↩ Desfazer</button>`:''}
-        ${canRecover&&e.undoneAt?`<button class="btn btn-primary" onclick="App.redoActivity('${e.id}')">↪ Recuperar</button>`:''}
+        ${canRecover&&!e.undoneAt?`<button class="btn btn-secondary" onclick="App.undoActivity(${jsArg(e.id)})">↩ Desfazer</button>`:''}
+        ${canRecover&&e.undoneAt?`<button class="btn btn-primary" onclick="App.redoActivity(${jsArg(e.id)})">↪ Recuperar</button>`:''}
       </div>
     </div>`
   }).join('')||'<div class="empty">Nenhuma atividade registrada ainda.</div>'
@@ -2366,7 +2397,7 @@ function filterUsers(){
   const root=document.getElementById('usersGrid');if(!root)return;
   root.innerHTML=list.map(o=>{
     const s=profileStats(o);
-    return `<button type="button" class="user-card" onclick="App.openUserProfile('${o.id}')">
+    return `<button type="button" class="user-card" onclick="App.openUserProfile(${jsArg(o.id)})">
       <div class="user-card-top">
         ${profileAvatarHTML(o,'profile-avatar-user-card')}
         <div class="user-card-main">
@@ -2391,7 +2422,7 @@ function openUserProfile(id){
   const p=(db.operators||[]).find(o=>o.id===id);if(!p)return toast('Perfil não encontrado.');
   const s=profileStats(p),employee=s.employee||{},recent=s.payments.slice().sort((a,b)=>String(b.createdAt||b.date).localeCompare(String(a.createdAt||a.date))).slice(0,6);
   showModal('Perfil de usuário',`<div class="profile-sheet public-profile-sheet">
-    ${p.id===db.currentOperatorId?`<div class="actions"><button class="btn btn-primary" onclick="App.openRepublicProfile()">✎ Personalizar meu perfil</button></div>`:isFullAccess()&&p.federatedProfileId?`<div class="actions"><button class="btn btn-secondary" onclick="App.openRepublicProfile('${esc(p.federatedProfileId)}')">🖼️ Editar foto na República</button></div>`:'<div class="profile-viewonly-badge">👁 Somente visualização</div>'}
+    ${p.id===db.currentOperatorId?`<div class="actions"><button class="btn btn-primary" onclick="App.openRepublicProfile()">✎ Personalizar meu perfil</button></div>`:isFullAccess()&&p.federatedProfileId?`<div class="actions"><button class="btn btn-secondary" onclick="App.openRepublicProfile(${jsArg(p.federatedProfileId)})">🖼️ Editar foto na República</button></div>`:'<div class="profile-viewonly-badge">👁 Somente visualização</div>'}
     <div class="profile-hero">${profileAvatarHTML(p,'profile-avatar-xxl')}<div><h2>${esc(p.name||'Sem nome')}</h2><div class="profile-role">${esc(p.role||'Servidor / Outro')}</div><div class="muted">${esc(roleDepartment(p.role))}</div></div></div>
     <div class="public-profile-info">
       <div><small>Status</small><b class="${p.active!==false?'s-ok':'s-muted'}">${p.active!==false?'Ativo':'Inativo'}</b></div>
@@ -2763,16 +2794,16 @@ function chatSenderProfile(m){
 function chatAttachmentHTML(m){
   const a=m.attachment;if(!a)return '';
   if(a.kind==='image'){
-    if(a.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage('${m.id}')"><img src="${esc(a.dataUrl)}" alt="${esc(a.name||'Imagem')}" loading="lazy"></button>`;
+    if(a.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage(${jsArg(m.id)})"><img src="${esc(a.dataUrl)}" alt="${esc(a.name||'Imagem')}" loading="lazy"></button>`;
     const cached=a.mediaId?chatMediaCache.get(a.mediaId):null;
-    if(cached?.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage('${m.id}')"><img src="${esc(cached.dataUrl)}" alt="${esc(a.name||'Imagem')}"></button>`;
-    return `<button type="button" class="chat-image-wrap chat-image-lazy" data-chat-media-id="${esc(a.mediaId||'')}" onclick="App.openChatImage('${m.id}')"><div class="chat-image-placeholder">📷<span>${esc(a.name||'Imagem')}</span></div></button>`
+    if(cached?.dataUrl)return `<button type="button" class="chat-image-wrap" onclick="App.openChatImage(${jsArg(m.id)})"><img src="${esc(cached.dataUrl)}" alt="${esc(a.name||'Imagem')}"></button>`;
+    return `<button type="button" class="chat-image-wrap chat-image-lazy" data-chat-media-id="${esc(a.mediaId||'')}" onclick="App.openChatImage(${jsArg(m.id)})"><div class="chat-image-placeholder">📷<span>${esc(a.name||'Imagem')}</span></div></button>`
   }
   if(a.kind==='audio'){
     if(a.dataUrl)return `<div class="chat-audio"><span>🎙️ Mensagem de voz</span><audio controls preload="metadata" src="${esc(a.dataUrl)}"></audio></div>`;
-    return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio('${m.id}')">▶ Ouvir mensagem de voz</button><small>${chatFileSize(a.size)}</small></div>`
+    return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio(${jsArg(m.id)})">▶ Ouvir mensagem de voz</button><small>${chatFileSize(a.size)}</small></div>`
   }
-  return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment('${m.id}')"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
+  return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment(${jsArg(m.id)})"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
 }
 function chatMessageHTML(m,prev=null,next=null){
   const mine=m.senderId===db.currentOperatorId,p=chatSenderProfile(m);
@@ -2782,19 +2813,19 @@ function chatMessageHTML(m,prev=null,next=null){
     return Number.isFinite(ta)&&Number.isFinite(tb)&&Math.abs(tb-ta)<5*60*1000&&new Date(a.createdAt).toDateString()===new Date(b.createdAt).toDateString()
   };
   const groupedPrev=sameSender(prev,m),groupedNext=sameSender(m,next),showIdentity=!mine&&!groupedPrev,showAvatar=!mine&&!groupedNext;
-  const quoted=m.reply?`<button type="button" class="chat-quote" onclick="App.scrollToChatMessage('${esc(m.reply.id||'')}')"><b>${esc(m.reply.senderName||'Mensagem')}</b><span>${esc((m.reply.text||'Anexo').slice(0,90))}</span></button>`:'';
+  const quoted=m.reply?`<button type="button" class="chat-quote" onclick="App.scrollToChatMessage(${jsArg(m.reply.id||'')})"><b>${esc(m.reply.senderName||'Mensagem')}</b><span>${esc((m.reply.text||'Anexo').slice(0,90))}</span></button>`:'';
   const receipt=mine?chatReadReceipt(m):'';
   return `<div class="chat-row ${mine?'mine':'theirs'} ${groupedPrev?'chat-grouped-prev':'chat-group-start'} ${groupedNext?'chat-grouped-next':'chat-group-end'}" data-chat-id="${esc(m.id)}">
-    ${mine?'':showAvatar?`<button type="button" class="chat-avatar-button" onclick="App.openUserProfile('${esc(m.senderId||'')}')" title="Ver perfil">${profileAvatarHTML(p,'profile-avatar-chat')}</button>`:'<span class="chat-avatar-spacer"></span>'}
+    ${mine?'':showAvatar?`<button type="button" class="chat-avatar-button" onclick="App.openUserProfile(${jsArg(m.senderId||'')})" title="Ver perfil">${profileAvatarHTML(p,'profile-avatar-chat')}</button>`:'<span class="chat-avatar-spacer"></span>'}
     <div class="chat-message-wrap">
-      <div class="chat-bubble" ondblclick="App.replyChatMessage('${m.id}')">
-        ${showIdentity?`<button type="button" class="chat-sender" onclick="App.openUserProfile('${esc(m.senderId||'')}')"><b>${esc(m.senderName||p.name||'Usuário')}</b><span>${esc(m.senderRole||p.role||'')}</span></button>`:''}
+      <div class="chat-bubble" ondblclick="App.replyChatMessage(${jsArg(m.id)})">
+        ${showIdentity?`<button type="button" class="chat-sender" onclick="App.openUserProfile(${jsArg(m.senderId||'')})"><b>${esc(m.senderName||p.name||'Usuário')}</b><span>${esc(m.senderRole||p.role||'')}</span></button>`:''}
         ${quoted}
         ${m.text?`<div class="chat-text">${chatTextHTML(m.text)}</div>`:''}
         ${chatAttachmentHTML(m)}
         <div class="chat-meta-line"><span>${chatTime(m.createdAt)}${m.editedAt?' · editada':''}</span>${mine?`<span class="chat-receipt ${String(receipt).includes('✓✓')?'read':''}">${esc(receipt||'✓')}</span>`:''}</div>
       </div>
-      <button type="button" class="chat-message-menu" onclick="App.openChatMessageMenu('${m.id}')" aria-label="Ações da mensagem">⌄</button>
+      <button type="button" class="chat-message-menu" onclick="App.openChatMessageMenu(${jsArg(m.id)})" aria-label="Ações da mensagem">⌄</button>
     </div>
   </div>`
 }
@@ -2803,11 +2834,11 @@ function openChatMessageMenu(id){
   const mine=m.senderId===db.currentOperatorId,canDelete=mine||isFullAccess();
   showModal('Ações da mensagem',`<div class="chat-message-menu-sheet">
     <div class="chat-menu-message-preview"><b>${esc(m.senderName||'Usuário')}</b><span>${esc((m.text||m.attachment?.name||'Anexo').slice(0,110))}</span></div>
-    <button class="chat-menu-option" onclick="App.closeModal();App.replyChatMessage('${m.id}')"><span>↩</span><b>Responder</b></button>
-    ${m.text?`<button class="chat-menu-option" onclick="App.closeModal();App.copyChatMessage('${m.id}')"><span>⧉</span><b>Copiar</b></button>`:''}
-    ${!mine?`<button class="chat-menu-option" onclick="App.closeModal();App.openUserProfile('${esc(m.senderId||'')}')"><span>👤</span><b>Ver perfil</b></button>`:''}
-    ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage('${m.id}')"><span>✎</span><b>Editar</b></button>`:''}
-    ${canDelete?`<button class="chat-menu-option danger" onclick="App.closeModal();App.deleteChatMessage('${m.id}')"><span>🗑</span><b>Excluir</b></button>`:''}
+    <button class="chat-menu-option" onclick="App.closeModal();App.replyChatMessage(${jsArg(m.id)})"><span>↩</span><b>Responder</b></button>
+    ${m.text?`<button class="chat-menu-option" onclick="App.closeModal();App.copyChatMessage(${jsArg(m.id)})"><span>⧉</span><b>Copiar</b></button>`:''}
+    ${!mine?`<button class="chat-menu-option" onclick="App.closeModal();App.openUserProfile(${jsArg(m.senderId||'')})"><span>👤</span><b>Ver perfil</b></button>`:''}
+    ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage(${jsArg(m.id)})"><span>✎</span><b>Editar</b></button>`:''}
+    ${canDelete?`<button class="chat-menu-option danger" onclick="App.closeModal();App.deleteChatMessage(${jsArg(m.id)})"><span>🗑</span><b>Excluir</b></button>`:''}
   </div>`)
 }
 function toggleChatSearch(force){
@@ -3002,7 +3033,7 @@ function startChatPresence(){
 }
 function editChatMessage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
-  showModal('Editar mensagem',`<div class="field"><label>Mensagem</label><textarea id="chatEditText" maxlength="2000" rows="5">${esc(m.text||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveChatMessageEdit('${id}')">Salvar alteração</button></div>`,()=>document.getElementById('chatEditText')?.focus())
+  showModal('Editar mensagem',`<div class="field"><label>Mensagem</label><textarea id="chatEditText" maxlength="2000" rows="5">${esc(m.text||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveChatMessageEdit(${jsArg(id)})">Salvar alteração</button></div>`,()=>document.getElementById('chatEditText')?.focus())
 }
 async function saveChatMessageEdit(id){
   const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
@@ -3100,7 +3131,7 @@ function showChatInfo(){
     <h3>Chat da República</h3><p>Conversa interna dos perfis cadastrados no sistema.</p>
     <div class="chat-info-stats"><div><b>${participants.length}</b><span>participantes</span></div><div><b>${online.length}</b><span>online agora</span></div></div>
     <div class="chat-info-notify"><span>🔔</span><div class="grow"><b>Notificações</b><small>${esc(notif)}</small></div><button class="btn btn-secondary" onclick="App.closeModal();App.requestChatNotifications()">Configurar</button></div>
-    <div class="chat-info-members">${participants.slice(0,16).map(p=>`<button type="button" onclick="App.closeModal();App.openUserProfile('${p.id}')">${profileAvatarHTML(p,'profile-avatar-sm')}<span><b>${esc(p.name)}</b><small>${esc(p.role||'Servidor / Outro')}</small></span></button>`).join('')}</div>
+    <div class="chat-info-members">${participants.slice(0,16).map(p=>`<button type="button" onclick="App.closeModal();App.openUserProfile(${jsArg(p.id)})">${profileAvatarHTML(p,'profile-avatar-sm')}<span><b>${esc(p.name)}</b><small>${esc(p.role||'Servidor / Outro')}</small></span></button>`).join('')}</div>
   </div>`)
 }
 
@@ -3172,7 +3203,7 @@ function chat(c){
       <div id="chatReplyPreview" class="chat-reply-preview"></div>
       <div id="chatAttachmentPreview" class="chat-attachment-preview">${chatAttachmentPreviewHTML()}</div>
       <div id="chatEmojiPanel" class="chat-emoji-panel hidden">
-        ${['😀','😂','🤣','🥹','😍','😎','🤦‍♂️','👍','👏','🙏','❤️','🔥','🎉','✅','👀','🚜','🚚','💰','🏛️','📄','😅','🤝','💯','👋'].map(e=>`<button type="button" onclick="App.insertChatEmoji('${e}')">${e}</button>`).join('')}
+        ${['😀','😂','🤣','🥹','😍','😎','🤦‍♂️','👍','👏','🙏','❤️','🔥','🎉','✅','👀','🚜','🚚','💰','🏛️','📄','😅','🤝','💯','👋'].map(e=>`<button type="button" onclick="App.insertChatEmoji(${jsArg(e)})">${e}</button>`).join('')}
       </div>
       <div id="chatAttachMenu" class="chat-attach-menu hidden">
         <button type="button" onclick="document.getElementById('chatImageInput').click();App.toggleChatAttachMenu(false)"><span class="attach-icon image">🖼️</span><b>Galeria</b></button>
@@ -3474,7 +3505,7 @@ function syncAllProfileEmployees(){db.employees=db.employees||[];for(const o of 
 
 function completeRoleModal(id){
   const o=db.operators.find(x=>x.id===id);if(!o)return;
-  showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'',o.id)}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter('${id}')">Salvar e entrar</button></div>`)
+  showModal('Completar perfil',`<div class="sub">Escolha o cargo deste perfil para continuar.</div><div class="field"><label>Cargo / função</label><select id="completeRole">${roleOptions(o.role||'',o.id)}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveOperatorRoleAndEnter(${jsArg(id)})">Salvar e entrar</button></div>`)
 }
 async function saveOperatorRoleAndEnter(id){
   const o=db.operators.find(x=>x.id===id),role=val('completeRole');
@@ -3521,7 +3552,7 @@ function openSettings(){
   const pushAdmin=CHAT_ONLY&&isFullAccess()?`<div class="sep"></div><div class="settings-section"><h4>🔔 Push avançado (FCM)</h4><p class="muted">O envio com o aplicativo totalmente fechado usa Firebase Cloud Messaging. A chave VAPID é pública; a credencial privada fica somente no servidor da Vercel.</p><div class="field"><label>Chave pública Web Push (VAPID)</label><input id="pushVapidKey" value="${esc(pushVapidPublicKey)}" placeholder="Opcional: o Firebase também possui chave padrão"></div><div class="actions"><button class="btn btn-secondary" onclick="App.testPushBackend()">Testar servidor push</button><button class="btn btn-primary" onclick="App.savePushConfig()">Salvar chave Web Push</button></div></div>`:'';
   showModal('Configurações',`
     <div class="settings-version-card"><div><small>VERSÃO DO SISTEMA</small><strong>${esc(cityName())} v${APP_VERSION}</strong></div><span>✓ Atual</span></div>
-    <div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,nm])=>`<button class="theme-preset" onclick="App.setThemePreset('${k}')"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${nm}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div>
+    <div class="settings-section"><h4>🎨 Tema do sistema</h4><div class="theme-preset-grid">${presets.map(([k,p,a,nm])=>`<button class="theme-preset" onclick="App.setThemePreset(${jsArg(k)})"><span class="theme-swatch"><i style="background:${p}"></i><i style="background:${a}"></i></span><b>${nm}</b></button>`).join('')}</div><div class="form-grid" style="margin-top:10px"><div class="field"><label>Cor principal</label><input id="themePrimary" type="color" value="${safeHex(t.primary,'#0B2E59')}" oninput="App.previewTheme()"></div><div class="field"><label>Cor de destaque</label><input id="themeAccent" type="color" value="${safeHex(t.accent,'#D7A93E')}" oninput="App.previewTheme()"></div><div class="field wide"><label>Aparência</label><select id="themeAppearance" onchange="App.previewTheme()"><option value="light" ${t.appearance==='light'?'selected':''}>Claro</option><option value="dark" ${t.appearance==='dark'?'selected':''}>Escuro</option><option value="auto" ${t.appearance==='auto'?'selected':''}>Automático (celular)</option></select></div></div><div class="actions"><button class="btn btn-secondary" onclick="App.resetTheme()">Restaurar padrão</button><button class="btn btn-primary" onclick="App.saveThemeSettings()">Salvar tema</button></div></div>
     <div class="sep"></div>
     ${CHAT_ONLY?`<div class="settings-section"><h4>🔔 Notificações do Chat</h4><div class="notification-status-card"><div><small>Permissão do aparelho</small><b>${esc(notificationPermissionLabel())}</b></div><button class="btn btn-primary" onclick="App.requestChatNotifications()">Ativar / registrar</button></div><div class="settings-toggle-list"><label><span><b>Receber notificações</b><small>Alertar quando chegar mensagem nova.</small></span><input type="checkbox" ${n.enabled?'checked':''} onchange="App.setChatNotifySetting('enabled',this.checked)"></label><label><span><b>Som</b><small>Tocar um aviso quando o app estiver aberto.</small></span><input type="checkbox" ${n.sound?'checked':''} onchange="App.setChatNotifySetting('sound',this.checked)"></label><label><span><b>Vibração</b><small>Vibrar em aparelhos compatíveis.</small></span><input type="checkbox" ${n.vibrate?'checked':''} onchange="App.setChatNotifySetting('vibrate',this.checked)"></label><label><span><b>Mostrar prévia</b><small>Exibir o texto da mensagem na notificação.</small></span><input type="checkbox" ${n.preview?'checked':''} onchange="App.setChatNotifySetting('preview',this.checked)"></label></div><div class="actions"><button class="btn btn-secondary" onclick="App.showPushDiagnostics()">⚙ Diagnóstico</button><button class="btn btn-secondary" onclick="App.testChatNotification()">🔔 Testar notificação</button></div></div>`:''}
     <div class="sep"></div><div class="settings-section"><h4>📲 Aplicativo no celular</h4><p class="muted">Instale o sistema na tela inicial para abrir como aplicativo, sem precisar procurar o site no navegador.</p><button class="btn btn-primary install-btn" style="width:100%;min-height:48px" onclick="App.installApp()">⬇ ${isStandalone()?'Aplicativo instalado':'Instalar Prefeitura de '+esc(cityName())}</button></div>
@@ -3664,12 +3695,12 @@ function saveOperator(){
 }
 function manageOperators(){
   if(!requireFull())return;
-  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">🔒 Protegido</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar</button>${isPasswordProtectedProfile(o)&&o.id!==db.currentOperatorId?`<button class="btn btn-secondary" onclick="App.resetProtectedProfilePassword('${o.id}')">🔑 Resetar senha</button>`:''}${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button>`:""}</td></tr>`).join('');
+  const rows=db.operators.map(o=>`<tr><td><div class="profile-row-person">${profileAvatarHTML(o,'profile-avatar-sm')}<span>${esc(o.name)}</span>${isPasswordProtectedProfile(o)?`<span class="rh-password-badge">🔒 Protegido</span>`:''}</div></td><td>${esc(o.role||'Não definido')}</td><td><span class="status ${o.active!==false?'s-ok':'s-muted'}">${o.active!==false?'Ativo':'Inativo'}</span></td><td class="small-actions"><button class="btn btn-secondary" onclick="App.renameOperator(${jsArg(o.id)})">Editar</button>${isPasswordProtectedProfile(o)&&o.id!==db.currentOperatorId?`<button class="btn btn-secondary" onclick="App.resetProtectedProfilePassword(${jsArg(o.id)})">🔑 Resetar senha</button>`:''}${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile(${jsArg(o.id)})">Remover</button>`:""}</td></tr>`).join('');
   showModal('Editar perfis',`<button class="btn btn-primary" onclick="App.closeModal();App.addOperator()">＋ Novo operador</button><div class="table-wrap" style="margin-top:12px"><table class="table" style="min-width:0"><thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">Nenhum perfil.</td></tr>'}</tbody></table></div>`)
 }
 function renameOperator(id){
   if(!requireFull())return;const o=db.operators.find(x=>x.id===id);if(!o)return;
-  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${o.federatedProfileId?(resetAvatarDraft(o),`<p class="muted">A foto deste perfil fica na República.</p><div class="actions"><button class="btn btn-secondary" type="button" onclick="App.openRepublicProfile('${esc(o.federatedProfileId)}')">🖼️ Editar foto, emoji e cor</button></div>`):avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator('${id}')">Salvar</button></div>`)
+  showModal('Editar operador',`<div class="field"><label>Nome</label><input id="renameOp" value="${esc(o.name)}"></div><div class="field"><label>Cargo / função</label><select id="renameRole">${roleOptions(o.role||'',o.id)}</select></div>${o.federatedProfileId?(resetAvatarDraft(o),`<p class="muted">A foto deste perfil fica na República.</p><div class="actions"><button class="btn btn-secondary" type="button" onclick="App.openRepublicProfile(${jsArg(o.federatedProfileId)})">🖼️ Editar foto, emoji e cor</button></div>`):avatarEditorHTML(o)}<div class="actions"><button class="btn btn-primary" onclick="App.saveRenameOperator(${jsArg(id)})">Salvar</button></div>`)
 }
 async function saveRenameOperator(id){
   if(!avatarReadyToSave())return;
@@ -3759,7 +3790,7 @@ function mobileNavItems(){
   else items.push(['licit','📨','Licit.']);
   return items.filter(([k])=>canPage(k))
 }
-function render(){municipalFormEditing=false;document.getElementById('login').classList.add('hidden');const root=document.getElementById('main');root.classList.remove('hidden');root.innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${cityLogoHTML('')}<small>PREFEITURA MUNICIPAL${CITY_ID?` DE <span data-city-name-upper>${esc(cityUpper())}</span>`:''}</small></div><button type="button" class="operator-chip operator-chip-button" onclick="App.openMyProfile()" title="Abrir meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-md')}<div class="operator-chip-text"><small>${esc(currentRole())}</small><strong>${esc(db.currentOperator)}</strong></div><span class="operator-chip-arrow">›</span></button><div class="nav">${navItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go('${k}')">${i} &nbsp;${n}</button>`).join('')}</div><div class="sidebar-footer"><div class="sidebar-version"><span data-city-name>${esc(cityName())}</span> v${APP_VERSION}</div><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="window.top.location.href='/'">🌎 República Bom Regressense</button><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="App.dataTools()">⇅ Dados / Backup</button><button class="btn btn-secondary" style="width:100%" onclick="App.logout()">⇄ Trocar operador</button></div></aside><section class="content-wrap"><div class="topbar"><button class="topbar-back ${page==='home'?'is-hidden':''}" onclick="App.systemBack()" aria-label="Voltar" title="Voltar">←</button><strong><span class="topbar-city" data-city-name-upper>${esc(cityUpper())}</span><span class="topbar-system">SISTEMA MUNICIPAL INTEGRADO</span></strong><button class="topbar-profile" onclick="App.openMyProfile()" aria-label="Meu perfil" title="Meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-top')}</button><button class="topbar-settings" onclick="App.openSettings()" aria-label="Configurações" title="Configurações">⚙</button><span class="muted">☁ ${cloudReady?'Sincronizado':'Local'} • ${todayBR()}</span></div><main id="content" class="content"></main></section></div><nav class="mobile-nav" style="grid-template-columns:repeat(${mobileNavItems().length+1},1fr)">${mobileNavItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go('${k}')"><span>${i}</span>${n}</button>`).join('')}<button class="${!mobileNavItems().some(([k])=>k===page)?'active':''}" onclick="App.mobileMore()"><span>☰</span>Mais</button></nav>`;renderPage()}
+function render(){municipalFormEditing=false;document.getElementById('login').classList.add('hidden');const root=document.getElementById('main');root.classList.remove('hidden');root.innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${cityLogoHTML('')}<small>PREFEITURA MUNICIPAL${CITY_ID?` DE <span data-city-name-upper>${esc(cityUpper())}</span>`:''}</small></div><button type="button" class="operator-chip operator-chip-button" onclick="App.openMyProfile()" title="Abrir meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-md')}<div class="operator-chip-text"><small>${esc(currentRole())}</small><strong>${esc(db.currentOperator)}</strong></div><span class="operator-chip-arrow">›</span></button><div class="nav">${navItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})">${i} &nbsp;${n}</button>`).join('')}</div><div class="sidebar-footer"><div class="sidebar-version"><span data-city-name>${esc(cityName())}</span> v${APP_VERSION}</div><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="window.top.location.href='/'">🌎 República Bom Regressense</button><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="App.dataTools()">⇅ Dados / Backup</button><button class="btn btn-secondary" style="width:100%" onclick="App.logout()">⇄ Trocar operador</button></div></aside><section class="content-wrap"><div class="topbar"><button class="topbar-back ${page==='home'?'is-hidden':''}" onclick="App.systemBack()" aria-label="Voltar" title="Voltar">←</button><strong><span class="topbar-city" data-city-name-upper>${esc(cityUpper())}</span><span class="topbar-system">SISTEMA MUNICIPAL INTEGRADO</span></strong><button class="topbar-profile" onclick="App.openMyProfile()" aria-label="Meu perfil" title="Meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-top')}</button><button class="topbar-settings" onclick="App.openSettings()" aria-label="Configurações" title="Configurações">⚙</button><span class="muted">☁ ${cloudReady?'Sincronizado':'Local'} • ${todayBR()}</span></div><main id="content" class="content"></main></section></div><nav class="mobile-nav" style="grid-template-columns:repeat(${mobileNavItems().length+1},1fr)">${mobileNavItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})"><span>${i}</span>${n}</button>`).join('')}<button class="${!mobileNavItems().some(([k])=>k===page)?'active':''}" onclick="App.mobileMore()"><span>☰</span>Mais</button></nav>`;renderPage()}
 function mobileMore(){
   const items=[];
   items.push(['👤','Usuários cadastrados','users']);
@@ -3770,7 +3801,7 @@ function mobileMore(){
   if(canPage('notes'))items.push(['🧾','Notas e Resumos','notes']);
   const admin=isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.dataTools()">⇅ <b>Dados / Backup</b></button><button class="btn btn-secondary" onclick="App.closeModal();App.manageOperators()">👤 <b>Gerenciar operadores</b></button>`:'';
   const federation=`<button class="btn btn-secondary" onclick="window.top.location.href='/'">🌎 <b>República Bom Regressense</b></button>`;
-  showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go('${k}')">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
+  showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go(${jsArg(k)})">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
 }
 function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();const navSnap=fxNavSnapshot();page=p;sub=s;pushAppHistory(p,s);render();const dir=fxNavGlide(navSnap);const c=document.getElementById('content');if(c)c.dataset.dir=dir;animatePage();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
 const RIPPLE_TARGETS='.btn,.nav button,.mobile-nav button,.sidebar button,.tabs button,.chat-send-btn,.operator-chip-button,.topbar-profile';
@@ -3926,7 +3957,7 @@ function home(c){
     </div>
   </div>`
 }
-function tabs(items,active){return`<div class="tabs">${items.map(([k,label])=>`<button class="${active===k?'active':''}" onclick="App.go('${page}','${k}')">${label}</button>`).join('')}</div>`}
+function tabs(items,active){return`<div class="tabs">${items.map(([k,label])=>`<button class="${active===k?'active':''}" onclick="App.go(${jsArg(page)},${jsArg(k)})">${label}</button>`).join('')}</div>`}
 function carrierOptions(selected='',emptyLabel='Sem transportadora definida'){
   const active=(db.carriers||[]).filter(x=>x.active!==false);
   return `<option value="">${esc(emptyLabel)}</option>`+active.map(x=>`<option value="${esc(x.id)}" ${x.id===selected?'selected':''}>${esc(x.name)}${x.location?' • '+esc(x.location):''}</option>`).join('');
@@ -3939,7 +3970,7 @@ function carrierModal(id='',targetSelect=''){
   if(id&&!requireAction('carrier.edit'))return;
   if(!id&&!requireAction('carrier.create'))return;
   const x=(db.carriers||[]).find(r=>r.id===id)||{};
-  showModal(id?'Editar transportadora':'Cadastrar transportadora',`<div class="sub">Cadastro simples. Somente o nome é necessário.</div><div class="field"><label>Nome da transportadora</label><input id="cName" value="${esc(x.name||'')}" placeholder="Ex.: Transportadora Hoffmann"></div><div class="field"><label>Contato / responsável</label><input id="cContact" value="${esc(x.contact||'')}" placeholder="Opcional"></div><div class="field"><label>Telefone</label><input id="cPhone" value="${esc(x.phone||'')}" placeholder="Opcional" inputmode="tel"></div><div class="field"><label>Localidade</label><input id="cLocation" value="${esc(x.location||'')}" placeholder="Opcional"></div><div class="field"><label>Observações</label><textarea id="cNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveCarrier('${id}','${targetSelect}')">Salvar transportadora</button></div>`,()=>document.getElementById('cName')?.focus())
+  showModal(id?'Editar transportadora':'Cadastrar transportadora',`<div class="sub">Cadastro simples. Somente o nome é necessário.</div><div class="field"><label>Nome da transportadora</label><input id="cName" value="${esc(x.name||'')}" placeholder="Ex.: Transportadora Hoffmann"></div><div class="field"><label>Contato / responsável</label><input id="cContact" value="${esc(x.contact||'')}" placeholder="Opcional"></div><div class="field"><label>Telefone</label><input id="cPhone" value="${esc(x.phone||'')}" placeholder="Opcional" inputmode="tel"></div><div class="field"><label>Localidade</label><input id="cLocation" value="${esc(x.location||'')}" placeholder="Opcional"></div><div class="field"><label>Observações</label><textarea id="cNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveCarrier(${jsArg(id)},${jsArg(targetSelect)})">Salvar transportadora</button></div>`,()=>document.getElementById('cName')?.focus())
 }
 function quickAddCarrier(targetSelect){if(!requireAction('carrier.create'))return;const name=prompt('Nome da transportadora:','');if(!name||!name.trim())return;const x={id:uid(),name:name.trim(),contact:'',phone:'',location:'',notes:'',active:true,createdAt:nowISO()};db.carriers.push(x);syncCarrierRecord(x);const select=document.getElementById(targetSelect);if(select){select.innerHTML=carrierOptions(x.id);select.value=x.id}toast('Transportadora adicionada e selecionada.')}
 function saveCarrier(id='',targetSelect=''){
@@ -3964,7 +3995,7 @@ function carrierList(v){
   const rows=(db.carriers||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
   const canAdd=canAction('carrier.create'),canEdit=canAction('carrier.edit');
   v.innerHTML=`<div class="panel"><div class="row wrap"><div class="grow"><h3>Transportadoras</h3><div class="sub">Contatos usados em viagens e veículos.</div></div>${canAdd?'<button class="btn btn-primary" onclick="App.carrierModal()">＋ Cadastrar transportadora</button>':''}</div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Nome</th><th>Contato</th><th>Telefone</th><th>Localidade</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-  ${rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.contact||'-')}</td><td>${esc(x.phone||'-')}</td><td>${esc(x.location||'-')}</td><td class="status ${x.active!==false?'s-ok':'s-muted'}">${x.active!==false?'Ativa':'Inativa'}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.carrierModal('${x.id}')">Editar</button><button class="btn ${x.active!==false?'btn-danger':'btn-ok'}" onclick="App.toggleCarrier('${x.id}')">${x.active!==false?'Desativar':'Ativar'}</button>`:'<span class="muted">Visualização</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma transportadora cadastrada.</td></tr>'}
+  ${rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.contact||'-')}</td><td>${esc(x.phone||'-')}</td><td>${esc(x.location||'-')}</td><td class="status ${x.active!==false?'s-ok':'s-muted'}">${x.active!==false?'Ativa':'Inativa'}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.carrierModal(${jsArg(x.id)})">Editar</button><button class="btn ${x.active!==false?'btn-danger':'btn-ok'}" onclick="App.toggleCarrier(${jsArg(x.id)})">${x.active!==false?'Desativar':'Ativar'}</button>`:'<span class="muted">Visualização</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma transportadora cadastrada.</td></tr>'}
   </tbody></table></div></div>`
 }
 function agri(c){
@@ -3982,7 +4013,7 @@ function filterAgri(){
   const q=(val('agSearch')||'').toLowerCase(),showNote=true,editable=canAction('agri.status');
   const rows=db.appointments.filter(x=>JSON.stringify(x).toLowerCase().includes(q)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const body=document.getElementById('agBody');if(!body)return;
-  body.innerHTML=rows.map(x=>`<tr><td>${esc(x.date||'-')}</td><td>${esc(x.producer||'-')}</td><td>${esc(x.locality||'-')}</td><td>${esc(x.machine||'-')}</td><td>${esc(x.hours||0)}</td><td>${esc(x.operator||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${editable?`<button class="btn btn-ok" onclick="App.setAgStatus('${x.id}','Concluído')">Concluir</button><button class="btn btn-secondary" onclick="App.setAgStatus('${x.id}','Em andamento')">Andamento</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('appointment','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>'
+  body.innerHTML=rows.map(x=>`<tr><td>${esc(x.date||'-')}</td><td>${esc(x.producer||'-')}</td><td>${esc(x.locality||'-')}</td><td>${esc(x.machine||'-')}</td><td>${esc(x.hours||0)}</td><td>${esc(x.operator||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${editable?`<button class="btn btn-ok" onclick="App.setAgStatus(${jsArg(x.id)},'Concluído')">Concluir</button><button class="btn btn-secondary" onclick="App.setAgStatus(${jsArg(x.id)},'Em andamento')">Andamento</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('appointment',${jsArg(x.id)})">Nota</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>'
 }
 function setAgStatus(id,s){
   if(!requireAction('agri.status'))return;
@@ -4004,12 +4035,12 @@ function saveAppointment(){
 }
 function assets(v,type){
   const arr=db[type],isM=type==='machinery',editable=canAction('agri.asset');
-  v.innerHTML=`<div class="panel"><div class="row wrap"><h3 class="grow">${isM?'Maquinários':'Implementos'}</h3>${editable?`<button class="btn btn-primary" onclick="App.assetForm('${type}')">＋ Adicionar</button>`:''}</div>
+  v.innerHTML=`<div class="panel"><div class="row wrap"><h3 class="grow">${isM?'Maquinários':'Implementos'}</h3>${editable?`<button class="btn btn-primary" onclick="App.assetForm(${jsArg(type)})">＋ Adicionar</button>`:''}</div>
   <div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Nome</th>${isM?'<th>Categoria</th>':''}<th>Transportadora</th><th>Status</th><th>Observações</th>${editable?'<th>Ações</th>':''}</tr></thead><tbody>
-  ${arr.map(x=>`<tr><td>${esc(x.name)}</td>${isM?`<td>${esc(x.category||'-')}</td>`:''}<td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.notes||'-')}</td>${editable?`<td><button class="btn btn-secondary" onclick="App.assetForm('${type}','${x.id}')">Editar</button></td>`:''}</tr>`).join('')||`<tr><td colspan="${isM?(editable?6:5):(editable?5:4)}" class="empty">Nenhum registro.</td></tr>`}
+  ${arr.map(x=>`<tr><td>${esc(x.name)}</td>${isM?`<td>${esc(x.category||'-')}</td>`:''}<td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.notes||'-')}</td>${editable?`<td><button class="btn btn-secondary" onclick="App.assetForm(${jsArg(type)},${jsArg(x.id)})">Editar</button></td>`:''}</tr>`).join('')||`<tr><td colspan="${isM?(editable?6:5):(editable?5:4)}" class="empty">Nenhum registro.</td></tr>`}
   </tbody></table></div></div>`
 }
-function assetForm(type,id=''){if(!requireAction('agri.asset'))return;const x=db[type].find(r=>r.id===id)||{},carrierAdd=canAction('carrier.create')?`<button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('assetCarrier')">＋ Nova</button>`:'';showModal(id?'Editar item':'Adicionar item',`<div class="field"><label>Nome</label><input id="assetName" value="${esc(x.name||'')}"></div>${type==='machinery'?`<div class="field"><label>Categoria</label><input id="assetCat" value="${esc(x.category||'')}"></div>`:''}<div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="assetCarrier">${carrierOptions(x.carrierId||'')}</select>${carrierAdd}</div></div><div class="field"><label>Status</label><select id="assetStatus">${['Disponível','Em manutenção','Indisponível'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Observações</label><textarea id="assetNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveAsset('${type}','${id}')">Salvar</button></div>`)}
+function assetForm(type,id=''){if(!requireAction('agri.asset'))return;const x=db[type].find(r=>r.id===id)||{},carrierAdd=canAction('carrier.create')?`<button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('assetCarrier')">＋ Nova</button>`:'';showModal(id?'Editar item':'Adicionar item',`<div class="field"><label>Nome</label><input id="assetName" value="${esc(x.name||'')}"></div>${type==='machinery'?`<div class="field"><label>Categoria</label><input id="assetCat" value="${esc(x.category||'')}"></div>`:''}<div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="assetCarrier">${carrierOptions(x.carrierId||'')}</select>${carrierAdd}</div></div><div class="field"><label>Status</label><select id="assetStatus">${['Disponível','Em manutenção','Indisponível'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Observações</label><textarea id="assetNotes">${esc(x.notes||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveAsset(${jsArg(type)},${jsArg(id)})">Salvar</button></div>`)}
 function saveAsset(type,id){
   if(!requireAction('agri.asset'))return;
   let x=db[type].find(r=>r.id===id),before=x?cloneData(x):null;
@@ -4033,7 +4064,7 @@ function saveLicit(){
   db.licitations.push(x);recordActivity('licit','Envio',`${db.currentOperator} enviou a licitação "${x.title}".`,[{collection:'licitations',id:x.id,before:null,after:x}]);
   save();toast('Licitação enviada.');go('licit','confirm')
 }
-function licitConfirm(v){const rows=db.licitations.filter(x=>x.status==='Aguardando confirmação');v.innerHTML=`<div class="panel"><h3>Aguardando confirmação</h3><div class="sub">Selecione uma licitação e use o botão Confirmar.</div><div class="table-wrap"><table class="table"><thead><tr><th></th><th>Data</th><th>Nome</th><th>Resumo</th><th>Enviado por</th></tr></thead><tbody>${rows.map(x=>`<tr><td><input type="radio" name="licsel" value="${x.id}"></td><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${esc(x.item||'-')}</td><td>${esc(x.sentBy)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhuma licitação pendente.</td></tr>'}</tbody></table></div><div class="actions"><button class="btn btn-primary" onclick="App.confirmLicit()">✓ CONFIRMAR LICITAÇÃO</button></div></div>`}
+function licitConfirm(v){const rows=db.licitations.filter(x=>x.status==='Aguardando confirmação');v.innerHTML=`<div class="panel"><h3>Aguardando confirmação</h3><div class="sub">Selecione uma licitação e use o botão Confirmar.</div><div class="table-wrap"><table class="table"><thead><tr><th></th><th>Data</th><th>Nome</th><th>Resumo</th><th>Enviado por</th></tr></thead><tbody>${rows.map(x=>`<tr><td><input type="radio" name="licsel" value="${esc(x.id)}"></td><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${esc(x.item||'-')}</td><td>${esc(x.sentBy)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Nenhuma licitação pendente.</td></tr>'}</tbody></table></div><div class="actions"><button class="btn btn-primary" onclick="App.confirmLicit()">✓ CONFIRMAR LICITAÇÃO</button></div></div>`}
 function confirmLicit(){
   if(!requireFull())return;
   const id=document.querySelector('input[name=licsel]:checked')?.value;if(!id)return toast('Selecione uma licitação.');
@@ -4042,7 +4073,7 @@ function confirmLicit(){
   recordActivity('licit','Confirmação',`${db.currentOperator} confirmou a licitação "${x.title}".`,[{collection:'licitations',id:x.id,before,after:x}]);
   save();renderPage();toast('Licitação confirmada.')
 }
-function licitHistory(v){v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Nome</th><th>Status</th><th>Enviado por</th><th>Confirmado por</th><th></th></tr></thead><tbody>${db.licitations.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.sentBy)}</td><td>${esc(x.confirmedBy||'-')}</td><td><button class="btn btn-secondary" onclick="App.noteFrom('licitation','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma licitação.</td></tr>'}</tbody></table></div></div>`}
+function licitHistory(v){v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Nome</th><th>Status</th><th>Enviado por</th><th>Confirmado por</th><th></th></tr></thead><tbody>${db.licitations.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.sentBy)}</td><td>${esc(x.confirmedBy||'-')}</td><td><button class="btn btn-secondary" onclick="App.noteFrom('licitation',${jsArg(x.id)})">Nota</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma licitação.</td></tr>'}</tbody></table></div></div>`}
 function hr(c){
   syncAllProfileEmployees();
   let t=sub||'employees';
@@ -4064,8 +4095,8 @@ function employeeList(v){
       <td>${esc(e.admission||'-')}</td>
       <td class="status ${statusClass(o.active===false?'Inativo':(e.status||'Ativo'))}">${esc(o.active===false?'Inativo':(e.status||'Ativo'))}</td>
       <td class="small-actions">
-        ${editable&&e.id?`<button class="btn btn-primary" onclick="App.paymentForm('${e.id}')">Pagar</button>`:''}
-        ${editable?`<button class="btn btn-secondary" onclick="App.renameOperator('${o.id}')">Editar perfil</button>${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile('${o.id}')">Remover</button>`:""}`:''}
+        ${editable&&e.id?`<button class="btn btn-primary" onclick="App.paymentForm(${jsArg(e.id)})">Pagar</button>`:''}
+        ${editable?`<button class="btn btn-secondary" onclick="App.renameOperator(${jsArg(o.id)})">Editar perfil</button>${o.id!==db.currentOperatorId&&(!['Prefeito','Vice-prefeito'].includes(currentRole())||!['national','state'].includes(o.governmentLevel))?`<button class="btn btn-danger" onclick="App.removeOperatorProfile(${jsArg(o.id)})">Remover</button>`:""}`:''}
       </td>
     </tr>`
   }).join('');
@@ -4080,7 +4111,7 @@ function employeeForm(v){
 function saveEmployee(){
   toast('O cadastro manual de servidor foi removido. Crie um perfil de usuário.')
 }
-function employeeModal(id){if(!requireFull())return;const x=db.employees.find(r=>r.id===id);if(!x)return;showModal('Editar servidor',`<div class="field"><label>Nome</label><input id="emName" value="${esc(x.name)}"></div><div class="field"><label>Função</label><input id="emRole" value="${esc(x.role||'')}"></div><div class="field"><label>Setor</label><input id="emDept" value="${esc(x.department||'')}"></div><div class="field"><label>Status</label><select id="emStatus">${['Ativo','Férias','Inativo'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveEmployeeEdit('${id}')">Salvar</button></div>`)}
+function employeeModal(id){if(!requireFull())return;const x=db.employees.find(r=>r.id===id);if(!x)return;showModal('Editar servidor',`<div class="field"><label>Nome</label><input id="emName" value="${esc(x.name)}"></div><div class="field"><label>Função</label><input id="emRole" value="${esc(x.role||'')}"></div><div class="field"><label>Setor</label><input id="emDept" value="${esc(x.department||'')}"></div><div class="field"><label>Status</label><select id="emStatus">${['Ativo','Férias','Inativo'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="actions"><button class="btn btn-primary" onclick="App.saveEmployeeEdit(${jsArg(id)})">Salvar</button></div>`)}
 function saveEmployeeEdit(id){
   if(!requireFull())return;
   const x=db.employees.find(r=>r.id===id);if(!x)return;const before=cloneData(x);
@@ -4094,7 +4125,7 @@ function paymentForm(empId=''){
   const validIds=new Set((db.operators||[]).map(o=>o.id));
   const linked=(db.employees||[]).filter(e=>e.operatorId&&validIds.has(e.operatorId));
   if(!linked.length)return toast('Nenhum perfil de servidor cadastrado.');
-  const opts=linked.map(e=>`<option value="${e.id}" ${e.id===empId?'selected':''}>${esc(e.name)}</option>`).join('');
+  const opts=linked.map(e=>`<option value="${esc(e.id)}" ${e.id===empId?'selected':''}>${esc(e.name)}</option>`).join('');
   showModal('Fazer pagamento',`<div class="field"><label>Servidor</label><select id="pEmp">${opts}</select></div><div class="field"><label>Data</label><input id="pDate" value="${todayBR()}"></div><div class="field"><label>Referência</label><input id="pRef" placeholder="Ex.: 09/2026"></div><div class="field"><label>Valor</label><input id="pValue" placeholder="0,00"></div><div class="field"><label>Observações</label><textarea id="pNotes"></textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.savePayment()">Registrar e gerar nota</button></div>`)
 }
 function savePayment(){
@@ -4109,7 +4140,7 @@ function savePayment(){
 function paymentList(v){
   const editable=isFullAccess();
   v.innerHTML=`<div class="panel"><div class="row wrap"><h3 class="grow">Pagamentos</h3>${editable?'<button class="btn btn-primary" onclick="App.paymentForm()">＋ Fazer pagamento</button>':''}</div><div class="table-wrap" style="margin-top:12px"><table class="table"><thead><tr><th>Data</th><th>Servidor</th><th>Referência</th><th>Valor</th><th>Status</th><th>Operador</th><th>Ações</th></tr></thead><tbody>
-  ${db.payments.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.employeeName)}</td><td>${esc(x.reference||'-')}</td><td>${money(x.value)}</td><td class="status ${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado':'Pago'}</td><td>${esc(x.operator)}</td><td class="small-actions"><button class="btn btn-secondary" onclick="App.noteFrom('payment','${x.id}')">Nota</button>${editable?(!x.refunded?`<button class="btn btn-danger" onclick="App.refundPayment('${x.id}')">Reembolsar</button>`:`<button class="btn btn-secondary" onclick="App.noteFrom('refund','${x.id}')">Nota do reembolso</button>`):''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento.</td></tr>'}
+  ${db.payments.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.employeeName)}</td><td>${esc(x.reference||'-')}</td><td>${money(x.value)}</td><td class="status ${x.refunded?'s-bad':'s-ok'}">${x.refunded?'Reembolsado':'Pago'}</td><td>${esc(x.operator)}</td><td class="small-actions"><button class="btn btn-secondary" onclick="App.noteFrom('payment',${jsArg(x.id)})">Nota</button>${editable?(!x.refunded?`<button class="btn btn-danger" onclick="App.refundPayment(${jsArg(x.id)})">Reembolsar</button>`:`<button class="btn btn-secondary" onclick="App.noteFrom('refund',${jsArg(x.id)})">Nota do reembolso</button>`):''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum pagamento.</td></tr>'}
   </tbody></table></div></div>`
 }
 function refundPayment(id){
@@ -4132,7 +4163,7 @@ function contracts(c){
   if(t==='new'){
     v.innerHTML=`<div class="panel"><div class="form-grid"><div class="field"><label>Número / identificação</label><input id="cNum"></div><div class="field"><label>Contratado</label><input id="cWho"></div><div class="field wide"><label>Objeto</label><input id="cObj"></div><div class="field"><label>Início</label><input id="cStart" value="${todayBR()}"></div><div class="field"><label>Fim</label><input id="cEnd"></div><div class="field"><label>Valor</label><input id="cVal"></div><div class="field"><label>Status</label><select id="cStatus"><option>Ativo</option><option>Vigente</option><option>Encerrado</option><option>Cancelado</option></select></div><div class="field wide"><label>Observações</label><textarea id="cNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveContract()">Salvar contrato</button></div></div>`
   }else{
-    v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Nº</th><th>Contratado</th><th>Objeto</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>${db.contracts.slice().reverse().map(x=>`<tr><td>${esc(x.number)}</td><td>${esc(x.contractor)}</td><td>${esc(x.object||'-')}</td><td>${money(x.value)}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td><button class="btn btn-secondary" onclick="App.noteFrom('contract','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum contrato.</td></tr>'}</tbody></table></div></div>`
+    v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Nº</th><th>Contratado</th><th>Objeto</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>${db.contracts.slice().reverse().map(x=>`<tr><td>${esc(x.number)}</td><td>${esc(x.contractor)}</td><td>${esc(x.object||'-')}</td><td>${money(x.value)}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td><button class="btn btn-secondary" onclick="App.noteFrom('contract',${jsArg(x.id)})">Nota</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum contrato.</td></tr>'}</tbody></table></div></div>`
   }
 }
 function saveContract(){
@@ -4167,7 +4198,7 @@ function fleet(c){
 }
 function truckList(v){
   const showNote=canPage('notes'),canEdit=canAction('truck.edit');
-  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Identificação</th><th>Modelo</th><th>Transportadora</th><th>Status</th><th>KM</th><th>Ações</th></tr></thead><tbody>${db.trucks.map(x=>`<tr><td>${esc(x.plate)}</td><td>${esc(x.model||'-')}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'Próprio / não informado')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.odometer||0)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTruck('${x.id}')">Editar</button>`:''}${showNote?`<button class="btn btn-secondary" onclick="App.noteFrom('truck','${x.id}')">Nota</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum caminhão cadastrado.</td></tr>'}</tbody></table></div></div>`
+  v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Identificação</th><th>Modelo</th><th>Transportadora</th><th>Status</th><th>KM</th><th>Ações</th></tr></thead><tbody>${db.trucks.map(x=>`<tr><td>${esc(x.plate)}</td><td>${esc(x.model||'-')}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'Próprio / não informado')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td>${esc(x.odometer||0)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTruck(${jsArg(x.id)})">Editar</button>`:''}${showNote?`<button class="btn btn-secondary" onclick="App.noteFrom('truck',${jsArg(x.id)})">Nota</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum caminhão cadastrado.</td></tr>'}</tbody></table></div></div>`
 }
 function truckForm(v){if(!requireAction('truck.create'))return;v.innerHTML=`<div class="panel"><h3>Cadastrar caminhão</h3><div class="form-grid"><div class="field"><label>Placa / identificação</label><input id="tPlate"></div><div class="field"><label>Modelo</label><input id="tModel"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="tCarrier">${carrierOptions()}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('tCarrier')">＋ Nova</button></div></div><div class="field"><label>Status</label><select id="tStatus"><option>Disponível</option><option>Em manutenção</option><option>Indisponível</option></select></div><div class="field"><label>Quilometragem</label><input id="tKm"></div><div class="field wide"><label>Observações</label><textarea id="tNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTruck()">Salvar caminhão</button></div></div>`}
 function saveTruck(){
@@ -4179,7 +4210,7 @@ function saveTruck(){
 function editTruck(id){
   if(!requireAction('truck.edit'))return;
   const x=db.trucks.find(r=>r.id===id);if(!x)return toast('Caminhão não encontrado.');
-  showModal('Editar caminhão',`<div class="form-grid"><div class="field"><label>Placa / identificação</label><input id="etPlate" value="${esc(x.plate||'')}"></div><div class="field"><label>Modelo</label><input id="etModel" value="${esc(x.model||'')}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="etCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('etCarrier')">＋ Nova</button></div></div><div class="field"><label>Status</label><select id="etStatus">${['Disponível','Em manutenção','Indisponível'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Quilometragem</label><input id="etKm" value="${esc(x.odometer||0)}"></div><div class="field wide"><label>Observações</label><textarea id="etNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTruckEdit('${id}')">Salvar alterações</button></div>`)
+  showModal('Editar caminhão',`<div class="form-grid"><div class="field"><label>Placa / identificação</label><input id="etPlate" value="${esc(x.plate||'')}"></div><div class="field"><label>Modelo</label><input id="etModel" value="${esc(x.model||'')}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="etCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('etCarrier')">＋ Nova</button></div></div><div class="field"><label>Status</label><select id="etStatus">${['Disponível','Em manutenção','Indisponível'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Quilometragem</label><input id="etKm" value="${esc(x.odometer||0)}"></div><div class="field wide"><label>Observações</label><textarea id="etNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTruckEdit(${jsArg(id)})">Salvar alterações</button></div>`)
 }
 function saveTruckEdit(id){
   if(!requireAction('truck.edit'))return;
@@ -4191,7 +4222,7 @@ function saveTruckEdit(id){
 function tripList(v){
   const canEdit=canAction('trip.edit');
   v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Transportadora</th><th>Caminhão</th><th>Motorista</th><th>Origem</th><th>Destino</th><th>Carga / motivo</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-  ${db.trips.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td>${esc(x.truck||'-')}</td><td>${esc(x.driver||'-')}</td><td>${esc(x.origin||'-')}</td><td>${esc(x.destination||'-')}</td><td>${esc(x.cargo||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTrip('${x.id}')">Editar</button><button class="btn btn-ok" onclick="App.setTripStatus('${x.id}','Concluída')">Concluir</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('trip','${x.id}')">Nota</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Nenhuma viagem.</td></tr>'}
+  ${db.trips.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(carrierName(x.carrierId,x.carrierName)||'-')}</td><td>${esc(x.truck||'-')}</td><td>${esc(x.driver||'-')}</td><td>${esc(x.origin||'-')}</td><td>${esc(x.destination||'-')}</td><td>${esc(x.cargo||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${canEdit?`<button class="btn btn-secondary" onclick="App.editTrip(${jsArg(x.id)})">Editar</button><button class="btn btn-ok" onclick="App.setTripStatus(${jsArg(x.id)},'Concluída')">Concluir</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('trip',${jsArg(x.id)})">Nota</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Nenhuma viagem.</td></tr>'}
   </tbody></table></div></div>`
 }
 function tripForm(v){if(!requireAction('trip.create'))return;v.innerHTML=`<div class="panel"><h3>Registrar viagem</h3><div class="sub">Selecione uma transportadora se o transporte for terceirizado.</div><div class="form-grid"><div class="field"><label>Data</label><input id="rDate" value="${todayBR()}"></div><div class="field"><label>Transportadora (opcional)</label><div class="carrier-picker"><select id="rCarrier">${carrierOptions()}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('rCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="rTruck"><option value="">Sem caminhão definido</option>${db.trucks.map(x=>`<option>${esc(x.plate)}${x.model?' - '+esc(x.model):''}</option>`).join('')}</select></div><div class="field"><label>Motorista</label><input id="rDriver" value="${currentRole()==='Motorista'?esc(db.currentOperator):''}"></div><div class="field"><label>Status</label><select id="rStatus"><option>Agendada</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option></select></div><div class="field"><label>Origem</label><input id="rOrigin"></div><div class="field"><label>Destino</label><input id="rDest"></div><div class="field wide"><label>Carga / motivo</label><input id="rCargo"></div><div class="field"><label>KM inicial</label><input id="rStart"></div><div class="field"><label>KM final</label><input id="rEnd"></div><div class="field wide"><label>Observações</label><textarea id="rNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTrip()">Salvar viagem</button></div></div>`}
@@ -4207,7 +4238,7 @@ function tripTruckOptions(selected=''){
 function editTrip(id){
   if(!requireAction('trip.edit'))return;
   const x=db.trips.find(r=>r.id===id);if(!x)return toast('Viagem não encontrada.');
-  showModal('Editar viagem',`<div class="form-grid"><div class="field"><label>Data</label><input id="erDate" value="${esc(x.date||todayBR())}"></div><div class="field"><label>Transportadora</label><div class="carrier-picker"><select id="erCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('erCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="erTruck">${tripTruckOptions(x.truck||'')}</select></div><div class="field"><label>Motorista</label><input id="erDriver" value="${esc(x.driver||'')}"></div><div class="field"><label>Status</label><select id="erStatus">${['Agendada','Em andamento','Concluída','Cancelada'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Origem</label><input id="erOrigin" value="${esc(x.origin||'')}"></div><div class="field"><label>Destino</label><input id="erDest" value="${esc(x.destination||'')}"></div><div class="field wide"><label>Carga / motivo</label><input id="erCargo" value="${esc(x.cargo||'')}"></div><div class="field"><label>KM inicial</label><input id="erStart" value="${esc(x.startKm||0)}"></div><div class="field"><label>KM final</label><input id="erEnd" value="${esc(x.endKm||0)}"></div><div class="field wide"><label>Observações</label><textarea id="erNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTripEdit('${id}')">Salvar alterações</button></div>`)
+  showModal('Editar viagem',`<div class="form-grid"><div class="field"><label>Data</label><input id="erDate" value="${esc(x.date||todayBR())}"></div><div class="field"><label>Transportadora</label><div class="carrier-picker"><select id="erCarrier">${carrierOptions(x.carrierId||'')}</select><button type="button" class="btn btn-secondary carrier-add-btn" onclick="App.quickAddCarrier('erCarrier')">＋ Nova</button></div></div><div class="field"><label>Caminhão</label><select id="erTruck">${tripTruckOptions(x.truck||'')}</select></div><div class="field"><label>Motorista</label><input id="erDriver" value="${esc(x.driver||'')}"></div><div class="field"><label>Status</label><select id="erStatus">${['Agendada','Em andamento','Concluída','Cancelada'].map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><label>Origem</label><input id="erOrigin" value="${esc(x.origin||'')}"></div><div class="field"><label>Destino</label><input id="erDest" value="${esc(x.destination||'')}"></div><div class="field wide"><label>Carga / motivo</label><input id="erCargo" value="${esc(x.cargo||'')}"></div><div class="field"><label>KM inicial</label><input id="erStart" value="${esc(x.startKm||0)}"></div><div class="field"><label>KM final</label><input id="erEnd" value="${esc(x.endKm||0)}"></div><div class="field wide"><label>Observações</label><textarea id="erNotes">${esc(x.notes||'')}</textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveTripEdit(${jsArg(id)})">Salvar alterações</button></div>`)
 }
 function saveTripEdit(id){
   if(!requireAction('trip.edit'))return;
@@ -4274,7 +4305,7 @@ function refreshNoteTargets(){
   if(t==='refund')arr=db.payments.filter(x=>x.refunded).map(x=>[x.id,`${x.refundedDate||x.date} • ${x.employeeName} • ${money(x.value)}`]);
   if(t==='contract')arr=db.contracts.map(x=>[x.id,`${x.number} • ${x.contractor}`]);
   if(t==='truck')arr=db.trucks.map(x=>[x.id,`${x.plate} • ${x.model||'-'}`]);
-  document.getElementById('noteTarget').innerHTML=arr.length?arr.map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join(''):'<option value="">Não se aplica / sem registros</option>'
+  document.getElementById('noteTarget').innerHTML=arr.length?arr.map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join(''):'<option value="">Não se aplica / sem registros</option>'
 }
 function noteHeader(title){
   return `PREFEITURA DE ${cityUpper()}\n${title.toUpperCase()}\n\n`
@@ -4363,7 +4394,7 @@ function ensurePdfLib(){
   if(pdfLibPromise)return pdfLibPromise;
   pdfLibPromise=new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';s.integrity='sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/';s.crossOrigin='anonymous';
     s.async=true;
     s.onload=()=>window.jspdf?.jsPDF?resolve(window.jspdf):reject(new Error('Biblioteca de PDF indisponível.'));
     s.onerror=()=>reject(new Error('Não foi possível carregar a biblioteca de PDF.'));

@@ -93,7 +93,10 @@ module.exports=async function handler(req,res){
   if(!tokens.length)return res.status(200).json({sent:0,failed:0});
   const title=String(bodyObj.title||'Chat da República').slice(0,90);
   const body=String(bodyObj.body||'Nova mensagem').slice(0,220);
-  const data=bodyObj.data&&typeof bodyObj.data==='object'?bodyObj.data:{};
+  // Só os campos que o app usa; link só para dentro do próprio site (nada de mandar a pessoa para um site falso).
+  const raw=bodyObj.data&&typeof bodyObj.data==='object'?bodyObj.data:{},data={};
+  for(const k of ['type','messageId','senderId','sound','vibrate','preview','url'])if(raw[k]!=null)data[k]=String(raw[k]).slice(0,200);
+  if(data.url&&!/^\/(?![\/\\])/.test(data.url))delete data.url;
   try{
     const accessToken=await googleAccessToken(sa);
     const results=await Promise.all(tokens.map(t=>sendOne(accessToken,sa,t,title,body,data).catch(err=>({ok:false,status:0,body:String(err)}))));

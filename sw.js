@@ -101,7 +101,8 @@ self.addEventListener('fetch',event=>{
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   event.waitUntil((async()=>{
-    const target=event.notification?.data?.url||'/?open=chat';
+    // Só abre páginas deste site, mesmo que a notificação traga outro endereço.
+    const target=(()=>{try{const u=new URL(event.notification?.data?.url||'/?open=chat',self.location.origin);return u.origin===self.location.origin?u.pathname+u.search:'/?open=chat'}catch{return '/?open=chat'}})();
     const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     for(const client of list){
       try{

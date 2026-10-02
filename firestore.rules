@@ -1,9 +1,90 @@
 rules_version = '2';
 
+// Regras do banco da República Bom Regressense.
+// Todo acesso exige a sessão do Firebase que o próprio site abre ao carregar.
+// Só existem as coleções que o app usa; o resto fica fechado.
+// Os documentos principais não podem ser apagados (só editados), e há limites de tamanho e de formato.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMap(d) { return d is map; }
+    function optString(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+
+    // República (perfis, estados, municípios, cofre, histórico)
+    match /republica/{docId} {
+      allow read: if signedIn() && docId == 'dados_v1';
+      allow create, update: if signedIn() && docId == 'dados_v1' && isMap(request.resource.data)
+        && (!('profiles' in request.resource.data) || request.resource.data.profiles is list)
+        && (!('estados' in request.resource.data) || request.resource.data.estados is list)
+        && (!('municipios' in request.resource.data) || request.resource.data.municipios is list);
+      allow delete: if false;
+    }
+
+    // Sistema completo da Prefeitura de Bom Regresso e configuração das notificações
+    match /municipio/{docId} {
+      allow read: if signedIn() && docId in ['dados_v5', 'push_config_v2'];
+      allow create, update: if signedIn() && docId in ['dados_v5', 'push_config_v2'] && isMap(request.resource.data);
+      allow delete: if false;
+    }
+
+    // Sistema completo de cada outro município (um documento por município)
+    match /prefeituras_v5/{cityId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && cityId.size() <= 80 && isMap(request.resource.data);
+      allow delete: if false;
+      match /carriers/{carrierId} {
+        allow read: if signedIn();
+      allow write: if signedIn() && carrierId.size() <= 120;
+      }
+    }
+
+    // Transportadoras de Bom Regresso
+    match /carriers_v5/{carrierId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && carrierId.size() <= 120;
+    }
+
+    // Resumo das senhas (PBKDF2): pode ser lido por id, mas a lista inteira não pode ser baixada
+    match /profileSecrets_v5/{profileId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && request.resource.data.hash is string && request.resource.data.salt is string
+        && request.resource.data.iterations is int && request.resource.data.iterations >= 100000
+        && request.resource.data.hash.size() <= 200 && request.resource.data.salt.size() <= 200;
+      allow delete: if signedIn();
+    }
+
+    // Chat da República
+    match /chatMessages_v5/{messageId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && messageId.size() <= 120
+        && optString(request.resource.data, 'text', 4000)
+        && optString(request.resource.data, 'senderName', 200)
+        && optString(request.resource.data, 'senderId', 200);
+      allow delete: if signedIn();
+    }
+    match /chatMedia_v5/{mediaId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && mediaId.size() <= 120;
+    }
+    match /chatPresence_v5/{profileId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && profileId.size() <= 120;
+    }
+
+    // Aparelhos que recebem notificação e registro do sistema municipal
+    match /pushTokens_v5/{deviceId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && deviceId.size() <= 200;
+    }
+    match /integrationRegistry_v5/{systemId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && systemId.size() <= 120;
+    }
+
+    // Qualquer outra coleção: fechada
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
