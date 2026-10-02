@@ -1665,6 +1665,21 @@ html[data-appearance="dark"] .chat-swipe-icon{background:rgba(255,255,255,.12);c
 .city-logo-mark{display:grid;place-items:center;color:#fff;line-height:1}
 .brand .city-logo{width:74px;height:74px;flex:none;font-size:40px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .login-card .logo.city-logo{width:120px;height:120px;max-height:none;margin:0 auto;font-size:64px}
+.ui-tilt::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.38),transparent 55%);z-index:1}
+html[data-appearance="dark"] .ui-tilt::after{background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.08),transparent 55%)}
+@media (prefers-reduced-motion:no-preference){
+.card{transition:transform .18s ease-out,box-shadow .2s ease}
+.ui-tilt{box-shadow:0 14px 30px rgba(11,46,89,.14)!important}
+.modal-backdrop.modal-image:not(.closing) .modal{animation:none}
+.chat-bubble{transition:transform .15s ease}
+.chat-bubble:active{transform:scale(.98)}
+@keyframes pmFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.chat-empty-icon{animation:pmFloat 3.2s ease-in-out infinite}
+.page-enter .table tbody tr{animation:pmFadeUp .35s cubic-bezier(.2,.75,.25,1) both}
+.page-enter .table tbody tr:nth-child(2){animation-delay:.04s}.page-enter .table tbody tr:nth-child(3){animation-delay:.08s}.page-enter .table tbody tr:nth-child(4){animation-delay:.12s}.page-enter .table tbody tr:nth-child(5){animation-delay:.16s}.page-enter .table tbody tr:nth-child(6){animation-delay:.2s}.page-enter .table tbody tr:nth-child(n+7){animation-delay:.24s}
+@keyframes pmFocusRing{from{outline:2px solid rgba(215,169,62,.7);outline-offset:0}to{outline:2px solid rgba(215,169,62,0);outline-offset:7px}}
+.field input:focus,.field select:focus,.field textarea:focus{animation:pmFocusRing .5s ease-out}
+}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -3407,8 +3422,21 @@ async function openChatImage(id){
   try{
     const a=await resolveChatAttachment(m.attachment);
     if(!a?.dataUrl)return toast('Imagem indisponível.');
-    showModal('Imagem do chat',`<div class="chat-image-modal"><img src="${esc(a.dataUrl)}" alt="${esc(a.name||'Imagem')}"></div>`)
+    const thumb=document.querySelector(`[data-chat-id="${CSS.escape(id)}"] .chat-image-wrap img`),from=thumb?.getBoundingClientRect();
+    showModal('Imagem do chat',`<div class="chat-image-modal"><img src="${esc(a.dataUrl)}" alt="${esc(a.name||'Imagem')}"></div>`);
+    zoomChatImage(from)
   }catch{toast('Não foi possível abrir a imagem.')}
+}
+// A foto aberta cresce a partir da miniatura da conversa.
+function zoomChatImage(from){
+  const mb=document.getElementById('mb'),img=mb?.querySelector('.chat-image-modal img');
+  if(!img||!from?.width||!fxMotionOK()||typeof img.animate!=='function')return;
+  mb.classList.add('modal-image');img.style.opacity='0';
+  (img.decode?img.decode():Promise.resolve()).catch(()=>{}).then(()=>requestAnimationFrame(()=>{
+    const to=img.getBoundingClientRect();img.style.opacity='';if(!to.width)return;
+    const dx=from.left+from.width/2-(to.left+to.width/2),dy=from.top+from.height/2-(to.top+to.height/2),k=from.width/to.width;
+    img.animate([{transform:`translate(${dx}px,${dy}px) scale(${k})`,borderRadius:'10px'},{transform:'none',borderRadius:'12px'}],{duration:340,easing:'cubic-bezier(.2,.75,.25,1)'})
+  }))
 }
 function dataUrlToBlob(dataUrl){
   const [head,data]=String(dataUrl||'').split(','),mime=(head.match(/data:([^;]+)/)||[])[1]||'application/octet-stream',bin=atob(data||''),arr=new Uint8Array(bin.length);
@@ -3831,6 +3859,23 @@ function bindChatSwipeReply(){
   root.addEventListener('pointerup',e=>{if(st&&e.pointerId===st.pid)finish(st.mode==='swipe'&&st.armed);else if(st)st=null},{passive:true});
   root.addEventListener('pointercancel',()=>finish(false),{passive:true})
 }
+const TILT_TARGETS='.card';
+// Cartões inclinam de leve seguindo o mouse, com um reflexo de luz (só com mouse e movimento permitido).
+(()=>{
+  const SEL=TILT_TARGETS;let cur=null;
+  const ok=()=>fxMotionOK()&&!!window.matchMedia?.('(hover:hover) and (pointer:fine)').matches;
+  const reset=el=>{if(!el)return;el.style.transform='';el.classList.remove('ui-tilt')};
+  document.addEventListener('pointermove',e=>{
+    if(e.pointerType!=='mouse'||!ok())return;
+    const el=e.target.closest?.(SEL);if(cur&&cur!==el)reset(cur);cur=el;if(!el)return;
+    if(getComputedStyle(el).position==='static')el.style.position='relative';
+    const r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+    el.style.transform=`perspective(800px) rotateX(${(-y*5).toFixed(2)}deg) rotateY(${(x*6).toFixed(2)}deg) translateY(-2px)`;
+    el.style.setProperty('--gx',((x+.5)*100).toFixed(1)+'%');el.style.setProperty('--gy',((y+.5)*100).toFixed(1)+'%');el.classList.add('ui-tilt')
+  },{passive:true});
+  document.addEventListener('pointerleave',()=>{reset(cur);cur=null},true);
+  document.addEventListener('pointerdown',()=>{reset(cur);cur=null},{passive:true});
+})();
 // Entrada suave só quando a pessoa troca de página (não nas atualizações da nuvem).
 function animatePage(){const c=document.getElementById('content');if(!c)return;c.classList.remove('page-enter');void c.offsetWidth;c.classList.add('page-enter');clearTimeout(c._animTimer);c._animTimer=setTimeout(()=>c.classList.remove('page-enter'),900)}
 function head(title,desc,right=''){return`<div class="page-head"><div><h2>${title}</h2><p>${desc}</p></div>${right?`<span class="pill">${right}</span>`:''}</div>`}
