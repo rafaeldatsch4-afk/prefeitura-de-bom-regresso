@@ -1577,6 +1577,7 @@ html[data-appearance="dark"] .topbar strong,html[data-appearance="dark"] .topbar
   .small-actions .btn{white-space:normal}
 }
 @media(max-width:360px){.cards{grid-template-columns:1fr}}
+.fin-cards{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px}@media(max-width:640px){.fin-cards{grid-template-columns:1fr}}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1918,6 +1919,8 @@ async function acceptFederatedProfile(profile){
   // Abrir a Prefeitura pela República acontece toda hora: só registra a primeira entrada ou o que mudou de fato.
   if(created)recordActivity('users','Integração',`${o.name} entrou pela primeira vez a partir da República Bom Regressense (${o.role}).`);
   else if(changed.length)recordActivity('users','Integração',`${o.name} foi atualizado a partir da República Bom Regressense: ${changed.join(', ')}.`);
+  // A entrada é feita pela própria pessoa, não pelo "Sistema" (o operador atual ainda não foi trocado aqui).
+  if((created||changed.length)&&db.activityLog?.[0]){db.activityLog[0].actor=o.name;db.activityLog[0].actorId=o.id;db.activityLog[0].role=o.role||''}
   save();
 
   // No chat da República o login do portal principal já identifica o usuário:
@@ -3757,7 +3760,7 @@ function finance(c){
   let t=sub||'list';const editable=isFullAccess();if(!editable&&t==='new')t='list';
   const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0),exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);
   const tbs=editable?[['list','📋 Lançamentos'],['new','＋ Novo lançamento']]:[['list','📋 Lançamentos']];
-  c.innerHTML=head('Finanças','Receitas, despesas e saldo fictício.')+readOnlyNotice('finance')+`<div class="cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">${card('RECEITAS',money(rev),'pagas','var(--ok)')}${card('DESPESAS',money(exp),'pagas','var(--danger)')}${card('SALDO',money(rev-exp),'atual','var(--navy)')}</div>`+tabs(tbs,t)+`<div id="subview"></div>`;
+  c.innerHTML=head('Finanças','Receitas, despesas e saldo fictício.')+readOnlyNotice('finance')+`<div class="cards fin-cards">${card('RECEITAS',money(rev),'pagas','var(--ok)')}${card('DESPESAS',money(exp),'pagas','var(--danger)')}${card('SALDO',money(rev-exp),'atual','var(--navy)')}</div>`+tabs(tbs,t)+`<div id="subview"></div>`;
   const v=document.getElementById('subview');
   if(t==='new')v.innerHTML=`<div class="panel"><div class="form-grid"><div class="field"><label>Data</label><input id="fDate" value="${todayBR()}"></div><div class="field"><label>Tipo</label><select id="fType"><option>Receita</option><option>Despesa</option></select></div><div class="field"><label>Categoria</label><input id="fCat"></div><div class="field"><label>Valor</label><input id="fVal"></div><div class="field wide"><label>Descrição</label><input id="fDesc"></div><div class="field"><label>Status</label><select id="fStatus"><option>Pago</option><option>Pendente</option></select></div><div class="field wide"><label>Observações</label><textarea id="fNotes"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveFinance()">Salvar lançamento</button></div></div>`;
   else v.innerHTML=`<div class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead><tbody>${db.finance.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td class="status ${statusClass(x.type)}">${esc(x.type)}</td><td>${esc(x.category||'-')}</td><td>${esc(x.description||'-')}</td><td>${money(x.value)}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum lançamento.</td></tr>'}</tbody></table></div></div>`
