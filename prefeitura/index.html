@@ -1578,6 +1578,14 @@ html[data-appearance="dark"] .topbar strong,html[data-appearance="dark"] .topbar
 }
 @media(max-width:360px){.cards{grid-template-columns:1fr}}
 .fin-cards{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px}@media(max-width:640px){.fin-cards{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:no-preference){
+@keyframes pmFadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes pmPop{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pmFade{from{opacity:0}to{opacity:1}}
+.page-enter>*{animation:pmFadeUp .4s cubic-bezier(.2,.75,.25,1) both}.page-enter>:nth-child(2){animation-delay:.05s}.page-enter>:nth-child(3){animation-delay:.1s}.page-enter>:nth-child(n+4){animation-delay:.15s}
+.page-enter .cards>*{animation:pmFadeUp .45s cubic-bezier(.2,.75,.25,1) both}.page-enter .cards>:nth-child(2){animation-delay:.06s}.page-enter .cards>:nth-child(3){animation-delay:.12s}.page-enter .cards>:nth-child(n+4){animation-delay:.18s}
+.modal-backdrop{animation:pmFade .2s both}.modal-backdrop .modal{animation:pmPop .3s cubic-bezier(.2,.75,.25,1) both}
+}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -3492,7 +3500,9 @@ function mobileMore(){
   const federation=`<button class="btn btn-secondary" onclick="window.top.location.href='/'">🌎 <b>República Bom Regressense</b></button>`;
   showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go('${k}')">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
 }
-function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();page=p;sub=s;pushAppHistory(p,s);render();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
+function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();page=p;sub=s;pushAppHistory(p,s);render();animatePage();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
+// Entrada suave só quando a pessoa troca de página (não nas atualizações da nuvem).
+function animatePage(){const c=document.getElementById('content');if(!c)return;c.classList.remove('page-enter');void c.offsetWidth;c.classList.add('page-enter');clearTimeout(c._animTimer);c._animTimer=setTimeout(()=>c.classList.remove('page-enter'),900)}
 function head(title,desc,right=''){return`<div class="page-head"><div><h2>${title}</h2><p>${desc}</p></div>${right?`<span class="pill">${right}</span>`:''}</div>`}
 function renderPage(){
   const c=document.getElementById('content');if(!c)return;
