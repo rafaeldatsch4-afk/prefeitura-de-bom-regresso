@@ -764,7 +764,18 @@ document.addEventListener('submit',e=>{
 
 // ---- Animações: a tela só "entra" quando muda de página/aba, não a cada atualização da nuvem
 let viewAnimKey='',viewAnimTimer=0,loginAnimKey='',toastTimer=0;
-function animateIn(el,cls,key,prev){if(!el||key===prev)return key;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);clearTimeout(el._animTimer);el._animTimer=setTimeout(()=>el.classList.remove(cls),1100);return key}
+// Números dos cartões "contam" até o valor quando a tela entra (só na troca de página/aba).
+function countUpCards(root){
+  if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+  root.querySelectorAll('.card strong,.gov-card strong').forEach(el=>{
+    const text=el.textContent,m=text.match(/^(-?)(R\$\s?)?(\d[\d.]*(?:,\d+)?)(.*)$/);if(!m||el.children.length)return;
+    const dec=(m[3].split(',')[1]||'').length,target=Number(m[3].replace(/\./g,'').replace(',','.'));if(!Number.isFinite(target)||target<=0)return;
+    const fmt=v=>m[1]+(m[2]||'')+v.toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec})+m[4],t0=performance.now(),dur=750;
+    const step=now=>{if(!el.isConnected)return;const k=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=k<1?fmt(target*e):text;if(k<1)requestAnimationFrame(step)};
+    el.textContent=fmt(0);requestAnimationFrame(step)
+  })
+}
+function animateIn(el,cls,key,prev){if(!el||key===prev)return key;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);if(cls==='anim-enter')countUpCards(el);clearTimeout(el._animTimer);el._animTimer=setTimeout(()=>el.classList.remove(cls),1100);return key}
 function showToast(text){let t=document.querySelector('.app-toast');if(t)t.remove();t=document.createElement('div');t.className='app-toast';t.setAttribute('role','status');t.textContent=text;document.body.appendChild(t);clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),320)},1500)}
 function municipalProfilePayload(){
   const p=current(),city=municipalTargetCity();if(!p||!city)return null;

@@ -1586,6 +1586,25 @@ html[data-appearance="dark"] .topbar strong,html[data-appearance="dark"] .topbar
 .page-enter .cards>*{animation:pmFadeUp .45s cubic-bezier(.2,.75,.25,1) both}.page-enter .cards>:nth-child(2){animation-delay:.06s}.page-enter .cards>:nth-child(3){animation-delay:.12s}.page-enter .cards>:nth-child(n+4){animation-delay:.18s}
 .modal-backdrop{animation:pmFade .2s both}.modal-backdrop .modal{animation:pmPop .3s cubic-bezier(.2,.75,.25,1) both}
 }
+@media (prefers-reduced-motion:no-preference){
+@keyframes chatArriveMine{from{opacity:0;transform:translateY(22px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes chatArriveTheirs{0%{opacity:0;transform:translateX(-22px) scale(.92)}70%{opacity:1;transform:translateX(3px) scale(1.01)}100%{opacity:1;transform:none}}
+@keyframes chatCloudUp{0%{opacity:0;transform:translateY(8px) scale(.5)}30%{opacity:1;transform:translateY(-8px) scale(1.1)}100%{opacity:0;transform:translateY(-40px) scale(.8)}}
+@keyframes chatCloudDown{0%{opacity:0;transform:translateY(-30px) scale(.6)}45%{opacity:1;transform:translateY(0) scale(1.1)}100%{opacity:0;transform:translateY(6px) scale(.9)}}
+@keyframes chatReceiptPop{0%{opacity:0;transform:scale(.3)}70%{opacity:1;transform:scale(1.3)}100%{opacity:1;transform:scale(1)}}
+@keyframes chatSendCloud{0%,100%{transform:translateY(2px) scale(.95)}50%{transform:translateY(-4px) scale(1.05)}}
+.chat-arrive-mine .chat-message-wrap{position:relative;animation:chatArriveMine .45s cubic-bezier(.2,.75,.25,1) both}
+.chat-arrive-theirs .chat-message-wrap{position:relative;animation:chatArriveTheirs .55s cubic-bezier(.2,.75,.25,1) both}
+.chat-arrive-theirs .chat-avatar-button{animation:chatArriveTheirs .55s cubic-bezier(.2,.75,.25,1) both}
+.chat-arrive-mine .chat-message-wrap::before,.chat-arrive-theirs .chat-message-wrap::before{content:'☁️';position:absolute;top:-16px;font-size:19px;line-height:1;pointer-events:none;z-index:3;filter:drop-shadow(0 2px 3px rgba(11,46,89,.25))}
+.chat-arrive-mine .chat-message-wrap::before{right:8px;animation:chatCloudUp 1.2s ease-out .2s both}
+.chat-arrive-theirs .chat-message-wrap::before{left:8px;animation:chatCloudDown 1.2s ease-out both}
+.chat-arrive-mine .chat-receipt{display:inline-block;animation:chatReceiptPop .5s ease .4s both}
+.chat-send-cloud{display:inline-block;animation:chatSendCloud .8s ease-in-out infinite}
+.chat-send-btn{transition:transform .15s}.chat-send-btn:active{transform:scale(.88)}
+.chat-fly{position:fixed;z-index:90;pointer-events:none;background:var(--navy);color:#fff;padding:8px 12px;border-radius:15px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+.chat-fly-cloud{position:fixed;z-index:91;pointer-events:none;font-size:30px;line-height:1;filter:drop-shadow(0 3px 5px rgba(11,46,89,.3))}
+}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -2671,12 +2690,35 @@ function toggleChatSearch(force){
   else{const input=document.getElementById('chatSearch');if(input){input.value='';chatSearchTerm='';renderChatMessages(false)}}
 }
 
+const chatReduceMotion=()=>!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+// Só as mensagens que acabaram de chegar ganham animação (abrir o chat ou pesquisar não anima).
+function animateNewChatRows(root,list){
+  if(chatSearchTerm.trim())return; // a lista filtrada não conta como "já vista"
+  const prev=root._shownIds;root._shownIds=new Set(list.map(m=>m.id));
+  if(!prev||chatReduceMotion())return;
+  root.querySelectorAll('.chat-row[data-chat-id]').forEach(row=>{
+    if(prev.has(row.dataset.chatId))return;
+    const cls=row.classList.contains('mine')?'chat-arrive-mine':'chat-arrive-theirs';row.classList.add(cls);setTimeout(()=>row.classList.remove(cls),1500)
+  })
+}
+// Ao enviar: uma cópia do texto sobe da caixa e uma nuvem leva a mensagem.
+function flyChatGhost(label){
+  if(chatReduceMotion()||typeof document.body.animate!=='function')return;
+  const input=document.getElementById('chatInput'),btn=document.querySelector('.chat-send-btn');if(!input||!btn)return;
+  const r=input.getBoundingClientRect(),b=btn.getBoundingClientRect();
+  const ghost=document.createElement('div');ghost.className='chat-fly';ghost.textContent=String(label).slice(0,60);
+  Object.assign(ghost.style,{left:r.left+'px',top:(r.top+2)+'px',maxWidth:Math.max(80,r.width)+'px'});document.body.appendChild(ghost);
+  const cloud=document.createElement('div');cloud.className='chat-fly-cloud';cloud.textContent='☁️';
+  Object.assign(cloud.style,{left:(b.left+b.width/2-16)+'px',top:(b.top-6)+'px'});document.body.appendChild(cloud);
+  ghost.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY(-110px) scale(.65)',opacity:0}],{duration:700,easing:'cubic-bezier(.2,.75,.25,1)'}).onfinish=()=>ghost.remove();
+  cloud.animate([{transform:'translateY(14px) scale(.5)',opacity:0},{transform:'translateY(-14px) scale(1.15)',opacity:1,offset:.35},{transform:'translateY(-90px) scale(.85)',opacity:0}],{duration:1200,easing:'ease-out'}).onfinish=()=>cloud.remove()
+}
 function renderChatMessages(forceBottom=false){
   const root=document.getElementById('chatMessages');if(!root)return;
   if(!chatReady){root._chatHTML='';root.innerHTML='<div class="chat-loading"><span class="chat-spinner"></span><b>Carregando conversa…</b></div>';return}
   const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
   const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
-  if(!list.length){root._chatHTML='';root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
+  if(!list.length){root._chatHTML='';if(!q)root._shownIds=new Set();root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
   let lastDay='',html='';
   for(let i=0;i<list.length;i++){
     const m=list[i],d=new Date(m.createdAt),today=new Date(),yesterday=new Date(Date.now()-86400000);
@@ -2691,7 +2733,7 @@ function renderChatMessages(forceBottom=false){
   }
   // Presence updates from every open chat re-run this; rebuilding identical HTML re-decoded photos and made the screen flash.
   if(root._chatHTML===html){if(forceBottom)requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()});return}
-  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();
+  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();animateNewChatRows(root,list);
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
@@ -3142,7 +3184,7 @@ async function sendChatMessage(){
   if(!chatCollection||!cloudReady)return toast('Conecte-se à internet para enviar mensagens.');
   if(chatPendingAttachment?.dataUrl?.length>520000)return toast('O anexo ultrapassa o limite do chat.');
   const sendBtn=document.querySelector('.chat-send-btn');let mediaId='';
-  chatSending=true;if(input)input.disabled=true;if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='…'}
+  chatSending=true;flyChatGhost(text||(chatPendingAttachment?'📎 '+(chatPendingAttachment.name||'Anexo'):''));if(input)input.disabled=true;if(sendBtn){sendBtn.disabled=true;sendBtn.innerHTML='<span class="chat-send-cloud" aria-hidden="true">☁️</span>'}
   try{
     let attachment=null;
     if(chatPendingAttachment){
