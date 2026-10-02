@@ -2445,16 +2445,21 @@ async function unregisterChatPushDevice(){
   }catch(err){console.warn('Remover push:',err)}
   lastPushOperatorId=''
 }
-function playChatTone(){
-  const s=getChatNotifySettings();if(!s.sound)return;
-  try{
-    const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
-    const ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain();
-    o.type='sine';o.frequency.setValueAtTime(720,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(940,ctx.currentTime+.08);
-    g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.10,ctx.currentTime+.015);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.16);
-    o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.17);setTimeout(()=>ctx.close().catch(()=>{}),280)
+// ---- Sons do chat: um único AudioContext, liberado no primeiro toque (o navegador bloqueia som antes disso)
+let chatAudioCtx=null;
+function chatAudio(){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!chatAudioCtx)try{chatAudioCtx=new C()}catch{return null}if(chatAudioCtx.state==='suspended')chatAudioCtx.resume().catch(()=>{});return chatAudioCtx}
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{const c=chatAudio();if(c&&c.state==='suspended')c.resume().catch(()=>{})},{passive:true}));
+// receive: "pop" suave · send: "fiu" curto subindo · notify: dois toques (mensagem chegando em outra tela)
+const CHAT_SOUNDS={receive:[[880,1180,0,.11,.09]],send:[[420,980,0,.12,.05]],notify:[[740,740,0,.12,.1],[988,988,.13,.16,.1]]};
+function playChatSound(kind='notify'){
+  try{const ctx=chatAudio();if(!ctx||ctx.state!=='running')return;const t0=ctx.currentTime+.01;
+    for(const [f1,f2,at,dur,vol] of CHAT_SOUNDS[kind]||CHAT_SOUNDS.notify){const o=ctx.createOscillator(),g=ctx.createGain(),t=t0+at;
+      o.type='sine';o.frequency.setValueAtTime(f1,t);o.frequency.exponentialRampToValueAtTime(f2,t+dur*.7);
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+dur+.02)}
   }catch{}
 }
+function playChatTone(kind='notify'){if(!getChatNotifySettings().sound)return;playChatSound(kind)}
 function vibrateChat(){
   const s=getChatNotifySettings();if(s.vibrate&&navigator.vibrate)try{navigator.vibrate([70,45,70])}catch{}
 }
@@ -3026,7 +3031,7 @@ async function notifyChatMessage(m){
   const label=m.attachment?.kind==='image'?'📷 Imagem':m.attachment?.kind==='audio'?'🎙️ Mensagem de voz':m.attachment?'📎 Arquivo':'';
   const preview=s.preview?(m.text||label||'Nova mensagem').slice(0,120):'Nova mensagem no Chat da República';
   const visible=document.visibilityState==='visible';
-  if(visible&&page==='chat'){markChatRead();return}
+  if(visible&&page==='chat'){markChatRead();playChatTone('receive');return}
   if(visible){toast(`💬 ${m.senderName||'Nova mensagem'}: ${preview}`);playChatTone();vibrateChat();return}
   vibrateChat();
   const hasWorkingPush=pushBackendConfigured&&lastPushOperatorId===db.currentOperatorId&&Notification.permission==='granted';
@@ -3192,7 +3197,7 @@ async function sendChatMessage(){
       attachment=stored.attachment;mediaId=stored.mediaId
     }
     const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,reply:chatReplyTarget?cloneData(chatReplyTarget):null,createdAt:nowISO()};
-    const ref=await chatCollection.add(msg);
+    const ref=await chatCollection.add(msg);playChatTone('send');
     sendChatPush({...msg,id:ref.id});touchChatPresence(false);
     if(input){input.value='';input.style.height='40px';input.focus()}
     chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);chatAutoScroll=true
