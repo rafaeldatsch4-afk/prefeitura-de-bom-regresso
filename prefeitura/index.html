@@ -1625,6 +1625,42 @@ html[data-appearance="dark"] .chat-typing-bubble i{background:#AEBAC1}
 .chat-typing-bubble i:nth-child(2),.chat-typing-dots i:nth-child(2){animation-delay:.15s}
 .chat-typing-bubble i:nth-child(3),.chat-typing-dots i:nth-child(3){animation-delay:.3s}
 }
+/* Fluidez: pílula do menu, páginas pelo lado certo, janelas que fecham suavemente, deslizar para responder */
+.ui-glider{position:absolute;z-index:0;pointer-events:none;will-change:left,top,width,height}
+.ui-glide-host>button{position:relative}
+.ui-glide-host .ui-glide-hide{background:transparent!important;box-shadow:none!important}
+.chat-messages .chat-row[data-chat-id]{touch-action:pan-y}
+.chat-row.chat-swiping{position:relative}
+.chat-swipe-icon{position:absolute;top:50%;width:30px;height:30px;margin-top:-15px;border-radius:50%;display:grid;place-items:center;background:rgba(11,46,89,.10);color:var(--navy);font-size:16px;font-weight:900;pointer-events:none;opacity:0;transform:scale(.5);transition:background .15s,color .15s}
+.chat-swipe-icon.armed{background:var(--navy);color:#fff}
+html[data-appearance="dark"] .chat-swipe-icon{background:rgba(255,255,255,.12);color:#E9EDEF}html[data-appearance="dark"] .chat-swipe-icon.armed{background:#2F6FB2}
+@media (prefers-reduced-motion:no-preference){
+@keyframes pmSlideFwd{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes pmSlideBack{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes pmFadeOut{to{opacity:0}}
+@keyframes pmPopOut{to{opacity:0;transform:translateY(10px) scale(.97)}}
+@keyframes pmSheetUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes pmSheetDown{to{transform:translateY(100%)}}
+@keyframes pmToastIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes pmToastOut{to{opacity:0;transform:translateY(14px) scale(.96)}}
+@keyframes chatPopIn{from{opacity:0;transform:scale(.4)}70%{transform:scale(1.08)}to{opacity:1;transform:none}}
+@keyframes chatSlideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes chatHighlight{0%{transform:none}30%{transform:scale(1.04)}60%{transform:scale(.99)}100%{transform:none}}
+#content.page-enter[data-dir="fwd"]>*{animation-name:pmSlideFwd}
+#content.page-enter[data-dir="back"]>*{animation-name:pmSlideBack}
+.modal-backdrop.closing{animation:pmFadeOut .2s ease both;pointer-events:none}
+.modal-backdrop.closing .modal{animation:pmPopOut .2s ease both}
+.toast:not(.hidden){animation:pmToastIn .25s cubic-bezier(.2,.75,.25,1) both}
+.toast.toast-out{animation:pmToastOut .25s ease both}
+.chat-scroll-bottom:not(.hidden){animation:chatPopIn .28s cubic-bezier(.2,.75,.25,1) both}
+.chat-reply-card,.chat-pending-card{animation:chatSlideUp .22s cubic-bezier(.2,.75,.25,1) both}
+.chat-emoji-panel:not(.hidden),.chat-attach-menu:not(.hidden){animation:chatSlideUp .2s cubic-bezier(.2,.75,.25,1) both}
+.chat-highlight .chat-bubble{animation:chatHighlight .6s ease}
+}
+@media (prefers-reduced-motion:no-preference) and (max-width:760px){
+.modal-backdrop .modal{animation:pmSheetUp .3s cubic-bezier(.2,.75,.25,1) both}
+.modal-backdrop.closing .modal{animation:pmSheetDown .22s cubic-bezier(.4,0,1,1) both}
+}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1837,7 +1873,17 @@ async function initCloud(){
     loginScreen()
   }catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}
 }
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),2300)}
+let toastTimer=0;
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden','toast-out');
+  t.style.animation='none';void t.offsetWidth;t.style.animation='';
+  clearTimeout(toastTimer);
+  // antes cada aviso desligava o seguinte no meio; agora vale só o último
+  toastTimer=setTimeout(()=>{
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){t.classList.add('hidden');return}
+    t.classList.add('toast-out');toastTimer=setTimeout(()=>t.classList.add('hidden'),260)
+  },2300)
+}
 function statusClass(s){s=String(s||'').toLowerCase();if(/concl|pago|ativo|disponível|confirmad/.test(s))return's-ok';if(/aguard|pend|andamento|manutenção|agend/.test(s))return's-warn';if(/cancel|indispon|inativo/.test(s))return's-bad';if(/receita/.test(s))return's-ok';return's-info'}
 const THEME_PRESETS={
   classic:{primary:'#0B2E59',accent:'#D7A93E'},
@@ -3101,7 +3147,7 @@ function chat(c){
       </footer>
     </div>
   </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();
+  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();bindChatSwipeReply();
   setTimeout(()=>{
     const input=document.getElementById('chatInput');
     if(window.innerWidth>760)input?.focus({preventScroll:true});
@@ -3511,7 +3557,11 @@ function systemBack(){
   history.back();
 }
 function showModal(title,html,onReady){document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" id="mb"><div class="modal"><div class="row"><h3 class="grow">${esc(title)}</h3><button class="btn btn-secondary" onclick="App.closeModal()">✕</button></div><div class="sep"></div>${html}</div></div>`; onReady?.()}
-function closeModal(){municipalFormEditing=false;document.getElementById('modalRoot').innerHTML=''}
+function closeModal(){
+  municipalFormEditing=false;const root=document.getElementById('modalRoot'),mb=root.querySelector('.modal-backdrop:not(.closing)');
+  if(!mb||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){root.innerHTML='';return}
+  mb.classList.add('closing');mb.removeAttribute('id');setTimeout(()=>mb.remove(),230)
+}
 function loginScreen(){
   if(FEDERATED_EMBED){
     if(db.currentOperatorId){render();return}
@@ -3653,7 +3703,7 @@ function mobileMore(){
   const federation=`<button class="btn btn-secondary" onclick="window.top.location.href='/'">🌎 <b>República Bom Regressense</b></button>`;
   showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go('${k}')">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
 }
-function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();page=p;sub=s;pushAppHistory(p,s);render();animatePage();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
+function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();const navSnap=fxNavSnapshot();page=p;sub=s;pushAppHistory(p,s);render();const dir=fxNavGlide(navSnap);const c=document.getElementById('content');if(c)c.dataset.dir=dir;animatePage();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
 const RIPPLE_TARGETS='.btn,.nav button,.mobile-nav button,.sidebar button,.tabs button,.chat-send-btn,.operator-chip-button,.topbar-profile';
 // ---- Efeitos: ondinha ao tocar (só com movimento permitido)
 const fxMotionOK=()=>!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -3666,6 +3716,80 @@ document.addEventListener('pointerdown',e=>{
   Object.assign(dot.style,{width:size+'px',height:size+'px',left:(e.clientX-r.left-size/2)+'px',top:(e.clientY-r.top-size/2)+'px'});
   wrap.appendChild(dot);host.appendChild(wrap);setTimeout(()=>wrap.remove(),650)
 },{passive:true});
+
+// ---- Fluidez: a "pílula" do item ativo desliza de um botão do menu para o outro.
+const GLIDE_NAVS=['.sidebar .nav','.mobile-nav'];
+const glideBg=el=>{const c=getComputedStyle(el).backgroundColor;return c&&c!=='transparent'&&!/rgba\(.*,\s*0\)$/.test(c)};
+const glideTarget=a=>glideBg(a)?a:[...a.children].find(glideBg)||null;
+function fxNavSnapshot(){
+  return GLIDE_NAVS.map(sel=>{
+    const nav=document.querySelector(sel),a=nav?.querySelector(':scope>button.active');if(!a||!a.getClientRects().length)return null;
+    const t=glideTarget(a);return {sel,sig:[...nav.children].map(b=>b.textContent).join('|'),idx:[...nav.children].indexOf(a),rect:(t||a).getBoundingClientRect()}
+  }).filter(Boolean)
+}
+function fxNavGlide(snap){
+  let dir='';
+  for(const s of snap||[]){
+    const nav=document.querySelector(s.sel),a=nav?.querySelector(':scope>button.active');if(!a||!a.getClientRects().length)continue;
+    const kids=[...nav.children],idx=kids.indexOf(a);
+    if(kids.map(b=>b.textContent).join('|')!==s.sig||idx===s.idx)continue;
+    dir=dir||(idx>s.idx?'fwd':'back');
+    if(!fxMotionOK()||typeof document.body.animate!=='function')continue;
+    const t=glideTarget(a);if(!t)continue;
+    const cs=getComputedStyle(t),g=document.createElement('span');g.className='ui-glider';g.setAttribute('aria-hidden','true');
+    Object.assign(g.style,{background:cs.backgroundColor,borderRadius:cs.borderRadius,boxShadow:cs.boxShadow==='none'?'':cs.boxShadow});
+    if(getComputedStyle(nav).position==='static')nav.style.position='relative';
+    nav.classList.add('ui-glide-host');t.classList.add('ui-glide-hide');nav.prepend(g);
+    requestAnimationFrame(()=>{
+      if(!g.isConnected)return;
+      const nr=nav.getBoundingClientRect(),r=t.getBoundingClientRect(),box=x=>({left:(x.left-nr.left-nav.clientLeft+nav.scrollLeft)+'px',top:(x.top-nr.top-nav.clientTop+nav.scrollTop)+'px',width:x.width+'px',height:x.height+'px'});
+      const from=box(s.rect.width?s.rect:r),to=box(r);Object.assign(g.style,to);
+      const done=()=>{g.remove();t.classList.remove('ui-glide-hide');if(!nav.querySelector('.ui-glider'))nav.classList.remove('ui-glide-host')};
+      const anim=g.animate([from,to],{duration:380,easing:'cubic-bezier(.3,1.25,.5,1)'});anim.onfinish=done;anim.oncancel=done;
+      const icon=a.querySelector('span');icon?.animate?.([{transform:'none'},{transform:'translateY(-3px) scale(1.18)'},{transform:'none'}],{duration:420,easing:'ease-out',delay:120})
+    })
+  }
+  return dir
+}
+// ---- Chat: arrastar a mensagem para a direita responde (igual WhatsApp).
+function bindChatSwipeReply(){
+  const root=document.getElementById('chatMessages');if(!root||root._swipeBound)return;root._swipeBound=true;
+  let st=null;
+  const parts=row=>[...row.children].filter(c=>!c.classList.contains('chat-swipe-icon'));
+  const finish=(reply)=>{
+    if(!st)return;const {row,icon,dx,id}=st;st=null;
+    parts(row).forEach(el=>{
+      if(dx&&typeof el.animate==='function')el.animate([{transform:`translateX(${dx}px)`},{transform:'translateX(-4px)',offset:.7},{transform:'none'}],{duration:260,easing:'ease-out'});
+      el.style.transform=''
+    });
+    if(icon){icon.animate?.([{opacity:Math.min(1,dx/56),transform:'scale(1)'},{opacity:0,transform:'scale(.5)'}],{duration:180});setTimeout(()=>{icon.remove();row.classList.remove('chat-swiping')},180)}
+    if(reply)replyChatMessage(id)
+  };
+  root.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'||chatReduceMotion())return;
+    const row=e.target.closest('.chat-row[data-chat-id]');if(!row||e.target.closest('audio,input,textarea'))return;
+    st={id:row.dataset.chatId,row,x:e.clientX,y:e.clientY,pid:e.pointerId,mode:'',dx:0,armed:false,icon:null}
+  },{passive:true});
+  root.addEventListener('pointermove',e=>{
+    if(!st||e.pointerId!==st.pid)return;
+    const dx=e.clientX-st.x,dy=e.clientY-st.y;
+    if(!st.mode){
+      if(Math.abs(dx)<10&&Math.abs(dy)<10)return;
+      if(!(dx>0&&Math.abs(dx)>Math.abs(dy)*1.4)){st=null;return}
+      st.mode='swipe';const row=st.row,first=parts(row)[0];
+      row.classList.add('chat-swiping');const icon=document.createElement('span');icon.className='chat-swipe-icon';icon.textContent='↩';icon.setAttribute('aria-hidden','true');
+      icon.style.left=Math.max(2,(first?first.getBoundingClientRect().left-row.getBoundingClientRect().left:0)-34)+'px';
+      row.appendChild(icon);st.icon=icon
+    }
+    const d=Math.max(0,dx),pull=d<64?d:64+(d-64)*.25;st.dx=pull;
+    parts(st.row).forEach(el=>{el.style.transform=`translateX(${pull}px)`});
+    const k=Math.min(1,pull/56);st.icon.style.opacity=k;st.icon.style.transform=`scale(${.5+.5*k})`;
+    const armed=pull>=56;if(armed&&!st.armed)try{navigator.vibrate?.(12)}catch{}
+    st.armed=armed;st.icon.classList.toggle('armed',armed)
+  },{passive:true});
+  root.addEventListener('pointerup',e=>{if(st&&e.pointerId===st.pid)finish(st.mode==='swipe'&&st.armed);else if(st)st=null},{passive:true});
+  root.addEventListener('pointercancel',()=>finish(false),{passive:true})
+}
 // Entrada suave só quando a pessoa troca de página (não nas atualizações da nuvem).
 function animatePage(){const c=document.getElementById('content');if(!c)return;c.classList.remove('page-enter');void c.offsetWidth;c.classList.add('page-enter');clearTimeout(c._animTimer);c._animTimer=setTimeout(()=>c.classList.remove('page-enter'),900)}
 function head(title,desc,right=''){return`<div class="page-head"><div><h2>${title}</h2><p>${desc}</p></div>${right?`<span class="pill">${right}</span>`:''}</div>`}
