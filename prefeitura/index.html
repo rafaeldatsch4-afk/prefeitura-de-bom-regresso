@@ -1610,6 +1610,21 @@ html[data-appearance="dark"] .topbar strong,html[data-appearance="dark"] .topbar
 .ui-ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.2;transform:scale(0);animation:uiRipple .6s ease-out forwards}
 @keyframes uiRipple{to{transform:scale(1);opacity:0}}
 }
+/* "Fulano está digitando": pontinhos no cabeçalho, balão na conversa e letras que pulam na caixa */
+#chatPresenceText .chat-typing-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-typing-dots{display:inline-flex;align-items:center;gap:2px;flex:none}
+.chat-typing-dots i{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
+.chat-typing-row .chat-typing-bubble{display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 13px;border-radius:14px 14px 14px 4px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.10)}
+.chat-typing-bubble i{width:7px;height:7px;border-radius:50%;background:#8696A0;opacity:.75}
+html[data-appearance="dark"] .chat-typing-row .chat-typing-bubble{background:#202C33}
+html[data-appearance="dark"] .chat-typing-bubble i{background:#AEBAC1}
+.chat-hop{position:fixed;z-index:92;pointer-events:none;font-weight:800;white-space:pre;line-height:1;text-shadow:0 2px 6px rgba(11,46,89,.25)}
+@media (prefers-reduced-motion:no-preference){
+@keyframes chatTypingDot{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}
+.chat-typing-bubble i,.chat-typing-dots i{animation:chatTypingDot 1.2s ease-in-out infinite}
+.chat-typing-bubble i:nth-child(2),.chat-typing-dots i:nth-child(2){animation-delay:.15s}
+.chat-typing-bubble i:nth-child(3),.chat-typing-dots i:nth-child(3){animation-delay:.3s}
+}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1671,7 +1686,8 @@ let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chat
 let chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false};
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0,chatSending=false;
 const chatMediaCache=new Map();let chatMediaObserver=null;
-let chatPresenceCollection=null,chatPresenceUnsub=null,chatPresence=[],chatTypingTimer=null,chatPresenceTimer=null;
+let chatPresenceCollection=null,chatPresenceUnsub=null,chatPresence=[],chatTypingTimer=null,chatPresenceTimer=null,chatTypingSentAt=0,chatTypingRowEl=null,chatTypingTick=null;
+const chatTypingSeen=new Map(); // operatorId -> {key, at}: quando ESTE aparelho viu a pessoa digitar (não depende do relógio do outro)
 const todayBR=()=>new Date().toLocaleDateString('pt-BR');
 const nowISO=()=>new Date().toISOString();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -2728,7 +2744,7 @@ function renderChatMessages(forceBottom=false){
   if(!chatReady){root._chatHTML='';root.innerHTML='<div class="chat-loading"><span class="chat-spinner"></span><b>Carregando conversa…</b></div>';return}
   const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
   const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
-  if(!list.length){root._chatHTML='';if(!q)root._shownIds=new Set();root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
+  if(!list.length){root._chatHTML='';chatTypingRowEl=null;if(!q)root._shownIds=new Set();root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
   let lastDay='',html='';
   for(let i=0;i<list.length;i++){
     const m=list[i],d=new Date(m.createdAt),today=new Date(),yesterday=new Date(Date.now()-86400000);
@@ -2743,7 +2759,7 @@ function renderChatMessages(forceBottom=false){
   }
   // Presence updates from every open chat re-run this; rebuilding identical HTML re-decoded photos and made the screen flash.
   if(root._chatHTML===html){if(forceBottom)requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()});return}
-  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();animateNewChatRows(root,list);
+  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();animateNewChatRows(root,list);renderChatTypingRow(chatTypingUsers());
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
@@ -2756,15 +2772,51 @@ function chatOnlineUsers(){
   const now=Date.now();
   return (chatPresence||[]).filter(p=>p.operatorId&&p.operatorId!==db.currentOperatorId&&now-new Date(p.lastSeen||0).getTime()<90000)
 }
+// Quem está digitando: o aviso dura 6 s depois do último sinal que chegou (cada sinal novo renova).
+function noteChatTyping(list){
+  const now=Date.now();
+  for(const p of list||[]){
+    if(!p.operatorId)continue;
+    const key=p.typing?String(p.typingAt||p.lastSeen||''):'';
+    if(!key){chatTypingSeen.delete(p.operatorId);continue}
+    const prev=chatTypingSeen.get(p.operatorId);if(prev&&prev.key===key)continue;
+    // Um "digitando" antigo visto pela primeira vez (aba fechada no meio) não conta.
+    if(!prev&&!(Math.abs(now-new Date(key).getTime())<30000))continue;
+    chatTypingSeen.set(p.operatorId,{key,at:now})
+  }
+}
+function chatTypingUsers(){
+  const now=Date.now();
+  return chatOnlineUsers().filter(p=>{const seen=chatTypingSeen.get(p.operatorId);return p.typing&&seen&&now-seen.at<6000})
+}
+function renderChatTypingRow(typing){
+  const root=document.getElementById('chatMessages');if(!root)return;
+  const show=typing.length&&chatReady&&!chatSearchTerm.trim()&&!root.querySelector('.chat-empty,.chat-loading');
+  if(!show){if(chatTypingRowEl){chatTypingRowEl.remove();chatTypingRowEl=null}return}
+  const key=typing.map(p=>p.operatorId).join(','),nearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110;
+  let row=chatTypingRowEl;const isNew=!row;
+  if(isNew){row=document.createElement('div');row.className='chat-row theirs chat-typing-row';row.setAttribute('aria-hidden','true');chatTypingRowEl=row}
+  if(row.dataset.key!==key){
+    const p=typing[0];row.dataset.key=key;
+    row.innerHTML=`<span class="chat-avatar-button">${profileAvatarHTML(chatSenderProfile({senderId:p.operatorId,senderName:p.operatorName}),'profile-avatar-chat')}</span><div class="chat-typing-bubble"><i></i><i></i><i></i></div>`
+  }
+  if(row.parentNode!==root||root.lastElementChild!==row)root.appendChild(row);
+  if(isNew&&!chatReduceMotion()&&typeof row.animate==='function')row.animate([{opacity:0,transform:'translateY(10px) scale(.85)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.75,.25,1)'});
+  if(isNew&&(nearBottom||chatAutoScroll))requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()})
+}
 function renderChatPresence(){
+  renderChatTypingRow(chatTypingUsers());
   const el=document.getElementById('chatPresenceText');if(!el)return;
-  const online=chatOnlineUsers(),typing=online.filter(p=>p.typing);
+  const online=chatOnlineUsers(),typing=chatTypingUsers();
   if(typing.length){
-    const names=typing.slice(0,2).map(p=>p.operatorName||'Alguém');
-    el.textContent=names.join(' e ')+(typing.length>2?' e outros':'')+' digitando…';
+    const names=typing.slice(0,2).map(p=>String(p.operatorName||'').trim().split(/\s+/)[0]||'Alguém');
+    const label=names.join(' e ')+(typing.length>2?' e outros':'')+(typing.length>1?' estão digitando':' está digitando');
+    const html=`<span class="chat-typing-label">${esc(label)}</span><span class="chat-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
+    if(el._typingHTML!==html){el.innerHTML=html;el._typingHTML=html}
     el.classList.add('typing');
     return
   }
+  el._typingHTML='';
   el.classList.remove('typing');
   el.textContent=online.length?online.length+' online agora':'Chat sincronizado'
 }
@@ -2772,14 +2824,59 @@ async function touchChatPresence(typing=false){
   const p=currentProfile();if(!p||!chatPresenceCollection)return;
   try{
     const data={operatorId:p.id,operatorName:p.name,role:p.role||'Servidor / Outro',typing:!!typing,lastSeen:nowISO(),deviceId:pushDeviceId()};
+    if(typing)data.typingAt=nowISO();
     if(page==='chat'&&document.visibilityState==='visible')data.lastReadAt=nowISO();
     await chatPresenceCollection.doc(p.id).set(data,{merge:true})
   }catch{}
 }
-function chatInputChanged(el){
-  chatAutoGrow(el);updateChatComposerState();touchChatPresence(true);
+// Avisa "digitando" no máximo a cada 2,5 s (não a cada tecla) e desliga 3 s depois da última tecla.
+function stopChatTyping(){
   clearTimeout(chatTypingTimer);
-  chatTypingTimer=setTimeout(()=>touchChatPresence(false),2200)
+  if(chatTypingSentAt){chatTypingSentAt=0;touchChatPresence(false)}
+}
+function chatInputChanged(el,ev){
+  chatAutoGrow(el);updateChatComposerState();
+  const hasText=!!String(el?.value||'').trim();
+  if(hasText&&Date.now()-chatTypingSentAt>2500){chatTypingSentAt=Date.now();touchChatPresence(true)}
+  clearTimeout(chatTypingTimer);
+  chatTypingTimer=setTimeout(stopChatTyping,hasText?3000:0);
+  chatLetterHop(el,ev)
+}
+// Posição do cursor dentro da caixa (cópia invisível com o mesmo texto e a mesma fonte).
+function chatCaretPoint(el){
+  const cs=getComputedStyle(el),mirror=document.createElement('div');
+  for(const k of ['boxSizing','width','paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth','borderStyle','fontFamily','fontSize','fontWeight','fontStyle','letterSpacing','lineHeight','textTransform','wordSpacing','textIndent','tabSize'])mirror.style[k]=cs[k];
+  Object.assign(mirror.style,{position:'absolute',visibility:'hidden',top:'0',left:'-9999px',whiteSpace:'pre-wrap',overflowWrap:'break-word',overflow:'hidden'});
+  const pos=el.selectionEnd??el.value.length;mirror.textContent=el.value.slice(0,pos);
+  const mark=document.createElement('span');mark.textContent='​';mirror.appendChild(mark);document.body.appendChild(mirror);
+  const r=el.getBoundingClientRect(),pt={x:r.left+mark.offsetLeft-el.scrollLeft,y:r.top+mark.offsetTop-el.scrollTop,h:mark.offsetHeight,cs};
+  mirror.remove();return pt
+}
+// A letra digitada dá um pulinho na caixa de mensagem.
+function chatLetterHop(el,ev){
+  if(!el||!ev||!ev.data||!/^insert(Text|CompositionText|ReplacementText)$/.test(ev.inputType||''))return;
+  // Teclado do Android manda a palavra inteira a cada letra: só pula quando ela cresce (apagar não pula).
+  if(ev.inputType==='insertCompositionText'){
+    if(!el._hopBound){el._hopBound=true;el.addEventListener('compositionend',()=>{el._compLen=0})}
+    const grew=ev.data.length>(el._compLen||0);el._compLen=ev.data.length;if(!grew)return
+  }
+  if(chatReduceMotion()||typeof document.body.animate!=='function')return;
+  const ch=Array.from(ev.data).pop();if(!ch||!ch.trim())return;
+  if(document.querySelectorAll('.chat-hop').length>14)return;
+  const pt=chatCaretPoint(el),r=el.getBoundingClientRect();
+  if(pt.y<r.top-2||pt.y>r.bottom)return; // cursor fora da parte visível
+  const hop=document.createElement('span');hop.className='chat-hop';hop.textContent=ch;
+  Object.assign(hop.style,{left:pt.x+'px',top:(pt.y+(pt.h-parseFloat(pt.cs.fontSize))/2)+'px',fontSize:pt.cs.fontSize,fontFamily:pt.cs.fontFamily,color:pt.cs.color});
+  document.body.appendChild(hop);
+  const tilt=(Math.random()*16-8).toFixed(1);
+  hop.animate([
+    {transform:'translate(-100%,0) scale(.7)',opacity:0},
+    {transform:`translate(-100%,-15px) scale(1.35) rotate(${tilt}deg)`,opacity:1,offset:.35},
+    {transform:'translate(-100%,0) scale(1)',opacity:.9,offset:.7},
+    {transform:'translate(-100%,-3px) scale(1)',opacity:0}
+  ],{duration:520,easing:'ease-out'}).onfinish=()=>hop.remove();
+  const pill=el.closest('.chat-input-pill');
+  if(pill&&typeof pill.animate==='function')pill.animate([{transform:'none'},{transform:'translateY(-1px) scale(1.008)'},{transform:'none'}],{duration:170,easing:'ease-out'})
 }
 function chatInputFocus(){
   toggleChatEmoji(false);toggleChatAttachMenu(false);
@@ -2792,11 +2889,14 @@ function startChatPresence(){
   if(chatPresenceUnsub)chatPresenceUnsub();
   chatPresenceUnsub=chatPresenceCollection.onSnapshot(s=>{
     chatPresence=s.docs.map(d=>d.data());
+    noteChatTyping(chatPresence);
     renderChatPresence();
     if(page==='chat'&&document.getElementById('chatMessages'))renderChatMessages(false)
   },err=>console.warn('Presença do chat:',err));
   clearInterval(chatPresenceTimer);
-  chatPresenceTimer=setInterval(()=>{if(db.currentOperatorId&&document.visibilityState==='visible')touchChatPresence(false)},30000)
+  chatPresenceTimer=setInterval(()=>{if(db.currentOperatorId&&document.visibilityState==='visible'&&!chatTypingSentAt)touchChatPresence(false)},30000);
+  clearInterval(chatTypingTick);
+  chatTypingTick=setInterval(()=>{if(chatTypingSeen.size)renderChatPresence()},1000)
 }
 function editChatMessage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
@@ -2988,7 +3088,7 @@ function chat(c){
         <div class="chat-composer">
           <button type="button" class="chat-round-btn chat-emoji-btn" onclick="App.toggleChatEmoji()" title="Emoji">☺</button>
           <div class="chat-input-pill">
-            <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" onfocus="App.chatInputFocus()" oninput="App.chatInputChanged(this)" onkeydown="App.chatComposerKey(event)"></textarea>
+            <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Mensagem" onfocus="App.chatInputFocus()" oninput="App.chatInputChanged(this,event)" onkeydown="App.chatComposerKey(event)"></textarea>
             <button type="button" class="chat-pill-attach" onclick="App.toggleChatAttachMenu()" title="Anexar">📎</button>
           </div>
           <button type="button" id="chatMicBtn" class="chat-round-btn chat-mic-btn"
@@ -3202,8 +3302,9 @@ async function sendChatMessage(){
       attachment=stored.attachment;mediaId=stored.mediaId
     }
     const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,reply:chatReplyTarget?cloneData(chatReplyTarget):null,createdAt:nowISO()};
+    clearTimeout(chatTypingTimer);chatTypingSentAt=0;touchChatPresence(false);
     const ref=await chatCollection.add(msg);playChatTone('send');
-    sendChatPush({...msg,id:ref.id});touchChatPresence(false);
+    sendChatPush({...msg,id:ref.id});
     if(input){input.value='';input.style.height='40px';input.focus()}
     chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);chatAutoScroll=true
   }catch(err){
@@ -4261,7 +4362,7 @@ document.addEventListener('focusout',e=>{
   if(e.target?.closest?.('.chat-page'))setTimeout(()=>syncChatViewportHeight(),120);
 });
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(getTheme().appearance==='auto')applyTheme()});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&db.currentOperatorId){touchChatPresence(false);if(page==='chat')markChatRead();else recalculateChatUnread();if(getChatNotifySettings().enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')stopChatTyping();if(document.visibilityState==='visible'&&db.currentOperatorId){touchChatPresence(false);if(page==='chat')markChatRead();else recalculateChatUnread();if(getChatNotifySettings().enabled&&typeof Notification!=='undefined'&&Notification.permission==='granted')ensurePushRegistration(false)}});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e});
 window.addEventListener('appinstalled',()=>{deferredInstallPrompt=null;toast('Prefeitura de Bom Regresso instalada.')});
 registerAutoUpdatingServiceWorker();
