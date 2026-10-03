@@ -1680,6 +1680,14 @@ html[data-appearance="dark"] .ui-tilt::after{background:radial-gradient(circle a
 @keyframes pmFocusRing{from{outline:2px solid rgba(215,169,62,.7);outline-offset:0}to{outline:2px solid rgba(215,169,62,0);outline-offset:7px}}
 .field input:focus,.field select:focus,.field textarea:focus{animation:pmFocusRing .5s ease-out}
 }
+.topbar-search{margin-left:auto!important}.topbar-search~.topbar-profile,.topbar-search~.topbar-settings{margin-left:0!important}
+.search-box{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:14px;padding:4px 12px;background:var(--card,#fff)}.search-box input{flex:1;border:0;outline:0;background:transparent;font-size:16px;min-height:42px;color:inherit}.search-box:focus-within{border-color:var(--navy);box-shadow:0 0 0 3px rgba(11,46,89,.12)}
+.search-results{margin-top:12px;max-height:min(60vh,520px);overflow:auto;display:grid;gap:12px}.search-group h4{margin:0 0 6px;color:var(--navy);font-size:14px;display:flex;align-items:center;gap:6px}.search-group h4 small{background:#EEF3F8;color:var(--navy);border-radius:999px;padding:1px 8px;font-size:11px}.search-hit-btn{display:block;width:100%;text-align:left;border:1px solid var(--border);background:var(--card,#fff);color:inherit;border-radius:12px;padding:9px 12px;margin-bottom:6px;cursor:pointer}.search-hit-btn:hover,.search-hit-btn:focus-visible{border-color:var(--navy);background:#F3F6F9}.search-hit-btn b{display:block;color:var(--navy)}.search-hit-btn small{display:block;color:var(--muted,#667684);font-size:12px;margin-top:2px}.search-more,.search-count{margin:0;font-size:12px}
+.search-flash{outline:3px solid #D7A93E;outline-offset:-3px;background:#FFF6DF!important}
+.page-head .page-csv{margin-left:auto;align-self:center;white-space:nowrap}
+.offline-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(66px + env(safe-area-inset-top));z-index:80;width:min(94vw,560px);background:#3B2A06;color:#FFE7A8;border:1px solid #D7A93E;border-radius:12px;padding:7px 12px;font-size:12.5px;line-height:1.35;box-shadow:0 8px 22px rgba(0,0,0,.22)}.offline-bar b{color:#fff}.offline-bar.out{opacity:0;transition:opacity .25s}
+@media (prefers-reduced-motion:no-preference){.offline-bar{animation:pmFadeUp .25s ease both}}
+html[data-appearance="dark"] .search-hit-btn{background:#1B2833}html[data-appearance="dark"] .search-hit-btn:hover,html[data-appearance="dark"] .search-hit-btn:focus-visible{background:#24333F}html[data-appearance="dark"] .search-hit-btn b,html[data-appearance="dark"] .search-group h4{color:#DCE7F1}html[data-appearance="dark"] .search-group h4 small{background:#24333F;color:#DCE7F1}html[data-appearance="dark"] .search-flash{background:#3B321A!important}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -3790,7 +3798,7 @@ function mobileNavItems(){
   else items.push(['licit','📨','Licit.']);
   return items.filter(([k])=>canPage(k))
 }
-function render(){municipalFormEditing=false;document.getElementById('login').classList.add('hidden');const root=document.getElementById('main');root.classList.remove('hidden');root.innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${cityLogoHTML('')}<small>PREFEITURA MUNICIPAL${CITY_ID?` DE <span data-city-name-upper>${esc(cityUpper())}</span>`:''}</small></div><button type="button" class="operator-chip operator-chip-button" onclick="App.openMyProfile()" title="Abrir meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-md')}<div class="operator-chip-text"><small>${esc(currentRole())}</small><strong>${esc(db.currentOperator)}</strong></div><span class="operator-chip-arrow">›</span></button><div class="nav">${navItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})">${i} &nbsp;${n}</button>`).join('')}</div><div class="sidebar-footer"><div class="sidebar-version"><span data-city-name>${esc(cityName())}</span> v${APP_VERSION}</div><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="window.top.location.href='/'">🌎 República Bom Regressense</button><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="App.dataTools()">⇅ Dados / Backup</button><button class="btn btn-secondary" style="width:100%" onclick="App.logout()">⇄ Trocar operador</button></div></aside><section class="content-wrap"><div class="topbar"><button class="topbar-back ${page==='home'?'is-hidden':''}" onclick="App.systemBack()" aria-label="Voltar" title="Voltar">←</button><strong><span class="topbar-city" data-city-name-upper>${esc(cityUpper())}</span><span class="topbar-system">SISTEMA MUNICIPAL INTEGRADO</span></strong><button class="topbar-profile" onclick="App.openMyProfile()" aria-label="Meu perfil" title="Meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-top')}</button><button class="topbar-settings" onclick="App.openSettings()" aria-label="Configurações" title="Configurações">⚙</button><span class="muted">☁ ${cloudReady?'Sincronizado':'Local'} • ${todayBR()}</span></div><main id="content" class="content"></main></section></div><nav class="mobile-nav" style="grid-template-columns:repeat(${mobileNavItems().length+1},1fr)">${mobileNavItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})"><span>${i}</span>${n}</button>`).join('')}<button class="${!mobileNavItems().some(([k])=>k===page)?'active':''}" onclick="App.mobileMore()"><span>☰</span>Mais</button></nav>`;renderPage()}
+function render(){municipalFormEditing=false;document.getElementById('login').classList.add('hidden');const root=document.getElementById('main');root.classList.remove('hidden');root.innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${cityLogoHTML('')}<small>PREFEITURA MUNICIPAL${CITY_ID?` DE <span data-city-name-upper>${esc(cityUpper())}</span>`:''}</small></div><button type="button" class="operator-chip operator-chip-button" onclick="App.openMyProfile()" title="Abrir meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-md')}<div class="operator-chip-text"><small>${esc(currentRole())}</small><strong>${esc(db.currentOperator)}</strong></div><span class="operator-chip-arrow">›</span></button><div class="nav">${navItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})">${i} &nbsp;${n}</button>`).join('')}</div><div class="sidebar-footer"><div class="sidebar-version"><span data-city-name>${esc(cityName())}</span> v${APP_VERSION}</div><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="window.top.location.href='/'">🌎 República Bom Regressense</button><button class="btn btn-secondary" style="width:100%;margin-bottom:6px" onclick="App.dataTools()">⇅ Dados / Backup</button><button class="btn btn-secondary" style="width:100%" onclick="App.logout()">⇄ Trocar operador</button></div></aside><section class="content-wrap"><div class="topbar"><button class="topbar-back ${page==='home'?'is-hidden':''}" onclick="App.systemBack()" aria-label="Voltar" title="Voltar">←</button><strong><span class="topbar-city" data-city-name-upper>${esc(cityUpper())}</span><span class="topbar-system">SISTEMA MUNICIPAL INTEGRADO</span></strong>${CHAT_ONLY?'':'<button class="topbar-settings topbar-search" onclick="App.openSearch()" aria-label="Buscar no sistema" title="Buscar (Ctrl+K)">🔍</button>'}<button class="topbar-profile" onclick="App.openMyProfile()" aria-label="Meu perfil" title="Meu perfil">${profileAvatarHTML(currentProfile(),'profile-avatar-top')}</button><button class="topbar-settings" onclick="App.openSettings()" aria-label="Configurações" title="Configurações">⚙</button><span class="muted">☁ ${cloudReady?'Sincronizado':'Local'} • ${todayBR()}</span></div><main id="content" class="content"></main></section></div><nav class="mobile-nav" style="grid-template-columns:repeat(${mobileNavItems().length+1},1fr)">${mobileNavItems().map(([k,i,n])=>`<button class="${page===k?'active':''}" onclick="App.go(${jsArg(k)})"><span>${i}</span>${n}</button>`).join('')}<button class="${!mobileNavItems().some(([k])=>k===page)?'active':''}" onclick="App.mobileMore()"><span>☰</span>Mais</button></nav>`;renderPage()}
 function mobileMore(){
   const items=[];
   items.push(['👤','Usuários cadastrados','users']);
@@ -3801,7 +3809,7 @@ function mobileMore(){
   if(canPage('notes'))items.push(['🧾','Notas e Resumos','notes']);
   const admin=isFullAccess()?`<button class="btn btn-secondary" onclick="App.closeModal();App.dataTools()">⇅ <b>Dados / Backup</b></button><button class="btn btn-secondary" onclick="App.closeModal();App.manageOperators()">👤 <b>Gerenciar operadores</b></button>`:'';
   const federation=`<button class="btn btn-secondary" onclick="window.top.location.href='/'">🌎 <b>República Bom Regressense</b></button>`;
-  showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go(${jsArg(k)})">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
+  showModal('Menu do sistema',`<div class="mobile-more-grid"><button class="btn btn-secondary" onclick="App.closeModal();App.openMyProfile()">${profileAvatarHTML(currentProfile(),'profile-avatar-menu')} <b>Meu perfil</b></button><button class="btn btn-secondary" onclick="App.openSearch()">🔍 <b>Buscar no sistema</b></button>${items.map(([i,n,k])=>`<button class="btn btn-secondary" onclick="App.closeModal();App.go(${jsArg(k)})">${i} <b>${n}</b></button>`).join('')}${federation}${admin}<button class="btn btn-secondary" onclick="App.closeModal();App.openSettings()">⚙ <b>Configurações</b></button></div><div class="sep"></div><button class="btn btn-danger" style="width:100%;min-height:44px" onclick="App.closeModal();App.logout()">⇄ Trocar operador</button>`)
 }
 function go(p,s=''){municipalFormEditing=false;if(!canPage(p))return accessDenied();const navSnap=fxNavSnapshot();page=p;sub=s;pushAppHistory(p,s);render();const dir=fxNavGlide(navSnap);const c=document.getElementById('content');if(c)c.dataset.dir=dir;animatePage();requestAnimationFrame(()=>{if(window.innerWidth<=760)window.scrollTo({top:0,left:0,behavior:'auto'})})}
 const RIPPLE_TARGETS='.btn,.nav button,.mobile-nav button,.sidebar button,.tabs button,.chat-send-btn,.operator-chip-button,.topbar-profile';
@@ -3915,7 +3923,7 @@ function renderPage(){
   if(!canPage(page)){page='home';sub=''}
   document.body.classList.toggle('chat-open',page==='chat');
   ;({home:home,chat:chat,users:users,activity:activity,agri:agri,licit:licit,hr:hr,contracts:contracts,finance:finance,fleet:fleet,notes:notes}[page]||home)(c);
-  updateChatBadges()
+  addCsvButton(c);updateChatBadges()
 }
 function card(t,v,m,a='var(--navy)'){return`<div class="card"><div class="accent" style="background:${a}"></div><div class="label">${t}</div><div class="value">${v}</div><div class="mini">${m}</div></div>`}
 function home(c){
@@ -4585,7 +4593,90 @@ function dataTools(){if(!requireFull())return;showModal('Dados e backup',`<p cla
 function exportData(){if(!requireFull())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`bom_regresso_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);toast('Backup exportado.')}
 function importData(file){if(!requireFull())return;if(!file)return;const r=new FileReader();r.onload=()=>{try{db=Object.assign(defaults(),JSON.parse(r.result));save();closeModal();render();toast('Dados importados.')}catch{toast('Arquivo de backup inválido.')}};r.readAsText(file)}
 function resetData(){if(confirm('Limpar apenas o cache deste aparelho? Os dados compartilhados no Firebase não serão apagados.')){localStorage.removeItem(KEY);closeModal();location.reload()}}
-window.App={closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+// ---- Busca geral: servidores, contratos, máquinas, viagens, lançamentos e o resto do sistema
+const SEARCH_SETS=[
+  ['employees','hr','employees','👥','Servidores',x=>x.name,x=>[x.role,x.department,x.status]],
+  ['payments','hr','payments','💵','Pagamentos',x=>`${x.employeeName||'-'} · ${money(x.value)}`,x=>[x.date,x.reference,x.refunded?'Reembolsado':x.status]],
+  ['contracts','contracts','list','📄','Contratos',x=>`${x.number||''} · ${x.contractor||''}`,x=>[x.object,x.status,money(x.value)]],
+  ['finance','finance','list','💰','Lançamentos',x=>x.description||x.category||'Lançamento',x=>[x.type,x.date,money(x.value),x.status]],
+  ['machinery','agri','machines','🚜','Máquinas',x=>x.name,x=>[x.category,x.carrierName,x.status]],
+  ['implements','agri','implements','⚙','Implementos',x=>x.name,x=>[x.carrierName,x.status]],
+  ['appointments','agri','list','🌱','Agendamentos',x=>x.producer,x=>[x.locality,x.machine,x.date,x.status]],
+  ['licitations','licit','history','📨','Licitações',x=>x.title,x=>[x.item,x.date,x.status]],
+  ['trucks','fleet','trucks','🔧','Caminhões',x=>`${x.plate||''}${x.model?' · '+x.model:''}`,x=>[x.carrierName,x.status]],
+  ['trips','fleet','trips','🚚','Viagens',x=>`${x.origin||'-'} → ${x.destination||'-'}`,x=>[x.date,x.driver,x.truck,x.cargo,x.status]],
+  ['carriers','fleet','carriers','🏢','Transportadoras',x=>x.name,x=>[x.location,x.phone,x.document]]
+];
+const searchNorm=v=>String(v??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const searchText=x=>{const out=[];const walk=v=>{if(v==null)return;if(typeof v==='object'){for(const k in v)if(!/^(id|.*Id|photo|createdAt|updatedAt)$/.test(k))walk(v[k])}else out.push(String(v))};walk(x);return searchNorm(out.join(' '))};
+let searchTimer=0;
+function openSearch(){
+  showModal('Buscar no sistema',`<label class="search-box"><span aria-hidden="true">🔍</span><input id="gSearch" type="search" autocomplete="off" placeholder="Nome, placa, contrato, produtor…" aria-label="Buscar no sistema" oninput="App.globalSearch(this.value)" onkeydown="if(event.key==='Enter'){const b=document.querySelector('#gSearchResults .search-hit-btn');if(b){event.preventDefault();b.click()}}"></label><div id="gSearchResults" class="search-results" aria-live="polite"><p class="muted">Digite pelo menos 2 letras. A busca olha servidores, pagamentos, contratos, lançamentos, máquinas, implementos, agendamentos, licitações, caminhões, viagens e transportadoras.</p></div>`,()=>setTimeout(()=>document.getElementById('gSearch')?.focus(),30))
+}
+function globalSearch(q){clearTimeout(searchTimer);searchTimer=setTimeout(()=>runSearch(q),120)}
+function runSearch(q){
+  const box=document.getElementById('gSearchResults');if(!box)return;const words=searchNorm(q).split(/\s+/).filter(Boolean);
+  if(!words.length||searchNorm(q).trim().length<2){box.innerHTML='<p class="muted">Digite pelo menos 2 letras.</p>';return}
+  let total=0;const groups=[];
+  for(const [col,pg,tab,icon,label,title,meta] of SEARCH_SETS){
+    if(!canPage(pg))continue;const list=(db[col]||[]).filter(x=>{const t=searchText(x);return words.every(w=>t.includes(w))});
+    if(!list.length)continue;total+=list.length;
+    groups.push(`<div class="search-group"><h4>${icon} ${esc(label)} <small>${list.length}</small></h4>${list.slice(0,8).map(x=>{const t=String(title(x)||'—');return `<button type="button" class="search-hit-btn" onclick="App.searchOpen(${jsArg(pg)},${jsArg(tab)},${jsArg(t)})"><b>${esc(t)}</b><small>${esc(meta(x).filter(v=>v!=null&&v!=='').join(' · '))}</small></button>`}).join('')}${list.length>8?`<p class="muted search-more">+ ${list.length-8} ${list.length-8===1?'resultado':'resultados'} nesta área</p>`:''}</div>`)
+  }
+  box.innerHTML=total?`<p class="muted search-count">${total} ${total===1?'resultado':'resultados'}</p>`+groups.join(''):`<p class="muted">Nada encontrado para “${esc(q.trim())}”.</p>`
+}
+// Abre a área do resultado e destaca a linha encontrada.
+function searchOpen(pg,tab,text){
+  closeModal();go(pg,tab);
+  setTimeout(()=>{const c=document.getElementById('content');if(!c)return;const needle=searchNorm(String(text).split(' · ')[0].split(' → ')[0]).trim();if(!needle)return;
+    const row=[...c.querySelectorAll('tbody tr,.list-item,.card,.panel li')].find(el=>searchNorm(el.textContent).includes(needle));
+    if(row){row.classList.remove('search-flash');void row.offsetWidth;row.classList.add('search-flash');row.scrollIntoView({behavior:fxMotionOK()?'smooth':'auto',block:'center'});setTimeout(()=>row.classList.remove('search-flash'),2400)}},120)
+}
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('main')?.classList.contains('hidden')||CHAT_ONLY)return;
+  const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')||document.activeElement?.isContentEditable;
+  if(((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k')||(e.key==='/'&&!typing)){e.preventDefault();openSearch()}
+});
+
+// ---- Planilhas (CSV) de cada lista
+const CSV_LABELS={name:'Nome',role:'Cargo',department:'Setor',status:'Situação',salary:'Salário',admission:'Admissão',employeeName:'Servidor',date:'Data',reference:'Referência',value:'Valor (R$)',notes:'Observações',operator:'Registrado por',refunded:'Reembolsado',number:'Número',contractor:'Contratado',object:'Objeto',start:'Início',end:'Fim',type:'Tipo',category:'Categoria',description:'Descrição',carrierName:'Transportadora',producer:'Produtor',locality:'Localidade',machine:'Máquina',implements:'Implementos',hours:'Horas',title:'Título',item:'Item',sentBy:'Enviada por',confirmedBy:'Confirmada por',confirmedAt:'Confirmada em',plate:'Placa',model:'Modelo',odometer:'Quilometragem',truck:'Caminhão',driver:'Motorista',origin:'Origem',destination:'Destino',cargo:'Carga',startKm:'Km inicial',endKm:'Km final',location:'Local',phone:'Telefone',document:'Documento',email:'E-mail',createdAt:'Criado em',updatedBy:'Alterado por'};
+const CSV_SKIP=/^(id|.*Id|photo|sourceSystem|governmentLevel|jurisdiction.*|parent.*|federat.*|active|updatedAt|password.*|secret.*|avatar.*|color|emoji)$/;
+const CSV_NAMES={employees:'servidores',payments:'pagamentos',contracts:'contratos',finance:'lancamentos',machinery:'maquinas',implements:'implementos',appointments:'agendamentos',licitations:'licitacoes',trucks:'caminhoes',trips:'viagens',carriers:'transportadoras'};
+function csvCollectionFor(pg,s){
+  if(pg==='agri')return s==='machines'?'machinery':s==='implements'?'implements':'appointments';
+  if(pg==='hr')return s==='payments'?'payments':'employees';
+  if(pg==='fleet')return s==='trucks'||s==='truck'?'trucks':s==='carriers'?'carriers':'trips';
+  return ({contracts:'contracts',finance:'finance',licit:'licitations'})[pg]||''
+}
+const csvCellP=v=>{if(typeof v==='number')return Number.isFinite(v)?v.toLocaleString('pt-BR',{useGrouping:false,maximumFractionDigits:2}):'';if(typeof v==='boolean')return v?'Sim':'Não';if(Array.isArray(v))v=v.map(x=>typeof x==='object'?(x?.name||''):x).filter(Boolean).join(', ');let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[";\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s};
+function downloadCsv(col){
+  const list=(db[col]||[]).filter(x=>x&&typeof x==='object');if(!list.length)return toast('Ainda não há registros para baixar.');
+  // Colunas na ordem em que os campos aparecem no cadastro; "Criado em" por último.
+  const keys=[];for(const x of list)for(const k of Object.keys(x))if(!CSV_SKIP.test(k)&&!keys.includes(k)&&(typeof x[k]!=='object'||Array.isArray(x[k])))keys.push(k);
+  keys.sort((a,b)=>(a==='createdAt')-(b==='createdAt'));
+  const csv='﻿'+[keys.map(k=>csvCellP(CSV_LABELS[k]||k)).join(';'),...list.map(x=>keys.map(k=>csvCellP(k==='createdAt'&&x[k]?new Date(x[k]).toLocaleString('pt-BR'):x[k])).join(';'))].join('\r\n');
+  const city=searchNorm(cityName()).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=`${CSV_NAMES[col]||col}-${city||'prefeitura'}-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1500);
+  toast('Planilha baixada.')
+}
+// Botão "Planilha" no topo de cada área com lista.
+function addCsvButton(c){
+  const col=csvCollectionFor(page,sub);const headEl=c?.querySelector('.page-head');if(!col||!headEl||headEl.querySelector('.page-csv'))return;
+  const b=document.createElement('button');b.type='button';b.className='btn btn-secondary page-csv no-print';b.textContent='⬇ Planilha';b.title='Baixar esta lista em planilha (CSV)';b.onclick=()=>downloadCsv(csvCollectionFor(page,sub));headEl.appendChild(b)
+}
+
+// ---- Sem internet: faixa no topo enquanto a conexão não volta
+function updateOfflineBar(){
+  let bar=document.getElementById('offlineBar');const off=navigator.onLine===false;
+  if(!off){if(bar){bar.classList.add('out');setTimeout(()=>bar?.remove(),250)}return}
+  if(bar)return;bar=document.createElement('div');bar.id='offlineBar';bar.className='offline-bar';bar.setAttribute('role','status');
+  bar.innerHTML='<b>📡 Sem internet</b> <span>· o que você salvar fica neste aparelho e sobe quando a conexão voltar.</span>';document.body.appendChild(bar)
+}
+window.addEventListener('offline',updateOfflineBar);
+window.addEventListener('online',()=>{const was=!!document.getElementById('offlineBar');updateOfflineBar();if(was)toast('Conexão de volta. Sincronizando…')});
+setTimeout(updateOfflineBar,0);
+
+window.App={openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{

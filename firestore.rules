@@ -20,6 +20,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Fotos da República (perfis, estados e municípios), fora do documento principal para ele não passar de 1 MB.
+    // Cada foto é guardada uma vez, pelo conteúdo, e não muda depois.
+    match /republicaFotos_v1/{photoId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && photoId.size() <= 60
+        && request.resource.data.keys().hasOnly(['photo', 'criadoEm'])
+        && request.resource.data.photo is string
+        && request.resource.data.photo.size() <= 400000
+        && request.resource.data.photo.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$')
+        && optString(request.resource.data, 'criadoEm', 40);
+      allow update, delete: if false;
+    }
+
     // Sistema completo da Prefeitura de Bom Regresso e configuração das notificações
     match /municipio/{docId} {
       allow read: if signedIn() && docId in ['dados_v5', 'push_config_v2'];

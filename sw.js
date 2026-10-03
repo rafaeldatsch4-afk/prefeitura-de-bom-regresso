@@ -107,7 +107,7 @@ self.addEventListener('notificationclick',event=>{
     for(const client of list){
       try{
         if('navigate' in client)await client.navigate(target);
-        client.postMessage({type:'OPEN_CHAT'});
+        if(target.includes('open=chat'))client.postMessage({type:'OPEN_CHAT'});
         if('focus' in client)await client.focus();
         return
       }catch{}
