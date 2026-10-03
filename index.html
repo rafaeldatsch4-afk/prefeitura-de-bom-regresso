@@ -940,21 +940,23 @@ const SUP_DIGITS='⁰¹²³⁴⁵⁶⁷⁸⁹',supNum=e=>String(e).replace(/-/g,
 function pow10Text(a,digits){let e=Math.floor(Math.log10(a)),m=Number((a/10**e).toFixed(digits));if(m>=10){m=Number((m/10).toFixed(digits));e++}return `${m.toLocaleString('pt-BR',{maximumFractionDigits:digits})} × 10${supNum(e)}`}
 // Valor para dentro de um campo: completo até quatrilhões, depois em potência de 10 (nunca "1e+98").
 const moneyIn=v=>v===''||v==null?'':moneyInput(v);
-function moneyInput(v){const n=Number(v)||0,a=Math.abs(n);if(a<1e15)return n.toLocaleString('pt-BR',{maximumFractionDigits:2});let e=Math.floor(Math.log10(a)),m=Number((n/10**e).toPrecision(15));if(Math.abs(m)>=10){m/=10;e++}return `${m.toLocaleString('pt-BR',{maximumFractionDigits:14})} × 10${supNum(e)}`}
-const MONEY_MAX=1e300;
+function moneyInput(v){const n=Number(v)||0,a=Math.abs(n);if(a<1e15)return n.toLocaleString('pt-BR',{maximumFractionDigits:2});if(a<1e21)return n.toLocaleString('pt-BR',{maximumSignificantDigits:15});let e=Math.floor(Math.log10(a)),m=Number((n/10**e).toPrecision(15));if(Math.abs(m)>=10){m/=10;e++}return `${m.toLocaleString('pt-BR',{maximumFractionDigits:14})} × 10${supNum(e)}`}
+// Limite de dinheiro: até 999 quintilhões (1 sextilhão já não é aceito).
+const MONEY_LIMIT=1e21*(1-1e-12),MONEY_LIMIT_TEXT='R$ 999 quintilhões'; // folga: 1 sextilhão vira 999.999…900.000 ao arredondar centavos
 const QUICK_UNITS=Object.fromEntries(MONEY_SCALES.flatMap(([size,unit])=>[[plainText(unit),size],[plainText(unit.replace('ão','ões')),size]]).concat([['mi',1e6],['bi',1e9],['tri',1e12]]));
 
 // Campos de dinheiro aceitam "5.000.000,00", "2,5 milhões" ou "1 × 10⁹⁸": vira número antes do formulário ler.
 document.addEventListener('submit',e=>{
-  const bad=[];
+  const bad=[],big=[];
   e.target.querySelectorAll?.('input[data-money]').forEach(i=>{
     if(!i.value.trim())return;
     const v=parseMoneyInput(i.value);
-    if(!Number.isFinite(v)||Math.abs(v)>MONEY_MAX||(v<0&&i.dataset.money!=='signed'))bad.push(i);else i.value=String(v)
+    // o limite vale para o que a pessoa digitou; um valor antigo acima dele, sem mexer, não trava o formulário
+    if(!Number.isFinite(v)||(v<0&&i.dataset.money!=='signed'))bad.push(i);else if(Math.abs(v)>=MONEY_LIMIT&&i.value!==i.defaultValue)big.push(i);else i.value=String(v)
   });
-  if(bad.length){e.preventDefault();e.stopImmediatePropagation();alert('Valor inválido. Exemplos: 5.000.000,00 · 2,5 milhões · 1 × 10⁹⁸ (até 10³⁰⁰).');bad[0].focus()}
+  if(bad.length||big.length){e.preventDefault();e.stopImmediatePropagation();alert(bad.length?'Valor inválido. Exemplos: 5.000.000,00 · 2,5 milhões · 10 quintilhões.':`Valor alto demais. O máximo é ${MONEY_LIMIT_TEXT}.`);(bad[0]||big[0]).focus()}
 },true);
-// Aceita "5.000.000,00", "5000000", "1e30", "1 × 10⁹⁸", "10^98" e também "10 decilhões" ou "2,5 milhões".
+// Aceita "5.000.000,00", "5000000", "1e18" e também "10 quintilhões" ou "2,5 milhões" (o limite é conferido ao salvar).
 function parseMoneyInput(raw){
   let t=plainText(String(raw||'')).replace(/r\$/g,'').trim();if(!t)return NaN;
   t=t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+/g,x=>'^'+[...x].map(c=>c==='⁻'?'-':SUP_DIGITS.indexOf(c)).join(''));
@@ -989,7 +991,8 @@ document.addEventListener('submit',e=>{
   if(e.target.id!=='quickEditForm')return;e.preventDefault();
   if(scope(current())!=='nacional')return closeQuickEdit();
   const v=parseMoneyInput($('quickEditInput')?.value);
-  if(!Number.isFinite(v)||v<0||v>MONEY_MAX)return alert('Digite um valor válido, por exemplo 5.000.000,00, 10 decilhões ou 1 × 10⁹⁸ (até 10³⁰⁰).');
+  if(!Number.isFinite(v)||v<0)return alert('Digite um valor válido, por exemplo 5.000.000,00 ou 2,5 milhões.');
+  if(v>=MONEY_LIMIT){const inp=$('quickEditInput');if(inp&&inp.value===inp.defaultValue)return closeQuickEdit();return alert(`Valor alto demais. O máximo é ${MONEY_LIMIT_TEXT}.`)}
   if(e.target.dataset.kind==='cofre'){const net=cofreNet();data.cofreInicial=Math.round((v-net)*100)/100}
   else{data.pib=v;upsertPib(data.ano,v)}
   quickEdit='';save()
