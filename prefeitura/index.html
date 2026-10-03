@@ -1688,6 +1688,11 @@ html[data-appearance="dark"] .ui-tilt::after{background:radial-gradient(circle a
 .offline-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(66px + env(safe-area-inset-top));z-index:80;width:min(94vw,560px);background:#3B2A06;color:#FFE7A8;border:1px solid #D7A93E;border-radius:12px;padding:7px 12px;font-size:12.5px;line-height:1.35;box-shadow:0 8px 22px rgba(0,0,0,.22)}.offline-bar b{color:#fff}.offline-bar.out{opacity:0;transition:opacity .25s}
 @media (prefers-reduced-motion:no-preference){.offline-bar{animation:pmFadeUp .25s ease both}}
 html[data-appearance="dark"] .search-hit-btn{background:#1B2833}html[data-appearance="dark"] .search-hit-btn:hover,html[data-appearance="dark"] .search-hit-btn:focus-visible{background:#24333F}html[data-appearance="dark"] .search-hit-btn b,html[data-appearance="dark"] .search-group h4{color:#DCE7F1}html[data-appearance="dark"] .search-group h4 small{background:#24333F;color:#DCE7F1}html[data-appearance="dark"] .search-flash{background:#3B321A!important}
+.chat-select-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0B2E59;color:#fff;position:relative;z-index:3}.chat-select-bar b{font-size:15px}.chat-select-close{width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:16px;cursor:pointer}.chat-select-delete{border:0;border-radius:999px;background:#E5484D;color:#fff;font-weight:800;padding:8px 14px;min-height:38px;cursor:pointer}.chat-select-delete:disabled{opacity:.45;cursor:not-allowed}
+.chat-messages.chat-selecting .chat-row{cursor:pointer;position:relative}.chat-messages.chat-selecting .chat-row::before{content:'';flex:0 0 22px;width:22px;height:22px;margin:auto 8px auto 2px;border:2px solid #8FA2B3;border-radius:50%;background:#fff;box-sizing:border-box;order:-1}.chat-messages.chat-selecting .chat-row.is-selected::before{background:#2a78d6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;border-color:#2a78d6}.chat-messages.chat-selecting .chat-row.is-selected{background:rgba(42,120,214,.12)}.chat-messages.chat-selecting .chat-message-menu{display:none}.chat-messages.chat-selecting .chat-row.mine::before{margin-right:auto}.chat-messages.chat-selecting .chat-row{border-radius:12px;padding:2px 4px}
+.chat-messages .chat-bubble{-webkit-touch-callout:none}.chat-messages.chat-selecting .chat-bubble{user-select:none;-webkit-user-select:none}
+.chat-info-actions{display:grid;gap:8px;margin-top:14px}.chat-info-actions small{color:var(--muted,#667684);font-size:12px;text-align:center}
+html[data-appearance="dark"] .chat-messages.chat-selecting .chat-row::before{background:#1B2833;border-color:#5E7183}html[data-appearance="dark"] .chat-select-bar{background:#16283A}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -2846,6 +2851,7 @@ function openChatMessageMenu(id){
     ${m.text?`<button class="chat-menu-option" onclick="App.closeModal();App.copyChatMessage(${jsArg(m.id)})"><span>⧉</span><b>Copiar</b></button>`:''}
     ${!mine?`<button class="chat-menu-option" onclick="App.closeModal();App.openUserProfile(${jsArg(m.senderId||'')})"><span>👤</span><b>Ver perfil</b></button>`:''}
     ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage(${jsArg(m.id)})"><span>✎</span><b>Editar</b></button>`:''}
+    <button class="chat-menu-option" onclick="App.closeModal();App.startChatSelect(${jsArg(m.id)})"><span>☑</span><b>Selecionar várias</b></button>
     ${canDelete?`<button class="chat-menu-option danger" onclick="App.closeModal();App.deleteChatMessage(${jsArg(m.id)})"><span>🗑</span><b>Excluir</b></button>`:''}
   </div>`)
 }
@@ -2900,7 +2906,7 @@ function renderChatMessages(forceBottom=false){
   }
   // Presence updates from every open chat re-run this; rebuilding identical HTML re-decoded photos and made the screen flash.
   if(root._chatHTML===html){if(forceBottom)requestAnimationFrame(()=>{root.scrollTop=root.scrollHeight;updateChatScrollButton()});return}
-  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();animateNewChatRows(root,list);renderChatTypingRow(chatTypingUsers());
+  root._chatHTML=html;root.innerHTML=html;hydrateChatMedia();animateNewChatRows(root,list);renderChatTypingRow(chatTypingUsers());if(chatSelecting)applyChatSelection();
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
@@ -3140,6 +3146,7 @@ function showChatInfo(){
     <div class="chat-info-stats"><div><b>${participants.length}</b><span>participantes</span></div><div><b>${online.length}</b><span>online agora</span></div></div>
     <div class="chat-info-notify"><span>🔔</span><div class="grow"><b>Notificações</b><small>${esc(notif)}</small></div><button class="btn btn-secondary" onclick="App.closeModal();App.requestChatNotifications()">Configurar</button></div>
     <div class="chat-info-members">${participants.slice(0,16).map(p=>`<button type="button" onclick="App.closeModal();App.openUserProfile(${jsArg(p.id)})">${profileAvatarHTML(p,'profile-avatar-sm')}<span><b>${esc(p.name)}</b><small>${esc(p.role||'Servidor / Outro')}</small></span></button>`).join('')}</div>
+    <div class="chat-info-actions"><button class="btn btn-secondary" onclick="App.closeModal();App.startChatSelect()">☑ Selecionar mensagens para excluir</button>${isFullAccess()?`<button class="btn btn-danger" onclick="App.closeModal();App.clearChatConversation()">🗑 Apagar toda a conversa</button>`:''}<small>Dica: segure uma mensagem (ou clique com o botão direito) para abrir as opções.</small></div>
   </div>`)
 }
 
@@ -3187,7 +3194,7 @@ function renderChatAttachmentPreview(){
   updateChatComposerState()
 }
 function chat(c){
-  markChatRead();chatAutoScroll=true;
+  markChatRead();chatAutoScroll=true;chatSelecting=false;chatSelected.clear();
   const notif=getChatNotifySettings(),granted=typeof Notification!=='undefined'&&Notification.permission==='granted'&&notif.enabled;
   c.innerHTML=`<div class="chat-page">
     <div class="chat-shell">
@@ -3242,7 +3249,7 @@ function chat(c){
       </footer>
     </div>
   </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();bindChatSwipeReply();
+  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();bindChatSwipeReply();bindChatLongPress();
   setTimeout(()=>{
     const input=document.getElementById('chatInput');
     if(window.innerWidth>760)input?.focus({preventScroll:true});
@@ -3858,6 +3865,72 @@ function fxNavGlide(snap){
     })
   }
   return dir
+}
+// ---- Chat: segurar a mensagem abre o menu; selecionar várias e excluir de uma vez; limpar a conversa (administração)
+let chatSelecting=false,chatSuppressClick=0;const chatSelected=new Set();
+const chatCanDelete=m=>!!m&&(m.senderId===db.currentOperatorId||isFullAccess());
+function bindChatLongPress(){
+  const root=document.getElementById('chatMessages');if(!root||root._longBound)return;root._longBound=true;
+  let lp=null;const stop=()=>{if(lp){clearTimeout(lp.timer);lp=null}};
+  root.addEventListener('pointerdown',e=>{
+    if(e.button>0)return;const row=e.target.closest('.chat-row[data-chat-id]');if(!row||e.target.closest('audio,input,textarea,a'))return;
+    stop();lp={id:row.dataset.chatId,x:e.clientX,y:e.clientY,pid:e.pointerId,timer:setTimeout(()=>{const id=lp?.id;lp=null;if(!id)return;
+      chatSuppressClick=Date.now();try{window.getSelection?.().removeAllRanges()}catch{}try{navigator.vibrate?.(18)}catch{}
+      if(chatSelecting)toggleChatSelect(id);else openChatMessageMenu(id)},520)}
+  },{passive:true});
+  root.addEventListener('pointermove',e=>{if(lp&&e.pointerId===lp.pid&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>10)stop()},{passive:true});
+  ['pointerup','pointercancel','scroll'].forEach(t=>root.addEventListener(t,stop,{passive:true}));
+  // Computador: botão direito na mensagem abre o mesmo menu.
+  root.addEventListener('contextmenu',e=>{const row=e.target.closest('.chat-row[data-chat-id]');if(!row||e.target.closest('audio,a'))return;e.preventDefault();stop();if(chatSelecting)toggleChatSelect(row.dataset.chatId);else openChatMessageMenu(row.dataset.chatId)});
+  // Em modo de seleção, tocar na mensagem marca/desmarca em vez de abrir links, fotos ou perfis.
+  root.addEventListener('click',e=>{
+    if(Date.now()-chatSuppressClick<450){e.preventDefault();e.stopPropagation();return}
+    if(!chatSelecting)return;const row=e.target.closest('.chat-row[data-chat-id]');if(!row)return;
+    e.preventDefault();e.stopPropagation();toggleChatSelect(row.dataset.chatId)
+  },true)
+}
+function startChatSelect(id){chatSelecting=true;chatSelected.clear();if(id)chatSelected.add(id);toggleChatSearch(false);applyChatSelection()}
+function toggleChatSelect(id){if(!chatSelecting)return startChatSelect(id);if(chatSelected.has(id))chatSelected.delete(id);else chatSelected.add(id);applyChatSelection()}
+function cancelChatSelect(){chatSelecting=false;chatSelected.clear();applyChatSelection()}
+function applyChatSelection(){
+  for(const id of [...chatSelected])if(!chatMessages.some(m=>m.id===id))chatSelected.delete(id);
+  const root=document.getElementById('chatMessages');if(!root)return;
+  root.classList.toggle('chat-selecting',chatSelecting);
+  root.querySelectorAll('.chat-row[data-chat-id]').forEach(row=>{const on=chatSelected.has(row.dataset.chatId);row.classList.toggle('is-selected',on);if(chatSelecting)row.setAttribute('aria-selected',String(on));else row.removeAttribute('aria-selected')});
+  let bar=document.getElementById('chatSelectBar');
+  if(!chatSelecting){bar?.remove();return}
+  if(!bar){bar=document.createElement('div');bar.id='chatSelectBar';bar.className='chat-select-bar';bar.setAttribute('role','toolbar');bar.setAttribute('aria-label','Mensagens selecionadas');document.querySelector('.chat-app-header')?.after(bar)}
+  const n=chatSelected.size,ok=[...chatSelected].filter(id=>chatCanDelete(chatMessages.find(m=>m.id===id))).length;
+  bar.innerHTML=`<button type="button" class="chat-select-close" onclick="App.cancelChatSelect()" aria-label="Cancelar seleção">✕</button><b class="grow">${n?`${n} ${n===1?'selecionada':'selecionadas'}`:'Toque nas mensagens'}</b><button type="button" class="chat-select-delete" onclick="App.deleteSelectedChat()" ${ok?'':'disabled'} aria-label="Excluir selecionadas">🗑 Excluir${ok&&ok<n?` ${ok}`:''}</button>`
+}
+async function deleteChatIds(ids){
+  const list=ids.map(id=>chatMessages.find(m=>m.id===id)).filter(chatCanDelete);if(!list.length||!chatCollection)return 0;
+  for(let i=0;i<list.length;i+=400){
+    const part=list.slice(i,i+400),batch=fbStore.batch();
+    for(const m of part)batch.delete(chatCollection.doc(m.id));
+    await batch.commit();
+    for(const m of part){const mediaId=m.attachment?.mediaId;if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}if(chatReplyTarget?.id===m.id)clearChatReply()}
+  }
+  return list.length
+}
+async function deleteSelectedChat(){
+  const ids=[...chatSelected],allowed=ids.filter(id=>chatCanDelete(chatMessages.find(m=>m.id===id)));
+  if(!allowed.length)return toast('Você só pode excluir as suas mensagens.');
+  const others=ids.length-allowed.length;
+  if(!confirm(`Excluir ${allowed.length} ${allowed.length===1?'mensagem':'mensagens'} do Chat da República para todos?${others?`\n\n${others} ${others===1?'mensagem de outra pessoa fica':'mensagens de outras pessoas ficam'} (só quem administra pode apagar).`:''}`))return;
+  try{const n=await deleteChatIds(allowed);cancelChatSelect();toast(`${n} ${n===1?'mensagem excluída':'mensagens excluídas'}.`)}
+  catch(err){console.error(err);toast('Não foi possível excluir agora. Tente de novo.')}
+}
+// Apaga a conversa inteira (Presidência, Prefeito, Vice e Assistente universal).
+async function clearChatConversation(){
+  if(!isFullAccess())return accessDenied();if(!chatCollection)return toast('O chat ainda não conectou.');
+  const word=prompt('Isso apaga TODAS as mensagens do Chat da República, para todo mundo, e não dá para desfazer.\n\nDigite APAGAR para confirmar:');
+  if(word==null)return;if(word.trim().toUpperCase()!=='APAGAR')return toast('Nada foi apagado.');
+  try{
+    toast('Apagando mensagens…');const snap=await chatCollection.get();const docs=snap.docs||[];let n=0;
+    for(let i=0;i<docs.length;i+=400){const batch=fbStore.batch();for(const d of docs.slice(i,i+400)){batch.delete(chatCollection.doc(d.id));const mediaId=d.data()?.attachment?.mediaId;if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}}await batch.commit();n+=Math.min(400,docs.length-i)}
+    cancelChatSelect();clearChatReply();toast(n?`Conversa apagada (${n} ${n===1?'mensagem':'mensagens'}).`:'A conversa já estava vazia.')
+  }catch(err){console.error(err);toast('Não foi possível apagar a conversa agora.')}
 }
 // ---- Chat: arrastar a mensagem para a direita responde (igual WhatsApp).
 function bindChatSwipeReply(){
@@ -4676,7 +4749,7 @@ window.addEventListener('offline',updateOfflineBar);
 window.addEventListener('online',()=>{const was=!!document.getElementById('offlineBar');updateOfflineBar();if(was)toast('Conexão de volta. Sincronizando…')});
 setTimeout(updateOfflineBar,0);
 
-window.App={openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
