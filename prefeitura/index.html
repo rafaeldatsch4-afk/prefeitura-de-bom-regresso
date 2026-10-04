@@ -1699,6 +1699,14 @@ html[data-appearance="dark"] .modal h3,html[data-appearance="dark"] .chat-menu-m
 /* Desempenho: sem desfoque atrás das barras (o fundo já é quase opaco) e mensagens antigas fora da tela não são desenhadas até aparecerem. */
 .topbar,.mobile-nav,.chat-app-header,.chat-date-separator span{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 .chat-messages>.chat-row:not(:nth-last-child(-n+40)){content-visibility:auto;contain-intrinsic-size:auto 64px}
+
+/* Jeito de aplicativo instalado: a interface não fica marcada em azul ao arrastar ou com Ctrl+A, imagens não são arrastadas
+   e o toque não pisca. Campos de texto (e o texto das mensagens do chat) continuam selecionáveis para copiar e colar. */
+html{-webkit-tap-highlight-color:transparent}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,select,[contenteditable="true"],.chat-text,.selectable{-webkit-user-select:text;user-select:text}
+input,textarea,[contenteditable="true"]{-webkit-touch-callout:default}
+img,svg,a{-webkit-user-drag:none}
 </style>
 
 <link rel="manifest" href="/manifest.webmanifest">
@@ -4757,6 +4765,14 @@ window.addEventListener('offline',updateOfflineBar);
 window.addEventListener('online',()=>{const was=!!document.getElementById('offlineBar');updateOfflineBar();if(was)toast('Conexão de volta. Sincronizando…')});
 setTimeout(updateOfflineBar,0);
 
+// Jeito de aplicativo instalado: o botão direito não abre o menu do navegador (só nos campos de texto, para copiar e colar,
+// ou num texto de mensagem que a pessoa selecionou) e imagens/links não são arrastados para fora.
+document.addEventListener('contextmenu',e=>{
+  const t=e.target;if(t.closest?.('input,textarea,[contenteditable="true"]'))return;
+  if(t.closest?.('.chat-text,.selectable')&&String(window.getSelection?.()||'').trim())return;
+  e.preventDefault()
+});
+document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
 window.App={startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
