@@ -2495,6 +2495,8 @@ document.addEventListener('input',e=>{
     const none=area.querySelector('[data-gov-noresult]');if(none)none.hidden=shown>0
   }
 });
+// Botão ‹ do chat (que roda dentro da República): faz o mesmo que "← República".
+window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='CHAT_BACK'||!current()||page!=='chat')return;if(![...document.querySelectorAll('iframe')].some(f=>f.contentWindow===e.source))return;const b=document.querySelector('.embedded-back[data-page="inicio"]');if(b)b.click();else{page='inicio';formEditing=false;render();window.scrollTo(0,0)}});
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.data?.type!=='OPEN_REPUBLIC_PROFILE'||!current())return;const t=e.data.profileId&&data.profiles.find(p=>p.id===e.data.profileId);profileTargetId=t&&canEditProfile(t)?t.id:'';profileDraft=null;formEditing=false;page='perfil';render();window.scrollTo(0,0)});
 document.addEventListener('click',e=>{const del=e.target.closest('[data-profile-delete]');if(del){const t=profileTarget(),me=current();if(!t||!canRemoveProfile(t))return;const own=t.id===me.id,onlyNational=scope(t)==='nacional'&&data.profiles.filter(x=>scope(x)==='nacional').length===1;
     if(!confirm(`${own?`Remover o seu perfil "${t.name}"?\nVocê sairá do aplicativo e precisará se cadastrar de novo.`:`Remover o perfil de ${t.name} (${t.role})?`}${onlyNational?'\n\nAtenção: é o único perfil com acesso da Presidência.':''}\n\nO perfil fica 30 dias na Lixeira e pode ser restaurado.`))return;

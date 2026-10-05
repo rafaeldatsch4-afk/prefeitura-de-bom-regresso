@@ -3717,6 +3717,8 @@ function handleAppPop(e){
 function systemBack(){
   const modal=document.getElementById('modalRoot');
   if(modal?.innerHTML.trim()){closeModal();return}
+  // Chat aberto dentro da República: não há para onde voltar aqui dentro, quem volta é a República.
+  if(CHAT_ONLY&&window.parent!==window){try{window.parent.postMessage({type:'CHAT_BACK'},location.origin);return}catch{}}
   history.back();
 }
 function showModal(title,html,onReady){document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" id="mb"><div class="modal"><div class="row"><h3 class="grow">${esc(title)}</h3><button class="btn btn-secondary" onclick="App.closeModal()">✕</button></div><div class="sep"></div>${html}</div></div>`; onReady?.()}
