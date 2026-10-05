@@ -1037,7 +1037,7 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 .chat-image-placeholder{font-size:28px}.chat-image-placeholder span{font-size:10px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-audio-lazy{display:flex;flex-direction:row;align-items:center;gap:8px;min-width:min(260px,65vw)}
 .chat-audio-lazy button{border:0;border-radius:999px;padding:9px 12px;background:rgba(127,145,159,.16);color:inherit;font-weight:800;cursor:pointer}
-.chat-audio-lazy small{font-size:9px;opacity:.7}
+.chat-audio-lazy small{font-size:9px;opacity:.7}.chat-audio-error{font-size:10px;font-weight:700;color:#b3261e}
 .chat-send-btn:disabled{opacity:.58;cursor:wait}
 
 
@@ -2578,7 +2578,9 @@ async function loadChatAudio(id){
   try{
     const a=await resolveChatAttachment(m.attachment);
     if(!a?.dataUrl){host.innerHTML='<span>⚠ Áudio indisponível</span>';return}
-    host.innerHTML=`<audio controls autoplay preload="metadata" src="${esc(a.dataUrl)}"></audio>`
+    host.className='chat-audio';host.removeAttribute('id');
+    host.innerHTML=`<span>🎙️ Mensagem de voz${a.duration?' • '+chatDurationText(a.duration):''}</span><audio controls preload="auto" src="${esc(a.dataUrl)}"></audio>`;
+    host.querySelector('audio')?.play().catch(()=>{})
   }catch{host.innerHTML='<span>⚠ Falha ao carregar áudio</span>'}
 }
 
@@ -2830,9 +2832,9 @@ function chatAttachmentHTML(m){
     return `<button type="button" class="chat-image-wrap chat-image-lazy" data-chat-media-id="${esc(a.mediaId||'')}" onclick="App.openChatImage(${jsArg(m.id)})"><div class="chat-image-placeholder">📷<span>${esc(a.name||'Imagem')}</span></div></button>`
   }
   if(a.kind==='audio'){
-    const src=a.dataUrl||(a.mediaId&&chatMediaCache.get(a.mediaId)?.dataUrl);
-    if(src)return `<div class="chat-audio"><span>🎙️ Mensagem de voz</span><audio controls preload="metadata" src="${esc(src)}"></audio></div>`;
-    return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio(${jsArg(m.id)})">▶ Ouvir mensagem de voz</button><small>${chatFileSize(a.size)}</small></div>`
+    const src=a.dataUrl||(a.mediaId&&chatMediaCache.get(a.mediaId)?.dataUrl),dur=a.duration?' • '+chatDurationText(a.duration):'';
+    if(src)return `<div class="chat-audio"><span>🎙️ Mensagem de voz${dur}</span><audio controls preload="metadata" src="${esc(src)}"></audio></div>`;
+    return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio(${jsArg(m.id)})">▶ Ouvir mensagem de voz</button><small>${a.duration?chatDurationText(a.duration)+' • ':''}${chatFileSize(a.size)}</small></div>`
   }
   return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment(${jsArg(m.id)})"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
 }
@@ -2930,6 +2932,11 @@ function renderChatMessages(forceBottom=false){
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
+// Áudio gravado em WebM não traz a duração: o player mostrava ∞ e não deixava avançar. Pula para o fim uma vez e volta.
+document.addEventListener('loadedmetadata',e=>{const a=e.target;if(!(a instanceof HTMLAudioElement)||!a.closest('.chat-audio'))return;
+  if(Number.isFinite(a.duration))return;const back=()=>{if(!Number.isFinite(a.duration))return;a.removeEventListener('durationchange',back);a.currentTime=0};a.addEventListener('durationchange',back);try{a.currentTime=1e7}catch{}},true);
+document.addEventListener('error',e=>{const a=e.target;if(!(a instanceof HTMLAudioElement)||!a.closest('.chat-audio'))return;const box=a.closest('.chat-audio');
+  if(!box.querySelector('.chat-audio-error'))box.insertAdjacentHTML('beforeend','<small class="chat-audio-error">⚠ Este aparelho não conseguiu tocar este áudio.</small>')},true);
 ['pause','ended'].forEach(t=>document.addEventListener(t,e=>{const root=document.getElementById('chatMessages');if(root?._renderPending&&root.contains(e.target))setTimeout(()=>renderChatMessages(false),0)},true));
 function filterChatMessages(){chatSearchTerm=val('chatSearch');renderChatMessages(false)}
 function chatScrollChanged(){
@@ -3374,6 +3381,11 @@ function clearChatRecordUI(){
 }
 // Um toque rápido enquanto o microfone ainda abre não pode começar uma segunda gravação.
 let chatRecordStarting=null;
+// AAC primeiro: toca em Android, iPhone e PC. WebM/Opus é o que o Chrome do PC e de vários Android gravam.
+const CHAT_AUDIO_TYPES=['audio/mp4;codecs=mp4a.40.2','audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
+// O áudio vai num documento do Firestore (limite de 1 MB), em base64.
+const CHAT_AUDIO_MAX_DATAURL=900000,CHAT_FILE_MAX_DATAURL=520000;
+const chatDurationText=s=>{s=Math.max(0,Math.round(Number(s)||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function startChatRecording(mode='tap'){
   if(chatRecorder?.state==='recording')return Promise.resolve(true);
   if(!chatRecordStarting)chatRecordStarting=startChatRecordingNow(mode).finally(()=>{chatRecordStarting=null});
@@ -3384,8 +3396,8 @@ async function startChatRecordingNow(mode){
   try{
     const stream=await (chatMicPrefetch||chatMicStream());chatMicPrefetch=null;
     chatRecorderStream=stream;chatAudioChunks=[];chatRecordingCancelled=false;chatRecordingSendOnStop=false;
-    const preferred=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t));
-    const bps=/mp4|aac/.test(preferred||'')?64000:32000;
+    const preferred=CHAT_AUDIO_TYPES.find(t=>MediaRecorder.isTypeSupported?.(t));
+    const bps=/mp4a|aac/.test(preferred||'')||preferred==='audio/mp4'&&!/Chrome/.test(navigator.userAgent)?48000:32000;
     try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:bps}:{audioBitsPerSecond:bps})}catch{chatRecorder=new MediaRecorder(stream)}
     chatRecorder.ondataavailable=e=>{if(e.data?.size)chatAudioChunks.push(e.data)};
     chatRecorder.onstop=async()=>{
@@ -3395,9 +3407,10 @@ async function startChatRecordingNow(mode){
       const mime=chatRecorder?.mimeType||chatAudioChunks[0]?.type||'audio/webm',blob=new Blob(chatAudioChunks,{type:mime});chatAudioChunks=[];chatRecorder=null;
       if(cancelled){toast('Gravação cancelada.');resetChatRecordGesture();return}
       if(!blob.size||duration<0.35){toast('Áudio muito curto.');resetChatRecordGesture();return}
-      if(blob.size>520*1024){toast('A mensagem de voz ficou grande demais. Grave um áudio mais curto.');resetChatRecordGesture();return}
       try{
-        chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl:await blobToDataURL(blob),duration:Math.round(duration)};
+        const dataUrl=await blobToDataURL(blob);
+        if(dataUrl.length>CHAT_AUDIO_MAX_DATAURL){toast('A mensagem de voz ficou grande demais. Grave um áudio mais curto.');resetChatRecordGesture();return}
+        chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl,duration:Math.max(1,Math.round(duration))};
         renderChatAttachmentPreview();
         if(sendAfter)await sendChatMessage();else toast('Mensagem de voz pronta.')
       }catch(err){console.error('Preparar áudio:',err);toast('Não foi possível preparar a mensagem de voz.')}
@@ -3410,6 +3423,7 @@ async function startChatRecordingNow(mode){
       const sec=Math.floor((Date.now()-chatRecordingStartedAt)/1000),el=document.getElementById('chatRecordTimer');
       if(el)el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');
       if(sec>=60&&chatRecorder?.state==='recording'){toast('Limite de 1 minuto atingido.');finishChatRecording(false,true)}
+      else if(!document.getElementById('chatMicBtn')&&chatRecorder?.state==='recording')finishChatRecording(false,false)
     },250);
     return true
   }catch(err){
@@ -3421,9 +3435,10 @@ function finishChatRecording(cancel=false,send=true){
   if(chatRecorder?.state!=='recording')return;
   chatRecordingCancelled=!!cancel;chatRecordingSendOnStop=!cancel&&!!send;
   const rec=chatRecorder,stop=()=>{if(rec.state!=='recording')return;try{rec.requestData?.()}catch{};try{rec.stop()}catch{}};
-  if(cancel)stop();else{document.getElementById('chatRecordHint')&&(document.getElementById('chatRecordHint').textContent='Finalizando…');setTimeout(stop,350)}
+  if(cancel||!send)stop();else{document.getElementById('chatRecordHint')&&(document.getElementById('chatRecordHint').textContent='Finalizando…');setTimeout(stop,350)}
 }
 // Microfone para mensagem de voz: sem cancelamento de eco/ruído (feitos para chamadas, picotam a gravação).
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&chatRecorder?.state==='recording')finishChatRecording(false,false)});
 function chatMicStream(){return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true,channelCount:1}}).catch(()=>navigator.mediaDevices.getUserMedia({audio:true}))}
 function dropChatMicPrefetch(){const p=chatMicPrefetch;chatMicPrefetch=null;p?.then(st=>st.getTracks().forEach(t=>t.stop())).catch(()=>{})}
 function chatMicPointerDown(e){
@@ -3473,7 +3488,7 @@ async function sendChatMessage(){
   const text=String(input?.value||'').trim();
   if(!text&&!chatPendingAttachment)return toast('Digite uma mensagem ou adicione um anexo.');
   if(!chatCollection||!cloudReady)return toast('Conecte-se à internet para enviar mensagens.');
-  if(chatPendingAttachment?.dataUrl?.length>520000)return toast('O anexo ultrapassa o limite do chat.');
+  if(chatPendingAttachment?.dataUrl?.length>(chatPendingAttachment?.kind==='audio'?CHAT_AUDIO_MAX_DATAURL:CHAT_FILE_MAX_DATAURL))return toast('O anexo ultrapassa o limite do chat.');
   const sendBtn=document.querySelector('.chat-send-btn');let mediaId='';
   chatSending=true;flyChatGhost(text||(chatPendingAttachment?'📎 '+(chatPendingAttachment.name||'Anexo'):''));if(input)input.disabled=true;if(sendBtn){sendBtn.disabled=true;sendBtn.innerHTML='<span class="chat-send-cloud" aria-hidden="true">☁️</span>'}
   try{
