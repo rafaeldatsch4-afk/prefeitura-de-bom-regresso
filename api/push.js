@@ -81,7 +81,10 @@ module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   const sa=serviceAccount();
   if(req.method==='GET'){
-    return res.status(200).json({configured:!!(sa?.client_email&&sa?.private_key),projectId:sa?.project_id||PROJECT_ID});
+    const configured=!!(sa?.client_email&&sa?.private_key);
+    // Diz o que falta, sem revelar nada da credencial.
+    const reason=configured?'':process.env.FIREBASE_SERVICE_ACCOUNT_JSON?'FIREBASE_SERVICE_ACCOUNT_JSON não é um JSON válido de conta de serviço':'falta a variável FIREBASE_SERVICE_ACCOUNT_JSON';
+    return res.status(200).json({configured,projectId:sa?.project_id||PROJECT_ID,...(reason?{reason}:{})});
   }
   if(req.method!=='POST')return res.status(405).json({error:'method_not_allowed'});
   if(!sa?.client_email||!sa?.private_key)return res.status(503).json({error:'push_not_configured'});
@@ -101,7 +104,9 @@ module.exports=async function handler(req,res){
     const accessToken=await googleAccessToken(sa);
     const results=await Promise.all(tokens.map(t=>sendOne(accessToken,sa,t,title,body,data).catch(err=>({ok:false,status:0,body:String(err)}))));
     const sent=results.filter(x=>x.ok).length,failed=results.length-sent;
-    return res.status(failed===results.length?502:200).json({sent,failed});
+    // Registros que o FCM não reconhece mais (app desinstalado, permissão revogada): o app apaga da lista.
+    const stale=tokens.filter((t,i)=>!results[i].ok&&(results[i].status===404||/UNREGISTERED|registration token is not a valid/i.test(results[i].body||'')));
+    return res.status(failed===results.length?502:200).json({sent,failed,stale});
   }catch(err){
     console.error('push error',err);
     return res.status(500).json({error:'push_failed'});

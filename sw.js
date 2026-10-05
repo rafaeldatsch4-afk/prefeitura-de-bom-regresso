@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v51';
+const CACHE='bom-regresso-pwa-v52';
 const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/prefeitura/','/prefeitura/index.html','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
@@ -13,19 +13,24 @@ try{
     appId:'1:198816706059:web:0cc06972a903b13867610e'
   });
   const messaging=firebase.messaging();
-  messaging.onBackgroundMessage(payload=>{
-    const d=payload.data||{};
-    self.registration.showNotification(d.title||'💬 Chat da República',{
-      body:d.body||'Nova mensagem',
+  messaging.onBackgroundMessage(async payload=>{
+    const d=payload.data||{},chat=(d.type||'chat')==='chat';
+    // Link só para dentro do próprio site.
+    const url=/^\/(?![\/\\])/.test(d.url||'')?d.url:(chat?'/?open=chat':'/?open=atividades');
+    const tag=chat?'bom-regresso-chat-'+(d.messageId||Date.now()):'republica-'+(d.messageId||Date.now());
+    // O mesmo aviso já apareceu (o app aberto em segundo plano mostrou antes): não repete.
+    if(!chat&&d.messageId&&(await self.registration.getNotifications({tag}).catch(()=>[])).length)return;
+    await self.registration.showNotification(d.title||(chat?'💬 Chat da República':'🔔 República Bom Regressense'),{
+      body:d.body||(chat?'Nova mensagem':'Novidade na República'),
       icon:'/app-icon.svg',
       badge:'/app-icon.svg',
-      tag:'bom-regresso-chat-'+(d.messageId||Date.now()),
+      tag,
       renotify:true,
       silent:d.sound==='0',
       vibrate:d.vibrate==='0'?undefined:[70,45,70],
       timestamp:Date.now(),
-      data:{type:'chat',url:'/?open=chat',messageId:d.messageId||'',senderId:d.senderId||''},
-      actions:[{action:'open-chat',title:'Abrir chat'}]
+      data:{type:chat?'chat':d.type,url,messageId:d.messageId||'',senderId:d.senderId||''},
+      actions:chat?[{action:'open-chat',title:'Abrir chat'}]:[{action:'open',title:'Ver'}]
     });
   });
 }catch(err){
