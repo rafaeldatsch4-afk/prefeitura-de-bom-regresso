@@ -1779,7 +1779,7 @@ const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_'+DATA_NAMESPACE;
 let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false,chatRecordingSendOnStop=false;
 let chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false};
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0,chatSending=false;
-const chatMediaCache=new Map();let chatMediaObserver=null;
+const chatMediaCache=new Map();let chatMediaObserver=null,chatMicPrefetch=null;
 let chatPresenceCollection=null,chatPresenceUnsub=null,chatPresence=[],chatTypingTimer=null,chatPresenceTimer=null,chatTypingSentAt=0,chatTypingRowEl=null,chatTypingTick=null;
 const chatTypingSeen=new Map(); // operatorId -> {key, at}: quando ESTE aparelho viu a pessoa digitar (não depende do relógio do outro)
 // Formatadores de número e data reaproveitados: criar um novo a cada valor pesava no chat e nas listas.
@@ -2830,7 +2830,8 @@ function chatAttachmentHTML(m){
     return `<button type="button" class="chat-image-wrap chat-image-lazy" data-chat-media-id="${esc(a.mediaId||'')}" onclick="App.openChatImage(${jsArg(m.id)})"><div class="chat-image-placeholder">📷<span>${esc(a.name||'Imagem')}</span></div></button>`
   }
   if(a.kind==='audio'){
-    if(a.dataUrl)return `<div class="chat-audio"><span>🎙️ Mensagem de voz</span><audio controls preload="metadata" src="${esc(a.dataUrl)}"></audio></div>`;
+    const src=a.dataUrl||(a.mediaId&&chatMediaCache.get(a.mediaId)?.dataUrl);
+    if(src)return `<div class="chat-audio"><span>🎙️ Mensagem de voz</span><audio controls preload="metadata" src="${esc(src)}"></audio></div>`;
     return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio(${jsArg(m.id)})">▶ Ouvir mensagem de voz</button><small>${chatFileSize(a.size)}</small></div>`
   }
   return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment(${jsArg(m.id)})"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
@@ -2906,6 +2907,8 @@ function flyChatGhost(label){
 function renderChatMessages(forceBottom=false){
   const root=document.getElementById('chatMessages');if(!root)return;
   if(!chatReady){root._chatHTML='';root.innerHTML='<div class="chat-loading"><span class="chat-spinner"></span><b>Carregando conversa…</b></div>';return}
+  if(!forceBottom&&[...root.querySelectorAll('audio')].some(a=>!a.paused&&!a.ended)){root._renderPending=true;return}
+  root._renderPending=false;
   const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
   const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
   if(!list.length){root._chatHTML='';chatTypingRowEl=null;if(!q)root._shownIds=new Set();root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
@@ -2927,6 +2930,7 @@ function renderChatMessages(forceBottom=false){
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
+['pause','ended'].forEach(t=>document.addEventListener(t,e=>{const root=document.getElementById('chatMessages');if(root?._renderPending&&root.contains(e.target))setTimeout(()=>renderChatMessages(false),0)},true));
 function filterChatMessages(){chatSearchTerm=val('chatSearch');renderChatMessages(false)}
 function chatScrollChanged(){
   const root=document.getElementById('chatMessages');if(!root)return;
@@ -3368,14 +3372,21 @@ function clearChatRecordUI(){
   const status=document.getElementById('chatRecordStatus');status?.classList.add('hidden');status?.classList.remove('cancel-ready','lock-ready','locked');
   const timer=document.getElementById('chatRecordTimer');if(timer)timer.textContent='00:00'
 }
-async function startChatRecording(mode='tap'){
-  if(chatRecorder?.state==='recording')return true;
+// Um toque rápido enquanto o microfone ainda abre não pode começar uma segunda gravação.
+let chatRecordStarting=null;
+function startChatRecording(mode='tap'){
+  if(chatRecorder?.state==='recording')return Promise.resolve(true);
+  if(!chatRecordStarting)chatRecordStarting=startChatRecordingNow(mode).finally(()=>{chatRecordStarting=null});
+  return chatRecordStarting
+}
+async function startChatRecordingNow(mode){
   if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){toast('Gravação de voz não é suportada neste aparelho.');return false}
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    const stream=await (chatMicPrefetch||chatMicStream());chatMicPrefetch=null;
     chatRecorderStream=stream;chatAudioChunks=[];chatRecordingCancelled=false;chatRecordingSendOnStop=false;
     const preferred=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported?.(t));
-    try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000})}catch{chatRecorder=new MediaRecorder(stream)}
+    const bps=/mp4|aac/.test(preferred||'')?64000:32000;
+    try{chatRecorder=new MediaRecorder(stream,preferred?{mimeType:preferred,audioBitsPerSecond:bps}:{audioBitsPerSecond:bps})}catch{chatRecorder=new MediaRecorder(stream)}
     chatRecorder.ondataavailable=e=>{if(e.data?.size)chatAudioChunks.push(e.data)};
     chatRecorder.onstop=async()=>{
       clearInterval(chatRecordingTimer);chatRecordingTimer=null;chatRecorderStream?.getTracks().forEach(t=>t.stop());chatRecorderStream=null;clearChatRecordUI();
@@ -3392,7 +3403,7 @@ async function startChatRecording(mode='tap'){
       }catch(err){console.error('Preparar áudio:',err);toast('Não foi possível preparar a mensagem de voz.')}
       resetChatRecordGesture()
     };
-    chatRecorder.start(250);chatRecordingStartedAt=Date.now();
+    chatRecorder.start();chatRecordingStartedAt=Date.now();
     if(mode==='hold'&&!chatRecordGesture.pointerDown)mode='tap';
     chatRecordGesture.mode=mode;setChatRecordUI(mode);navigator.vibrate?.(25);
     chatRecordingTimer=setInterval(()=>{
@@ -3409,13 +3420,18 @@ async function startChatRecording(mode='tap'){
 function finishChatRecording(cancel=false,send=true){
   if(chatRecorder?.state!=='recording')return;
   chatRecordingCancelled=!!cancel;chatRecordingSendOnStop=!cancel&&!!send;
-  try{chatRecorder.requestData?.()}catch{};try{chatRecorder.stop()}catch{}
+  const rec=chatRecorder,stop=()=>{if(rec.state!=='recording')return;try{rec.requestData?.()}catch{};try{rec.stop()}catch{}};
+  if(cancel)stop();else{document.getElementById('chatRecordHint')&&(document.getElementById('chatRecordHint').textContent='Finalizando…');setTimeout(stop,350)}
 }
+// Microfone para mensagem de voz: sem cancelamento de eco/ruído (feitos para chamadas, picotam a gravação).
+function chatMicStream(){return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true,channelCount:1}}).catch(()=>navigator.mediaDevices.getUserMedia({audio:true}))}
+function dropChatMicPrefetch(){const p=chatMicPrefetch;chatMicPrefetch=null;p?.then(st=>st.getTracks().forEach(t=>t.stop())).catch(()=>{})}
 function chatMicPointerDown(e){
   if(e.button!==undefined&&e.button!==0&&e.pointerType!=='touch')return;e.preventDefault();
   try{e.currentTarget.setPointerCapture?.(e.pointerId)}catch{}
   if(chatRecorder?.state==='recording'){chatRecordGesture.pointerId=e.pointerId;chatRecordGesture.pointerDown=true;chatRecordGesture.startX=e.clientX;chatRecordGesture.startY=e.clientY;return}
   resetChatRecordGesture();chatRecordGesture.pointerId=e.pointerId;chatRecordGesture.pointerDown=true;chatRecordGesture.startX=e.clientX;chatRecordGesture.startY=e.clientY;
+  if(!chatMicPrefetch&&navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined'){chatMicPrefetch=chatMicStream();chatMicPrefetch.catch(()=>{chatMicPrefetch=null})}
   chatRecordGesture.longPressTimer=setTimeout(async()=>{if(chatRecordGesture.pointerDown)await startChatRecording('hold')},180)
 }
 function chatMicPointerMove(e){
@@ -3443,7 +3459,7 @@ function chatMicPointerCancel(e){
   if(chatRecordGesture.pointerId!==e.pointerId)return;
   if(chatRecordGesture.longPressTimer){clearTimeout(chatRecordGesture.longPressTimer);chatRecordGesture.longPressTimer=null}
   chatRecordGesture.pointerDown=false;
-  if(chatRecorder?.state==='recording'&&chatRecordGesture.mode==='hold')finishChatRecording(true,false);else resetChatRecordGesture()
+  if(chatRecorder?.state==='recording'&&chatRecordGesture.mode==='hold')finishChatRecording(true,false);else{dropChatMicPrefetch();resetChatRecordGesture()}
 }
 function chatMicKeydown(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleChatRecording()}}
 
