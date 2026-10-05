@@ -384,6 +384,39 @@ img,svg,a{-webkit-user-drag:none}
   .side .brand{-webkit-app-region:drag;app-region:drag}
   #loginScreen:not([hidden])+.wco-drag{display:block;position:fixed;left:env(titlebar-area-x,0px);top:env(titlebar-area-y,0px);width:env(titlebar-area-width,100%);height:env(titlebar-area-height,33px);-webkit-app-region:drag;app-region:drag;z-index:5}
 }
+
+/* Governo estadual: pedidos, obras, Diário Oficial, orçamento e termômetro */
+.lic-title{margin:6px 0 2px;color:var(--navy);font-size:17px}.lic-notes{margin:2px 0 6px;font-size:14px}
+.ped-list,.obra-list,.ato-list{display:grid;gap:10px}
+.ped-item,.obra-item,.ato-item{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--panel,#fff);content-visibility:auto;contain-intrinsic-size:auto 150px}
+.ped-item.is-pendente{border-color:#E5B23A;box-shadow:inset 4px 0 0 #E5B23A}.ped-item.is-aprovado{box-shadow:inset 4px 0 0 #2E9E62}.ped-item.is-recusado{box-shadow:inset 4px 0 0 #C9483F;opacity:.92}
+.ped-head,.obra-head,.ato-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ped-head b,.obra-head b{color:var(--navy);font-size:16px}
+.ped-badge{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#EEF3F8;color:var(--navy)}.ped-badge.is-pendente{background:#FFF1CF;color:#7A5300}.ped-badge.is-aprovado{background:#DDF5E7;color:#17663D}.ped-badge.is-recusado{background:#FBE0DE;color:#8E241D}
+.ped-valor{font-size:22px;font-weight:900;color:var(--navy);margin:6px 0 2px}.ped-valor small{font-size:13px;font-weight:700;color:var(--muted)}
+.ped-motivo{margin:4px 0 6px}.ped-resposta{margin-top:8px;padding:8px 10px;border-radius:10px;background:#F3F6FA;font-size:14px}
+.ped-actions,.obra-actions,.ato-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:flex-end}.ped-actions .btn{flex:1 1 160px}
+.obra-item.is-late{border-color:#E08A2E}.obra-status{font-size:12.5px;font-weight:800;color:var(--muted)}
+.obra-bar{height:10px;border-radius:999px;background:#E6EDF4;overflow:hidden;margin:10px 0 6px}.obra-bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2a78d6,#3e8be8)}
+.obra-nums{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted)}.obra-nums b{color:var(--navy)}
+.obra-status-field{margin:0;min-width:180px}.obra-status-field select{min-height:40px}
+.ato-head b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}.ato-status{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#DDF5E7;color:#17663D}
+.ato-item h3{margin:6px 0 4px;color:var(--navy);font-size:17px}.ato-item details{margin-top:8px}.ato-item summary{cursor:pointer;font-weight:700;color:var(--navy)}
+.ato-texto{white-space:pre-wrap;margin:8px 0 0;line-height:1.5;-webkit-user-select:text;user-select:text}
+.ato-item.is-revoked{opacity:.7}.ato-item.is-revoked h3{text-decoration:line-through}.ato-item.is-revoked .ato-status{background:#EEF0F2;color:#5E6B76}
+.orc-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 46px;gap:12px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)}.orc-row:last-child{border-bottom:0}
+.orc-label b{display:block;color:var(--navy)}.orc-label small{color:var(--muted);font-size:12px}.orc-row .obra-bar{margin:0}.orc-pct{font-weight:800;color:var(--navy);text-align:right}
+.orc-row.is-over .obra-bar i{background:linear-gradient(90deg,#d6453d,#e5615a)}.orc-row.is-over .orc-pct{color:#B3261E}
+.gov-alerts{display:grid;gap:8px;margin:14px 0}
+.gov-alert{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid #E5B23A;background:#FFF6DF;color:#5B3F00;border-radius:14px;padding:12px 14px;font:inherit;cursor:pointer}.gov-alert span{margin-left:auto;font-weight:800}.gov-alert.is-warn{border-color:#E08A2E;background:#FFEBDD;color:#6A2E00}
+.termo{margin-top:14px}.termo-top{display:grid;grid-template-columns:auto auto 1fr;gap:14px;align-items:center;margin:8px 0 14px}
+.termo-face{font-size:42px}.termo-top b{display:block;font-size:30px;color:var(--navy);line-height:1}.termo-top small{color:var(--muted);font-weight:700}
+.termo-bar{height:14px;border-radius:999px;background:linear-gradient(90deg,#d6453d,#e8b23a 45%,#2e9e62);position:relative;overflow:visible}.termo-bar i{display:block;height:100%;background:transparent;border-right:4px solid var(--navy);border-radius:0}
+.termo-fatores{display:grid;gap:8px}.termo-f{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(80px,30%) 32px;gap:10px;align-items:center}.termo-f b{display:block;color:var(--navy);font-size:14px}.termo-f small{color:var(--muted);font-size:12px}.termo-f .obra-bar{margin:0;height:8px}.termo-f em{font-style:normal;font-weight:800;color:var(--navy);text-align:right}
+@media(max-width:640px){.orc-row{grid-template-columns:1fr 46px}.orc-row .obra-bar{grid-column:1/-1;grid-row:2}.termo-top{grid-template-columns:auto 1fr}.termo-bar{grid-column:1/-1}.termo-f{grid-template-columns:24px minmax(0,1fr) 30px}.termo-f .obra-bar{grid-column:2/-1;grid-row:2}}
+html[data-theme="dark"] .ped-item,html[data-theme="dark"] .obra-item,html[data-theme="dark"] .ato-item{background:#182838}
+html[data-theme="dark"] .ped-resposta,html[data-theme="dark"] .ped-badge{background:#273F55;color:#E6EEF6}html[data-theme="dark"] .obra-bar{background:#273F55}
+html[data-theme="dark"] .gov-alert{background:#3A2F14;color:#FFE3A6}html[data-theme="dark"] .gov-alert.is-warn{background:#3D2412;color:#FFCFA8}
 </style></head><body><div id="loginScreen" class="login-screen" hidden></div><div class="wco-drag" aria-hidden="true"></div><div class="shell" id="shell"><aside class="side"><div class="brand"><img src="pais/brasao.svg" alt="Brasão de Bom Regresso"><b>Bom Regresso</b><small>Presidência · Sistema nacional</small></div><nav class="nav" id="nav"></nav></aside><main><div class="top"><img class="top-logo" src="pais/brasao.svg" alt=""><div class="top-title"><strong>REPÚBLICA BOM REGRESSENSE</strong><small id="topSubtitle">SISTEMA DA PRESIDÊNCIA</small></div><button type="button" class="top-bell" id="topBell" data-bell aria-label="Avisos" hidden><span aria-hidden="true">🔔</span><b class="bell-count" hidden></b></button><button type="button" class="top-profile" data-page="perfil" aria-label="Abrir meu perfil" id="topProfile"></button></div><div class="content" id="content"></div></main></div><nav class="mobile" id="mobile"></nav><div class="more-backdrop" id="moreBackdrop" hidden><div class="more-sheet"><div class="more-head"><b>Mais opções</b><button type="button" class="close-more" aria-label="Fechar menu" data-close-more>×</button></div><div id="moreItems"></div></div></div><script>window.addEventListener('error',function(){if(window.__republicaStarted)return;var box=document.getElementById('loginScreen');if(!box)return;box.hidden=false;var shell=document.getElementById('shell'),mobile=document.getElementById('mobile');if(shell)shell.hidden=true;if(mobile)mobile.hidden=true;box.innerHTML='<div class="login-card"><h1>Bom Regresso</h1><p>Não foi possível abrir o painel neste navegador. Verifique se o armazenamento de dados de sites está permitido ou abra o link no Chrome.</p><button class="btn" type="button" onclick="location.reload()">Tentar novamente</button></div>'})</script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" integrity="sha384-ZaR6mWzmJtrRibZ1Vm7SoHFr8OXjyAuGAXalGDKqbxFT18oi/z+oZLIRFkpeNor1" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" integrity="sha384-I1LYojsZ5RM1cOda44Z2h42Qa6YfsQ1XkXxREnhp4ueYBR/4d1pG1K+NZM537Vsj" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" integrity="sha384-Ke0FJhH7LyRqDxZ0wt+/OXV38yfQVu7g9VPEEGjYmB4RVOY/ta04uecRhsMwT7V3" crossorigin="anonymous"></script><script>
 (()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['lixeira','🗑️','Lixeira'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
   presidencia:{label:'Presidência',icon:'🏛️',roles:['Presidente','Vice-presidente']},
@@ -1112,6 +1145,249 @@ function restoreTrash(tid){
   if(t.tipo==='estados'||t.tipo==='municipios')for(const p of data.profiles)if(!p.jurisdictionId&&(t.extras?.perfis||[]).includes(p.id))p.jurisdictionId=x.id;
   drop();hydratePhotos();save();if(skipped.length)setTimeout(()=>alert(`Estes municípios não voltaram porque já existe outro com o mesmo nome: ${skipped.join(', ')}.`),50)
 }
+// ===== Governo estadual: pedidos de verba, obras e programas, Diário Oficial, orçamento por área e termômetro =====
+// Tudo fica dentro do próprio estado (st.pedidos, st.obras, st.atos, st.orcamento): vai junto para a Lixeira e volta junto.
+const PEDIDO_STATUS={pendente:['⏳','Aguardando resposta'],aprovado:['✅','Aprovado'],recusado:['✖','Recusado']};
+const OBRA_STATUS={planejada:'📐 Planejada',andamento:'🚧 Em andamento',parada:'⏸️ Parada',concluida:'✅ Concluída'};
+const ATO_TIPOS=['Decreto','Lei','Portaria'];
+const GOV_LIST_MAX=250,PEDIDOS_ABERTOS_MAX=5;
+const ensureList=(st,k)=>{if(!Array.isArray(st[k]))st[k]=[];return st[k]};
+const nowISO=()=>new Date().toISOString();
+// Linha no histórico (e aviso no sino de quem é do estado/município).
+function govLog(st,{acao,area,texto,municipio=''}){const me=current();data.atividades=[{id:id(),at:nowISO(),autor:me?.name||'Sistema',autorId:me?.id||'',cargo:me?.role||'',nivel:'estado',estado:st.id,municipio,area,acao,texto},...(data.atividades||[])]}
+const govTrimList=(list)=>{if(list.length>GOV_LIST_MAX)list.splice(0,list.length-GOV_LIST_MAX)};
+
+// ---- Pedidos de verba (prefeitura → estado)
+function pedidoRow(p,st,actions){
+  const [ic,lab]=PEDIDO_STATUS[p.status]||['',''];
+  return `<div class="ped-item is-${esc(p.status)}"><div class="ped-head"><b>${esc(cityName(p.municipio))}</b><span class="ped-badge is-${esc(p.status)}">${ic} ${lab}</span></div><div class="ped-valor">${esc(money(p.valor))} <small>· ${esc(p.categoria||'Outros')}</small></div>${p.motivo?`<p class="ped-motivo">${esc(p.motivo)}</p>`:''}<small class="muted">Pedido por ${esc(p.autor||'—')} em ${esc(fmtDate(String(p.criadoEm||'').slice(0,10)))}${p.respostaPor?` · respondido por ${esc(p.respostaPor)} em ${esc(fmtDate(String(p.respostaEm||'').slice(0,10)))}`:''}</small>${p.resposta?`<div class="ped-resposta">💬 ${esc(p.resposta)}</div>`:''}${actions&&p.status==='pendente'&&canState(st)?`<div class="ped-actions"><button class="btn" type="button" data-ped-ok="${esc(p.id)}">✅ Aprovar e enviar</button><button class="btn danger" type="button" data-ped-no="${esc(p.id)}">✖ Recusar</button></div>`:''}</div>`
+}
+const pedidosAbertos=st=>(st.pedidos||[]).filter(p=>p.status==='pendente');
+function govPedidos(st){
+  const list=(st.pedidos||[]).slice().sort((a,b)=>(a.status==='pendente'?0:1)-(b.status==='pendente'?0:1)||String(b.criadoEm).localeCompare(String(a.criadoEm)));
+  const pend=list.filter(p=>p.status==='pendente'),ok=list.filter(p=>p.status==='aprovado');
+  return govHead('Pedidos de verba','As prefeituras pedem verba ao estado. Aprovar envia o repasse na hora; recusar deixa uma justificativa para a prefeitura.')+
+  `<div class="gov-cards">${govCard('Aguardando',num(pend.length),pend.length?`${moneyShort(pend.reduce((a,p)=>a+(Number(p.valor)||0),0))} pedidos`:'Nada pendente',pend.length?'warn':'')}${govCard('Aprovados',num(ok.length),`${moneyShort(ok.reduce((a,p)=>a+(Number(p.valor)||0),0))} enviados`)}${govCard('Recusados',num(list.length-pend.length-ok.length),'Com justificativa')}${govCard('Caixa estadual',esc(moneyShort(stateCash(st))),'Para atender os pedidos')}</div>`+
+  `<section class="panel">${list.length?`<div class="ped-list">${list.map(p=>pedidoRow(p,st,true)).join('')}</div>`:'<p class="gov-empty">Nenhum pedido ainda. As prefeituras pedem verba pela aba “Pedidos ao estado”.</p>'}</section>`
+}
+function cityPedidos(c){
+  const st=data.estados.find(x=>x.id===c.estado);
+  if(!st)return govHead('Pedidos ao estado','Este município ainda não está ligado a um estado.');
+  const mine=(st.pedidos||[]).filter(p=>p.municipio===c.id).sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm))),abertos=mine.filter(p=>p.status==='pendente').length;
+  return govHead('Pedidos ao estado',`Peça verba ao governo de ${esc(st.nome)}. O governo aprova (o dinheiro cai no caixa da cidade) ou recusa com uma justificativa.`)+
+  `<div class="gov-grid"><section class="panel"><h2>Novo pedido</h2>${!canCity(c)?'<p class="muted">Só a prefeitura, o governo do estado ou a Presidência fazem pedidos.</p>':abertos>=PEDIDOS_ABERTOS_MAX?`<p class="note">Já há ${num(abertos)} pedidos aguardando resposta. Espere o estado responder antes de pedir mais.</p>`:`<form id="cityPedidoForm" class="form"><label class="field">Valor<input name="valor" type="text" inputmode="decimal" autocomplete="off" data-money="1" required></label><label class="field">Finalidade<select name="categoria">${categoryOptions('Obras')}</select></label><label class="field wide">Para quê?<textarea name="motivo" required maxlength="300" rows="3" placeholder="Ex.: Reforma da escola municipal"></textarea></label><div class="field wide"><button class="btn">📨 Enviar pedido</button></div></form>`}</section>`+
+  `<section class="panel"><h2>Pedidos da cidade</h2>${mine.length?`<div class="ped-list">${mine.map(p=>pedidoRow(p,st,false)).join('')}</div>`:'<p class="gov-empty">Nenhum pedido ainda.</p>'}</section></div>`
+}
+function govPedidoResponder(pid,aprovar){
+  const st=govOpenState();if(!st||!canState(st))return;
+  const p=(st.pedidos||[]).find(x=>x.id===pid);if(!p||p.status!=='pendente')return;
+  const c=data.municipios.find(x=>x.id===p.municipio&&x.estado===st.id),me=current()?.name||'';
+  if(aprovar){
+    if(!c)return alert('Este município não faz mais parte do estado.');
+    const v=Number(p.valor)||0;if(v>stateCash(st))return alert(`Caixa estadual insuficiente. Disponível: ${money(stateCash(st))}.`);
+    const msg=prompt(`Aprovar e enviar ${money(v)} para ${c.nome}?\n\nMensagem para a prefeitura (opcional):`,'');if(msg==null)return;
+    const mid=id();
+    data.movimentos.push({id:mid,tipo:'repasse',nivel:'estado',estado:st.id,municipio:c.id,categoria:p.categoria||'Outros',valor:v,data:todayISO(),descricao:`Pedido atendido: ${p.motivo||''}`.slice(0,120),autor:me,createdAt:nowISO(),pedidoId:p.id});
+    Object.assign(p,{status:'aprovado',respostaEm:nowISO(),respostaPor:me,resposta:String(msg).trim().slice(0,200),movimentoId:mid})
+  }else{
+    const msg=prompt(`Recusar o pedido de ${money(p.valor)} de ${cityName(p.municipio)}?\n\nExplique o motivo para a prefeitura:`,'');if(msg==null)return;
+    if(!String(msg).trim())return alert('Escreva o motivo da recusa.');
+    Object.assign(p,{status:'recusado',respostaEm:nowISO(),respostaPor:me,resposta:String(msg).trim().slice(0,200)});
+    govLog(st,{acao:'Pedido recusado',area:'Pedidos',texto:`Pedido de ${money(p.valor)} de ${cityName(p.municipio)} recusado: ${p.resposta}`,municipio:p.municipio})
+  }
+  save()
+}
+
+// ---- Obras e programas estaduais
+const obraGasto=(o,st)=>sumMov(m=>m.obraId===o.id&&m.estado===st.id);
+const obraAtrasada=o=>o.status!=='concluida'&&!!o.prazo&&o.prazo<todayISO();
+function govObras(st){
+  const cities=stateCities(st),order={andamento:0,planejada:1,parada:2,concluida:3};
+  const list=(st.obras||[]).slice().sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||String(a.prazo||'9').localeCompare(String(b.prazo||'9')));
+  const ativas=list.filter(o=>o.status!=='concluida'),atrasadas=list.filter(obraAtrasada),investido=list.reduce((a,o)=>a+obraGasto(o,st),0);
+  const card=o=>{const gasto=obraGasto(o,st),orc=Number(o.orcamento)||0,pct=orc?Math.min(100,gasto/orc*100):0,late=obraAtrasada(o);
+    return `<div class="obra-item${late?' is-late':''}"><div class="obra-head"><b>${esc(o.nome)}</b><span class="obra-status">${OBRA_STATUS[o.status]||''}</span></div><small class="muted">${esc(o.municipio?cityName(o.municipio):'Obra do estado')} · ${esc(o.categoria||'Obras')}${o.prazo?` · prazo ${esc(fmtDate(o.prazo))}${late?' · ⚠ atrasada':''}`:''}</small><div class="obra-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(0)}" aria-label="Pago do orçamento"><i style="width:${Math.max(pct?2:0,pct).toFixed(1)}%"></i></div><div class="obra-nums"><span>Pago <b>${esc(moneyShort(gasto))}</b></span><span>Orçamento <b>${esc(moneyShort(orc))}</b></span><span><b>${pct.toFixed(0)}%</b></span></div>${canState(st)?`<div class="obra-actions"><label class="field obra-status-field">Situação<select data-obra-status="${esc(o.id)}">${Object.entries(OBRA_STATUS).map(([k,l])=>`<option value="${k}" ${k===o.status?'selected':''}>${l}</option>`).join('')}</select></label><button class="btn secondary" type="button" data-obra-pagar="${esc(o.id)}">💵 Pagar etapa</button><button class="btn danger" type="button" data-obra-del="${esc(o.id)}">Excluir</button></div>`:''}</div>`};
+  return govHead('Obras e programas','Planeje obras e programas do estado, pague por etapas e acompanhe o andamento.')+
+  `<div class="gov-cards">${govCard('Em andamento',num(ativas.length),'Obras e programas ativos')}${govCard('Atrasadas',num(atrasadas.length),atrasadas.length?'Passaram do prazo':'Tudo no prazo',atrasadas.length?'warn':'')}${govCard('Concluídas',num(list.length-ativas.length),'Entregues')}${govCard('Investido',esc(moneyShort(investido)),'Pago até agora')}</div>`+
+  (canState(st)?`<div class="gov-grid"><section class="panel"><h2>Nova obra ou programa</h2><form id="govObraForm" class="form"><label class="field wide">Nome<input name="nome" required maxlength="80" placeholder="Ex.: Hospital regional, Programa Merenda Boa"></label><label class="field">Onde<select name="municipio"><option value="">Todo o estado</option>${cities.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')}</select></label><label class="field">Área<select name="categoria">${categoryOptions('Obras')}</select></label><label class="field">Orçamento<input name="orcamento" type="text" inputmode="decimal" autocomplete="off" data-money="1" required></label><label class="field">Prazo<input name="prazo" type="date"></label><div class="field wide"><button class="btn">🏗️ Cadastrar</button></div></form></section><section class="panel"><h2>Pagar uma etapa</h2>${ativas.length?`<form id="govObraPagForm" class="form"><label class="field wide">Obra<select name="obra" required>${ativas.map(o=>`<option value="${esc(o.id)}" ${o.id===govObraPagar?'selected':''}>${esc(o.nome)}</option>`).join('')}</select></label><label class="field">Valor<input name="valor" type="text" inputmode="decimal" autocomplete="off" data-money="1" required></label><label class="field">Data<input name="data" type="date" value="${todayISO()}" required></label><div class="field wide"><button class="btn">💵 Pagar</button></div></form><p class="muted">O pagamento sai do caixa do estado (${esc(money(stateCash(st)))} disponível) e aparece em Finanças.</p>`:'<p class="gov-empty">Cadastre uma obra para registrar pagamentos.</p>'}</section></div>`:'')+
+  `<section class="panel" style="margin-top:14px"><h2>Obras e programas</h2>${list.length?`<div class="obra-list">${list.map(card).join('')}</div>`:'<p class="gov-empty">Nenhuma obra ou programa cadastrado ainda.</p>'}</section>`
+}
+let govObraPagar='';
+
+// ---- Diário Oficial (leis, decretos e portarias)
+const atoNumero=(st,tipo,ano)=>(st.atos||[]).filter(a=>a.tipo===tipo&&String(a.data||'').slice(0,4)===ano).length+1;
+function atoCard(a,st,actions){
+  return `<article class="ato-item${a.status==='revogado'?' is-revoked':''}"><div class="ato-head"><b>${esc(a.tipo)} nº ${esc(a.numero)}</b><span class="ato-status">${a.status==='revogado'?'Revogado':'Em vigor'}</span></div><h3>${esc(a.titulo)}</h3><small class="muted">${esc(fmtDate(a.data))} · ${esc(a.alvo?`Vale para ${cityName(a.alvo)}`:'Vale para todo o estado')} · ${esc(a.autor||'')}${a.revogadoEm?` · revogado em ${esc(fmtDate(String(a.revogadoEm).slice(0,10)))}`:''}</small>${a.texto?`<details><summary>Ler o texto</summary><p class="ato-texto">${esc(a.texto)}</p></details>`:''}${actions&&a.status!=='revogado'&&canState(st)?`<div class="ato-actions"><button class="btn secondary" type="button" data-ato-revogar="${esc(a.id)}">Revogar</button></div>`:''}</article>`
+}
+function govDiario(st){
+  const cities=stateCities(st),atos=(st.atos||[]).slice().sort((a,b)=>String(b.data+b.criadoEm).localeCompare(String(a.data+a.criadoEm))),vig=atos.filter(a=>a.status!=='revogado');
+  return govHead('Diário Oficial',`Leis, decretos e portarias do governo de ${esc(st.nome)}. As prefeituras do estado veem os atos em vigor no painel delas.`)+
+  `<div class="gov-cards">${govCard('Em vigor',num(vig.length),'Atos valendo')}${ATO_TIPOS.map(t=>govCard(t+"s",num(atos.filter(a=>a.tipo===t).length),'Publicados')).join('')}</div>`+
+  (canState(st)?`<section class="panel"><h2>Publicar ato</h2><form id="govAtoForm" class="form"><label class="field">Tipo<select name="tipo">${ATO_TIPOS.map(t=>`<option>${t}</option>`).join('')}</select></label><label class="field">Vale para<select name="alvo"><option value="">Todo o estado</option>${cities.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')}</select></label><label class="field wide">Título<input name="titulo" required maxlength="120" placeholder="Ex.: Institui o Programa Estradas Novas"></label><label class="field wide">Texto<textarea name="texto" maxlength="2000" rows="4" placeholder="Art. 1º …"></textarea></label><label class="field">Data<input name="data" type="date" value="${todayISO()}" required></label><div class="field wide"><button class="btn">📰 Publicar no Diário</button></div></form></section>`:'')+
+  `<section class="panel" style="margin-top:14px"><h2>Atos publicados</h2>${atos.length?`<div class="ato-list">${atos.map(a=>atoCard(a,st,true)).join('')}</div>`:'<p class="gov-empty">Nenhum ato publicado ainda.</p>'}</section>`
+}
+
+// ---- Orçamento por área (metas do ano)
+const orcAreas=()=>GOV_CATEGORIES.filter(c=>c!=='Impostos');
+function govGastoPorArea(st,year){const m=new Map();for(const x of data.movimentos){if(x.estado!==st.id||yearKey(x.data)!==year)continue;if(!(x.tipo==='repasse'||(x.nivel==='estado'&&x.tipo==='despesa')))continue;const k=x.categoria||'Outros';m.set(k,(m.get(k)||0)+(Number(x.valor)||0))}return m}
+function govOrcamento(st){
+  const year=String(new Date().getFullYear()),areas=st.orcamento?.ano===year?(st.orcamento.areas||{}):{},gasto=govGastoPorArea(st,year);
+  const plan=orcAreas().reduce((a,k)=>a+(Number(areas[k])||0),0),spent=[...gasto.values()].reduce((a,v)=>a+v,0);
+  const row=k=>{const p=Number(areas[k])||0,g=gasto.get(k)||0,pct=p?g/p*100:0;return (p||g)?`<div class="orc-row${pct>100?' is-over':''}"><div class="orc-label"><b>${esc(k)}</b><small>${esc(moneyShort(g))} de ${p?esc(moneyShort(p)):'sem meta'}</small></div><div class="obra-bar"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></div><span class="orc-pct">${p?`${pct.toFixed(0)}%`:'—'}</span></div>`:''};
+  return govHead('Orçamento por área',`Metas de gasto de ${year} para cada área e quanto já foi usado (repasses e despesas do estado).`)+
+  `<div class="gov-cards">${govCard('Planejado',esc(moneyShort(plan)),`Metas de ${year}`)}${govCard('Usado',esc(moneyShort(spent)),plan?`${(spent/plan*100).toFixed(0)}% do planejado`:'Sem metas ainda',plan&&spent>plan?'warn':'')}${govCard('Caixa estadual',esc(moneyShort(stateCash(st))),'Disponível agora')}${govCard('Áreas acima da meta',num(orcAreas().filter(k=>(Number(areas[k])||0)&&(gasto.get(k)||0)>(Number(areas[k])||0)).length),'Gastaram mais que o planejado')}</div>`+
+  `<div class="gov-grid"><section class="panel"><h2>Uso por área</h2>${orcAreas().map(row).join('')||'<p class="gov-empty">Defina as metas ao lado.</p>'}</section>`+
+  (canState(st)?`<section class="panel"><h2>Metas de ${year}</h2><form id="govOrcForm" class="form">${orcAreas().map(k=>`<label class="field">${esc(k)}<input name="area:${esc(k)}" type="text" inputmode="decimal" autocomplete="off" data-money="1" value="${esc(moneyIn(Number(areas[k])||0))}"></label>`).join('')}<div class="field wide"><button class="btn">🎯 Salvar metas</button></div></form></section>`:'')+`</div>`
+}
+
+// ---- Termômetro do governo (aprovação popular fictícia, com os fatores à mostra)
+function govTermometro(st){
+  const cities=stateCities(st),pop=Math.max(1,cities.reduce((a,c)=>a+(Number(c.populacao)||0),0)),year=String(new Date().getFullYear());
+  const invest=sumMov(m=>m.estado===st.id&&yearKey(m.data)===year&&(m.tipo==='repasse'||(m.nivel==='estado'&&m.tipo==='despesa')));
+  const clamp=v=>Math.max(0,Math.min(100,v));
+  const peds=st.pedidos||[],respondidos=peds.filter(p=>p.status!=='pendente'),aprov=peds.filter(p=>p.status==='aprovado').length,velhos=peds.filter(p=>p.status==='pendente'&&Date.now()-Date.parse(p.criadoEm||0)>7*864e5).length;
+  const obras=st.obras||[],concl=obras.filter(o=>o.status==='concluida').length,atras=obras.filter(obraAtrasada).length;
+  const vig=(st.atos||[]).filter(a=>a.status!=='revogado').length;
+  const f=[
+    ['💸','Investimento por habitante',clamp(Math.log10(invest/pop+1)/4*100),`${moneyShort(invest/pop)} por pessoa em ${year}`],
+    ['🧾','Impostos',clamp(100-govRate(st)*2),`Alíquota de ${num(govRate(st))}% sobre a renda das cidades`],
+    ['📥','Pedidos atendidos',clamp((respondidos.length?aprov/respondidos.length*100:60)-velhos*10),respondidos.length?`${num(aprov)} de ${num(respondidos.length)} aprovados${velhos?` · ${num(velhos)} parados há mais de 7 dias`:''}`:velhos?`${num(velhos)} parados há mais de 7 dias`:'Nenhum pedido respondido ainda'],
+    ['🏗️','Obras',clamp(obras.length?50+concl*12-atras*18:50),obras.length?`${num(concl)} ${concl===1?'concluída':'concluídas'} · ${num(atras)} ${atras===1?'atrasada':'atrasadas'}`:'Nenhuma obra cadastrada'],
+    ['💰','Contas',stateCash(st)>=0?100:15,stateCash(st)>=0?'Caixa no positivo':'Caixa no negativo'],
+    ['📰','Transparência',clamp(vig*20),`${num(vig)} ${vig===1?'ato':'atos'} em vigor no Diário Oficial`]
+  ],w=[.3,.2,.2,.15,.1,.05],score=Math.round(f.reduce((a,x,i)=>a+x[2]*w[i],0));
+  const [face,label,tone]=score>=80?['😄','Excelente','good']:score>=60?['🙂','Boa','good']:score>=40?['😐','Regular','warn']:['😟','Ruim','bad'];
+  return `<section class="panel termo"><h2>🌡️ Termômetro do governo</h2><p class="muted">Aprovação popular fictícia, calculada pelo que o governo faz. Cada fator mostra como melhorar.</p><div class="termo-top is-${tone}"><span class="termo-face" aria-hidden="true">${face}</span><div><b>${score}%</b><small>Aprovação ${label.toLowerCase()}</small></div><div class="termo-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${score}" aria-label="Aprovação do governo"><i style="width:${score}%"></i></div></div><div class="termo-fatores">${f.map(([ic,nome,v,dica])=>`<div class="termo-f"><span aria-hidden="true">${ic}</span><div><b>${esc(nome)}</b><small>${esc(dica)}</small></div><div class="obra-bar"><i style="width:${v.toFixed(0)}%"></i></div><em>${v.toFixed(0)}</em></div>`).join('')}</div></section>`
+}
+// Avisos rápidos no painel do estado.
+function govPainelExtra(st){
+  const pend=pedidosAbertos(st),atras=(st.obras||[]).filter(obraAtrasada),lic=licPendentes(st);
+  const alerts=[lic.length?`<button type="button" class="gov-alert" data-gov-tab="licitacoes">📑 <b>${num(lic.length)} ${lic.length===1?'licitação aguardando decisão':'licitações aguardando decisão'}</b><span>Decidir ›</span></button>`:'',pend.length?`<button type="button" class="gov-alert" data-gov-tab="pedidos">📥 <b>${num(pend.length)} ${pend.length===1?'pedido de verba aguardando':'pedidos de verba aguardando'}</b><span>Responder ›</span></button>`:'',atras.length?`<button type="button" class="gov-alert is-warn" data-gov-tab="obras">⚠ <b>${num(atras.length)} ${atras.length===1?'obra atrasada':'obras atrasadas'}</b><span>Ver obras ›</span></button>`:''].filter(Boolean).join('');
+  return (alerts?`<div class="gov-alerts">${alerts}</div>`:'')+govTermometro(st)
+}
+// No painel da cidade: pedidos e atos do estado que valem para ela.
+function cityPainelExtra(c){
+  const st=data.estados.find(x=>x.id===c.estado);if(!st)return '';
+  const atos=(st.atos||[]).filter(a=>a.status!=='revogado'&&(!a.alvo||a.alvo===c.id)).sort((a,b)=>String(b.data).localeCompare(String(a.data))).slice(0,4);
+  const pend=(st.pedidos||[]).filter(p=>p.municipio===c.id&&p.status==='pendente').length;
+  const obras=(st.obras||[]).filter(o=>o.municipio===c.id&&o.status!=='concluida');
+  return `<div class="gov-grid" style="margin-top:14px"><section class="panel"><h2>📰 Atos do estado</h2>${atos.length?`<div class="ato-list">${atos.map(a=>atoCard(a,st,false)).join('')}</div>`:'<p class="gov-empty">Nenhum ato do estado em vigor para a cidade.</p>'}</section><section class="panel"><h2>🏗️ Obras do estado na cidade</h2>${obras.length?obras.map(o=>{const orc=Number(o.orcamento)||0,g=obraGasto(o,st),pct=orc?Math.min(100,g/orc*100):0;return `<div class="orc-row"><div class="orc-label"><b>${esc(o.nome)}</b><small>${OBRA_STATUS[o.status]||''}${obraAtrasada(o)?' · ⚠ atrasada':''}</small></div><div class="obra-bar"><i style="width:${pct.toFixed(1)}%"></i></div><span class="orc-pct">${pct.toFixed(0)}%</span></div>`}).join(''):'<p class="gov-empty">Nenhuma obra do estado em andamento aqui.</p>'}<div class="actions"><button type="button" class="btn secondary" data-city-tab="pedidos">📨 Pedidos ao estado${pend?` (${num(pend)} aguardando)`:''}</button></div></section></div>`
+}
+
+// ---- Ações (cliques e formulários)
+document.addEventListener('click',e=>{
+  const ok=e.target.closest('[data-ped-ok]');if(ok){govPedidoResponder(ok.dataset.pedOk,true);return}
+  const no=e.target.closest('[data-ped-no]');if(no){govPedidoResponder(no.dataset.pedNo,false);return}
+  const pay=e.target.closest('[data-obra-pagar]');if(pay){govObraPagar=pay.dataset.obraPagar;formEditing=false;render();setTimeout(()=>{const f=$('govObraPagForm');if(f){f.scrollIntoView({behavior:fxMotionOK()?'smooth':'auto',block:'center'});f.querySelector('[name=valor]')?.focus()}},60);return}
+  const del=e.target.closest('[data-obra-del]');
+  if(del){const st=govOpenState();if(!st||!canState(st))return;const o=(st.obras||[]).find(x=>x.id===del.dataset.obraDel);if(!o)return;if(!confirm(`Excluir "${o.nome}" da lista de obras? Os pagamentos já feitos continuam em Finanças.`))return;st.obras=st.obras.filter(x=>x.id!==o.id);govLog(st,{acao:'Exclusão',area:'Obras',texto:`Obra "${o.nome}" excluída`,municipio:o.municipio||''});save();return}
+  const rev=e.target.closest('[data-ato-revogar]');
+  if(rev){const st=govOpenState();if(!st||!canState(st))return;const a=(st.atos||[]).find(x=>x.id===rev.dataset.atoRevogar);if(!a||a.status==='revogado')return;if(!confirm(`Revogar ${a.tipo} nº ${a.numero} — ${a.titulo}?`))return;a.status='revogado';a.revogadoEm=nowISO();govLog(st,{acao:'Revogação',area:'Diário Oficial',texto:`${a.tipo} nº ${a.numero} revogado: ${a.titulo}`,municipio:a.alvo||''});save();return}
+  if(e.target.closest('#moreItems [data-gov-tab],#moreItems [data-city-tab]'))closeMoreSheet();
+  if(e.target.closest('[data-gov-more]')){const t=govShellTabs;if(!t)return;$('moreItems').innerHTML=t.tabs.map(([k,icon,label])=>`<button type="button" ${t.tabAttr}="${k}" class="${k===t.active?'active':''}"><span>${icon}</span>${esc(label)}</button>`).join('');$('moreBackdrop').hidden=false}
+});
+document.addEventListener('change',e=>{
+  const sel=e.target.closest?.('[data-obra-status]');if(!sel)return;
+  const st=govOpenState();if(!st||!canState(st))return;const o=(st.obras||[]).find(x=>x.id===sel.dataset.obraStatus);if(!o||!OBRA_STATUS[sel.value])return;
+  const before=o.status;o.status=sel.value;if(o.status==='concluida')o.concluidaEm=todayISO();
+  govLog(st,{acao:o.status==='concluida'?'Obra concluída':'Obra',area:'Obras',texto:`"${o.nome}": ${OBRA_STATUS[before]||before} → ${OBRA_STATUS[o.status]}`,municipio:o.municipio||''});formEditing=false;save()
+});
+document.addEventListener('submit',e=>{
+  const f=e.target,fid=f.getAttribute('id');if(!['cityPedidoForm','govObraForm','govObraPagForm','govAtoForm','govOrcForm'].includes(fid))return;
+  e.preventDefault();const o=Object.fromEntries(new FormData(f).entries()),me=current()?.name||'';
+  if(fid==='cityPedidoForm'){
+    const c=govOpenCity();if(!c||!canCity(c))return;const st=data.estados.find(x=>x.id===c.estado);if(!st)return;
+    const valor=Number(o.valor);if(!(valor>0))return alert('Informe um valor válido.');const motivo=String(o.motivo||'').trim().slice(0,300);if(!motivo)return alert('Explique para quê é a verba.');
+    if(pedidosAbertos(st).filter(p=>p.municipio===c.id).length>=PEDIDOS_ABERTOS_MAX)return alert('Espere o estado responder os pedidos que já estão aguardando.');
+    const list=ensureList(st,'pedidos');list.push({id:id(),municipio:c.id,valor,categoria:o.categoria||'Outros',motivo,status:'pendente',criadoEm:nowISO(),autor:me,autorId:current()?.id||''});govTrimList(list);
+    govLog(st,{acao:'Pedido de verba',area:'Pedidos',texto:`${c.nome} pediu ${money(valor)} ao estado: ${motivo}`,municipio:c.id});save();return
+  }
+  const st=govOpenState();if(!st||!canState(st))return;
+  if(fid==='govObraForm'){
+    const nome=String(o.nome||'').trim().slice(0,80),orc=Number(o.orcamento);if(!nome)return alert('Dê um nome para a obra.');if(!(orc>0))return alert('Informe o orçamento.');
+    const muni=data.municipios.some(c=>c.id===o.municipio&&c.estado===st.id)?o.municipio:'';
+    const list=ensureList(st,'obras');list.push({id:id(),nome,municipio:muni,categoria:o.categoria||'Obras',orcamento:orc,prazo:/^\d{4}-\d{2}-\d{2}$/.test(o.prazo||'')?o.prazo:'',status:'planejada',criadoEm:nowISO(),autor:me});govTrimList(list);
+    govLog(st,{acao:'Nova obra',area:'Obras',texto:`Obra "${nome}" cadastrada${muni?` em ${cityName(muni)}`:''} · orçamento ${money(orc)}`,municipio:muni});save();return
+  }
+  if(fid==='govObraPagForm'){
+    const ob=(st.obras||[]).find(x=>x.id===o.obra);if(!ob)return alert('Escolha a obra.');const valor=Number(o.valor);if(!(valor>0))return alert('Informe um valor válido.');
+    if(valor>stateCash(st))return alert(`Caixa estadual insuficiente. Disponível: ${money(stateCash(st))}.`);
+    data.movimentos.push({id:id(),tipo:'despesa',nivel:'estado',estado:st.id,municipio:ob.municipio||'',categoria:ob.categoria||'Obras',valor,data:o.data||todayISO(),descricao:`Obra: ${ob.nome}`.slice(0,120),autor:me,createdAt:nowISO(),obraId:ob.id});
+    if(ob.status==='planejada')ob.status='andamento';govObraPagar='';save();return
+  }
+  if(fid==='govAtoForm'){
+    const tipo=ATO_TIPOS.includes(o.tipo)?o.tipo:'Decreto',titulo=String(o.titulo||'').trim().slice(0,120);if(!titulo)return alert('Dê um título ao ato.');
+    const dt=/^\d{4}-\d{2}-\d{2}$/.test(o.data||'')?o.data:todayISO(),alvo=data.municipios.some(c=>c.id===o.alvo&&c.estado===st.id)?o.alvo:'';
+    const numero=`${atoNumero(st,tipo,dt.slice(0,4))}/${dt.slice(0,4)}`;
+    const list=ensureList(st,'atos');list.push({id:id(),tipo,numero,titulo,texto:String(o.texto||'').trim().slice(0,2000),alvo,data:dt,status:'vigente',criadoEm:nowISO(),autor:me});govTrimList(list);
+    govLog(st,{acao:'Publicação',area:'Diário Oficial',texto:`${tipo} nº ${numero}: ${titulo}`,municipio:alvo});save();return
+  }
+  if(fid==='govOrcForm'){
+    const areas={};for(const k of orcAreas()){const v=Number(o['area:'+k]);if(v>0)areas[k]=v}
+    st.orcamento={ano:String(new Date().getFullYear()),areas};govLog(st,{acao:'Orçamento',area:'Orçamento',texto:`Metas de ${st.orcamento.ano} atualizadas · total ${money(Object.values(areas).reduce((a,v)=>a+v,0))}`});save()
+  }
+});
+
+// ---- Licitações das prefeituras: a cidade envia pelo sistema dela e o governo do estado aprova ou nega aqui.
+// As licitações ficam no banco de cada prefeitura; a decisão é gravada lá (e aparece na hora no sistema da cidade).
+const LIC_PENDENTE=['Aguardando o estado','Aguardando confirmação'];
+const govLicit={key:'',loading:false,items:[],error:'',at:0};
+const cityDocRef=c=>isBomRegresso(c)?countryStore.collection('municipio').doc('dados_v5'):countryStore.collection('prefeituras_v5').doc(c.id);
+const licPendentes=st=>govLicit.key===st.id?govLicit.items.filter(l=>LIC_PENDENTE.includes(l.status)):[];
+function loadGovLicit(st,force){
+  if(!countryStore||!st)return;const key=st.id;
+  if(govLicit.loading&&govLicit.key===key)return;
+  if(!force&&govLicit.key===key&&govLicit.at&&Date.now()-govLicit.at<60000)return;
+  if(govLicit.key!==key)govLicit.items=[];
+  govLicit.key=key;govLicit.loading=true;govLicit.error='';
+  Promise.all(stateCities(st).map(c=>cityDocRef(c).get().then(s=>(s.exists&&Array.isArray(s.data()?.licitations)?s.data().licitations:[]).map(l=>({...l,cityId:c.id}))).catch(()=>null)))
+    .then(r=>{if(govLicit.key!==key)return;if(r.some(x=>x===null))govLicit.error='Algumas prefeituras não puderam ser lidas agora.';govLicit.items=r.filter(Boolean).flat()})
+    .catch(()=>{govLicit.error='Não foi possível carregar as licitações agora.'})
+    .finally(()=>{govLicit.loading=false;govLicit.at=Date.now();if(page==='estados'&&govOpenState()?.id===key)render()})
+}
+function licitCard(l,st){
+  const pend=LIC_PENDENTE.includes(l.status),ok=/aprovad|confirmad/i.test(l.status),tone=pend?'pendente':ok?'aprovado':'recusado';
+  return `<div class="ped-item is-${tone}"><div class="ped-head"><b>${esc(cityName(l.cityId))}</b><span class="ped-badge is-${tone}">${pend?'⏳ Aguardando decisão':ok?'✅ '+esc(l.status):'✖ '+esc(l.status)}</span></div><h3 class="lic-title">${esc(l.title||'Licitação sem título')}</h3>${Number(l.valor)>0?`<div class="ped-valor">${esc(money(l.valor))} <small>· valor estimado</small></div>`:''}${l.item?`<p class="ped-motivo">${esc(l.item)}</p>`:''}${l.notes?`<p class="muted lic-notes">📝 ${esc(l.notes)}</p>`:''}<small class="muted">Enviada por ${esc(l.sentBy||'—')} em ${esc(l.date||'')}${l.stateBy?` · decidida por ${esc(l.stateBy)}`:l.confirmedBy?` · confirmada por ${esc(l.confirmedBy)} na prefeitura`:''}</small>${l.stateNote?`<div class="ped-resposta">💬 ${esc(l.stateNote)}</div>`:''}${pend&&canState(st)?`<div class="ped-actions"><button class="btn" type="button" data-lic-ok="${esc(l.cityId)}|${esc(l.id)}">✅ Aprovar</button><button class="btn danger" type="button" data-lic-no="${esc(l.cityId)}|${esc(l.id)}">✖ Negar</button></div>`:''}</div>`
+}
+function govLicitacoes(st){
+  loadGovLicit(st,!govLicit.loading&&Date.now()-govLicit.at>5000);
+  const items=(govLicit.key===st.id?govLicit.items:[]).slice().sort((a,b)=>(LIC_PENDENTE.includes(a.status)?0:1)-(LIC_PENDENTE.includes(b.status)?0:1)||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  const pend=items.filter(l=>LIC_PENDENTE.includes(l.status)),ok=items.filter(l=>/aprovad|confirmad/i.test(l.status)),neg=items.filter(l=>/negad/i.test(l.status));
+  const status=govLicit.loading&&govLicit.key===st.id?'<p class="muted act-note">Carregando as licitações das prefeituras…</p>':govLicit.error?`<p class="muted act-note">⚠ ${esc(govLicit.error)}</p>`:'';
+  return govHead('Licitações',`As prefeituras de ${esc(st.nome)} enviam licitações (ex.: compra de um trator) pelo sistema delas. O governo aprova ou nega, e a decisão aparece na hora para a prefeitura.`,'<div class="gov-quick"><button class="btn secondary" type="button" data-lic-reload>↻ Atualizar</button></div>')+
+  `<div class="gov-cards">${govCard('Aguardando',num(pend.length),pend.length?'Esperando a decisão do estado':'Nada pendente',pend.length?'warn':'')}${govCard('Aprovadas',num(ok.length),'Liberadas para a prefeitura')}${govCard('Negadas',num(neg.length),'Com justificativa')}${govCard('Valor aguardando',esc(moneyShort(pend.reduce((a,l)=>a+(Number(l.valor)||0),0))),'Soma dos valores estimados')}</div>`+
+  `<section class="panel">${status}${items.length?`<div class="ped-list">${items.map(l=>licitCard(l,st)).join('')}</div>`:govLicit.loading?'':'<p class="gov-empty">Nenhuma licitação enviada pelas prefeituras ainda. Elas enviam em “Sistema da prefeitura → Licitações”.</p>'}</section>`
+}
+async function govLicitDecidir(ref,aprovar){
+  const st=govOpenState();if(!st||!canState(st)||!countryStore)return;
+  const [cityId,lid]=String(ref).split('|'),c=data.municipios.find(x=>x.id===cityId&&x.estado===st.id);if(!c)return;
+  const l=govLicit.items.find(x=>x.id===lid&&x.cityId===cityId);if(!l)return;
+  const note=prompt(aprovar?`Aprovar a licitação "${l.title}" de ${c.nome}?\n\nObservação para a prefeitura (opcional):`:`Negar a licitação "${l.title}" de ${c.nome}?\n\nExplique o motivo para a prefeitura:`,'');if(note==null)return;
+  const msg=String(note).trim().slice(0,300);if(!aprovar&&!msg)return alert('Escreva o motivo da negativa.');
+  const me=current(),by=`${me?.name||'Governo do estado'}${me?.role?` (${me.role})`:''}`,status=aprovar?'Aprovada pelo estado':'Negada pelo estado',at=new Date().toISOString();
+  let done=false;
+  try{
+    await countryStore.runTransaction(async tx=>{
+      const docRef=cityDocRef(c),snap=await tx.get(docRef);if(!snap.exists)return;
+      const d=snap.data(),list=Array.isArray(d.licitations)?d.licitations.slice():[],i=list.findIndex(x=>x.id===lid);
+      if(i<0||!LIC_PENDENTE.includes(list[i].status))return;
+      list[i]={...list[i],status,stateDecisionAt:at,stateBy:by,stateNote:msg,stateName:st.nome,confirmedBy:by,confirmedAt:at};
+      const log=Array.isArray(d.activityLog)?d.activityLog.slice():[];
+      log.unshift({id:'gov'+Date.now().toString(36),at,actor:me?.name||'Governo do estado',actorId:'',role:me?.role||'',area:'licit',action:aprovar?'Aprovada pelo estado':'Negada pelo estado',description:`Governo de ${st.nome} ${aprovar?'aprovou':'negou'} a licitação "${list[i].title}"${msg?`: ${msg}`:''}.`,records:[],undoneAt:'',undoneBy:'',redoneAt:'',redoneBy:''});
+      if(log.length>300)log.length=300;
+      tx.update(docRef,{licitations:list,activityLog:log,updatedAt:at});done=true
+    })
+  }catch(err){console.error('Licitação:',err);return alert('Não foi possível registrar a decisão agora. Verifique a internet e tente de novo.')}
+  if(!done){alert('Esta licitação já foi decidida ou não existe mais.');loadGovLicit(st,true);return}
+  Object.assign(l,{status,stateDecisionAt:at,stateBy:by,stateNote:msg});
+  govLog(st,{acao:aprovar?'Licitação aprovada':'Licitação negada',area:'Licitações',texto:`Licitação "${l.title}" de ${c.nome} ${aprovar?'aprovada':'negada'}${msg?`: ${msg}`:''}`,municipio:c.id});save()
+}
+document.addEventListener('click',e=>{
+  const ok=e.target.closest('[data-lic-ok]');if(ok){govLicitDecidir(ok.dataset.licOk,true);return}
+  const no=e.target.closest('[data-lic-no]');if(no){govLicitDecidir(no.dataset.licNo,false);return}
+  if(e.target.closest('[data-lic-reload]')){const st=govOpenState();if(st){loadGovLicit(st,true);render()}}
+});
+
 // Mudanças em massa (estado inteiro) entram no histórico como uma linha de resumo, não uma por registro.
 function quietLog(keys,texto){
   if(logBase){const snap=logSnapshot();if(snap)for(const k of keys)logBase[k]=snap[k]}
@@ -1665,8 +1941,8 @@ const linkedGov=data.profiles.some(x=>scope(x)==='estadual'&&data.estados.some(e
 // Dinheiro fictício: União → estado (cofre nacional), estado → município (repasse),
 // economia do município → estado (arrecadação) e receitas/despesas próprias de cada nível.
 const GOV_CATEGORIES=['Saúde','Educação','Obras','Agricultura','Segurança','Cultura','Emergência','Impostos','Pessoal','Outros'];
-const GOV_TABS=[['painel','📊','Painel','Painel'],['municipios','🏘️','Municípios','Cidades'],['repasses','💸','Repasses','Repasses'],['arrecadacao','🧾','Arrecadação','Tributos'],['financas','💰','Finanças','Finanças'],['dados','⚙️','Dados do estado','Dados'],['historico','📜','Histórico','Histórico']];
-const CITY_TABS=[['painel','📊','Painel','Painel'],['financas','💰','Finanças','Finanças'],['repasses','💸','Repasses recebidos','Repasses'],['dados','⚙️','Dados do município','Dados']];
+const GOV_TABS=[['painel','📊','Painel','Painel'],['municipios','🏘️','Municípios','Cidades'],['repasses','💸','Repasses','Repasses'],['pedidos','📥','Pedidos de verba','Pedidos'],['licitacoes','📑','Licitações','Licitações'],['obras','🏗️','Obras e programas','Obras'],['orcamento','🎯','Orçamento','Orçamento'],['diario','📰','Diário Oficial','Diário'],['arrecadacao','🧾','Arrecadação','Tributos'],['financas','💰','Finanças','Finanças'],['dados','⚙️','Dados do estado','Dados'],['historico','📜','Histórico','Histórico']];
+const CITY_TABS=[['painel','📊','Painel','Painel'],['financas','💰','Finanças','Finanças'],['repasses','💸','Repasses recebidos','Repasses'],['pedidos','📨','Pedidos ao estado','Pedidos'],['dados','⚙️','Dados do município','Dados']];
 const MONTH_NAMES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const plural=(n,one,many)=>`${num(n)} ${Number(n)===1?one:many}`;
 const fmtDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v).split('-').reverse().join('/'):(v||'');
@@ -1776,9 +2052,12 @@ const categoryOptions=(selected='')=>GOV_CATEGORIES.map(c=>`<option ${c===select
 const movDelete=m=>`<button type="button" class="btn danger gov-mini" data-mov-del="${esc(m.id)}" title="Excluir">✕</button>`;
 const movActions=m=>`<button type="button" class="btn secondary gov-mini" data-mov-edit="${esc(m.id)}" title="Editar">✎</button> `+movDelete(m);
 
+let govShellTabs=null;
 function govShell({title,subtitle,tabs,active,tabAttr,exit,body,avatar}){
+  govShellTabs={tabs,active,tabAttr};
+  const many=tabs.length>5,bottom=many?tabs.slice(0,4):tabs,moreActive=many&&!bottom.some(([k])=>k===active);
   const btn=(short)=>([k,icon,label,shortLabel])=>`<button type="button" class="${k===active?'active':''}" ${tabAttr}="${k}"><span aria-hidden="true">${icon}</span>${esc(short?shortLabel:label)}</button>`;
-  return `<div class="gov-app"><header class="gov-top"><button class="btn secondary" type="button" data-page="inicio">← República</button>${avatar||''}<div class="grow"><b>${title}</b><small>${subtitle}</small></div>${exit||''}</header><div class="gov-body"><nav class="gov-side" aria-label="Seções">${tabs.map(btn(false)).join('')}</nav><main class="gov-main">${body}</main></div><nav class="gov-bottom" aria-label="Seções">${tabs.map(btn(true)).join('')}</nav></div>`
+  return `<div class="gov-app"><header class="gov-top"><button class="btn secondary" type="button" data-page="inicio">← República</button>${avatar||''}<div class="grow"><b>${title}</b><small>${subtitle}</small></div>${exit||''}</header><div class="gov-body"><nav class="gov-side" aria-label="Seções">${tabs.map(btn(false)).join('')}</nav><main class="gov-main">${body}</main></div><nav class="gov-bottom" aria-label="Seções">${bottom.map(btn(true)).join('')}${many?`<button type="button" class="${moreActive?'active':''}" data-gov-more aria-label="Mais seções"><span aria-hidden="true">☰</span>Mais</button>`:''}</nav></div>`
 }
 
 // ---- quem abre o quê
@@ -1803,9 +2082,11 @@ function estados(){
 
 function govStateApp(st){
   const tab=GOV_TABS.some(([k])=>k===govTab)?govTab:'painel';
-  const body=({painel:govPainel,municipios:govMunicipios,repasses:govRepasses,arrecadacao:govArrecadacao,financas:govFinancas,dados:govDados,historico:govHistorico})[tab](st);
+  const body=({painel:s=>govPainel(s)+govPainelExtra(s),municipios:govMunicipios,repasses:govRepasses,pedidos:govPedidos,licitacoes:govLicitacoes,obras:govObras,orcamento:govOrcamento,diario:govDiario,arrecadacao:govArrecadacao,financas:govFinancas,dados:govDados,historico:govHistorico})[tab](st);
+  loadGovLicit(st);
+  const badge={pedidos:pedidosAbertos(st).length,licitacoes:licPendentes(st).length},tabsList=GOV_TABS.map(t=>badge[t[0]]?[t[0],t[1],`${t[2]} · ${badge[t[0]]}`,`${t[3]} (${badge[t[0]]})`]:t);
   const national=scope(current())==='nacional';
-  return govShell({title:`Governo de ${esc(st.nome)}`,avatar:entityAvatar(st,'estado','mini'),subtitle:`${esc(st.sigla)} · Governante: ${esc(st.governante||'—')} · Caixa ${esc(moneyShort(stateCash(st)))}`,tabs:GOV_TABS,active:tab,tabAttr:'data-gov-tab',exit:national?'<button class="btn secondary" type="button" data-gov-exit title="Trocar estado"><span class="gov-long">Trocar estado</span><span class="gov-short">⇄ Estados</span></button>':'',body})
+  return govShell({title:`Governo de ${esc(st.nome)}`,avatar:entityAvatar(st,'estado','mini'),subtitle:`${esc(st.sigla)} · Governante: ${esc(st.governante||'—')} · Caixa ${esc(moneyShort(stateCash(st)))}`,tabs:tabsList,active:tab,tabAttr:'data-gov-tab',exit:national?'<button class="btn secondary" type="button" data-gov-exit title="Trocar estado"><span class="gov-long">Trocar estado</span><span class="gov-short">⇄ Estados</span></button>':'',body})
 }
 // Governante (estado) e prefeito(a) (município): escolhidos entre os perfis já cadastrados (guarda o id e o nome).
 // Um nome digitado antes desta mudança continua aparecendo como "nome antigo" até alguém trocar.
@@ -1998,7 +2279,7 @@ function municipios(){
 }
 function govCityApp(c){
   const tabs=CITY_TABS.filter(([k])=>k!=='dados'||cityManager()),tab=tabs.some(([k])=>k===cityTab)?cityTab:'painel',st=data.estados.find(x=>x.id===c.estado);
-  const body=({painel:cityPainel,financas:cityFinancas,repasses:cityRepasses,dados:cityDados})[tab](c);
+  const body=({painel:x=>cityPainel(x)+cityPainelExtra(x),financas:cityFinancas,repasses:cityRepasses,pedidos:cityPedidos,dados:cityDados})[tab](c);
   const level=scope(current());
   return govShell({title:`Prefeitura de ${esc(c.nome)}`,avatar:entityAvatar(c,'municipio','mini'),subtitle:`${esc(st?.nome||'Sem estado')} · Prefeito(a): ${esc(c.prefeito||'—')}`,tabs,active:tab,tabAttr:'data-city-tab',exit:'<button class="btn" type="button" data-city-app title="Abrir o sistema da prefeitura"><span class="gov-long">🏛️ Sistema da prefeitura</span><span class="gov-short">🏛️ Sistema</span></button>'+(level==='nacional'||level==='estadual'?'<button class="btn secondary" type="button" data-city-exit title="Trocar município"><span class="gov-long">Trocar município</span><span class="gov-short">⇄ Cidades</span></button>':''),body})
 }
