@@ -1524,39 +1524,22 @@ async function syncDevicePush(){
   }catch(err){console.warn('Notificações da República:',err);return false}
 }
 function dropDevicePush(){devicePushFor='';pushTokensCol()?.doc(pushDeviceId()).update({republicaAlerts:false,updatedAt:nowISO()}).catch(()=>{})}
-const stateLeaders=stId=>{if(!stId)return [];const st=data.estados.find(x=>x.id===stId),ids=[st?.governanteId,...data.profiles.filter(p=>scope(p)==='estadual'&&p.jurisdictionId===stId).map(p=>p.id)].filter(Boolean);
-  return ids.length?ids:data.profiles.filter(p=>scope(p)==='nacional').map(p=>p.id)};
-const cityLeaders=cId=>{const c=data.municipios.find(x=>x.id===cId);return c?[c.prefeitoId,...data.profiles.filter(p=>p.jurisdictionId===c.id&&LEADER.prefeito.roles.includes(p.role)).map(p=>p.id)].filter(Boolean):[]};
-// Quem recebe cada aviso
-function pushRule(a){
-  const c=data.municipios.find(x=>x.id===a.municipio),stId=a.estado||c?.estado||'';
-  switch(a.acao){
-    case 'Pedido de verba':return {to:stateLeaders(stId),title:'📨 Pedido de verba'};
-    case 'Licitação enviada':return {to:stateLeaders(stId),title:'📑 Licitação para aprovar'};
-    case 'Repasse':return a.nivel==='estado'&&c?{to:cityLeaders(c.id),title:'💸 Repasse do estado'}:null;
-    case 'Pedido recusado':return {to:cityLeaders(a.municipio),title:'❌ Pedido de verba recusado'};
-    case 'Licitação aprovada':return {to:cityLeaders(a.municipio),title:'✅ Licitação aprovada'};
-    case 'Licitação negada':return {to:cityLeaders(a.municipio),title:'❌ Licitação negada'};
-  }
-  return null
-}
+const PUSH_ACOES=new Set(['Pedido de verba','Pedido recusado','Repasse','Licitação aprovada','Licitação negada','Nova enquete','Novo evento','Ato publicado']);
+// Depois de gravar: avisa o servidor das atividades deste aparelho que geram notificação (ele espera chegarem ao banco).
 function pushLocalActs(){
   if(!localActs.size)return;
-  for(const a of (data.atividades||[]).slice(0,80)){if(!localActs.has(a.id)||pushedActs.has(a.id))continue;pushedActs.add(a.id);const r=pushRule(a);if(r)pushToProfiles(r.to,r.title,a.texto||'',a.id)}
-  localActs.clear()
+  const ids=[];
+  for(const a of (data.atividades||[]).slice(0,80)){if(!localActs.has(a.id)||pushedActs.has(a.id))continue;pushedActs.add(a.id);if(PUSH_ACOES.has(a.acao))ids.push(a.id)}
+  localActs.clear();
+  if(ids.length)setTimeout(()=>ids.forEach(postRepublicaPush),1200)
 }
-async function pushToProfiles(ids,title,body,tag){
-  const me=current()?.id;ids=[...new Set(ids.filter(x=>x&&x!==me))].slice(0,30);
-  const col=pushTokensCol();if(!ids.length||!col||!(await pushBackendReady()))return;
+// O servidor confere a atividade no banco e escolhe quem recebe; aqui só diz qual foi.
+async function postRepublicaPush(activityId){
+  if(!(await pushBackendReady()))return;
   try{
     const user=countryAuthUser();if(!user)return;
-    const rows=(await col.where('operatorId','in',ids).get()).docs.map(d=>({ref:d.ref,...d.data()})).filter(x=>x.token&&(x.republicaAlerts===true||(x.republicaAlerts==null&&x.notificationsEnabled!==false)));
-    if(!rows.length)return;
-    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await user.getIdToken()},
-      body:JSON.stringify({tokens:[...new Set(rows.map(x=>x.token))].slice(0,50),title,body:String(body).slice(0,200),data:{type:'republica',messageId:tag,url:'/?open=atividades'}})});
-    const j=await r.json().catch(()=>({}));
-    // Aparelho que desinstalou o app ou trocou de registro: sai da lista para não falhar de novo.
-    if(Array.isArray(j.stale))for(const x of rows)if(j.stale.includes(x.token))x.ref.delete().catch(()=>{})
+    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await user.getIdToken()},body:JSON.stringify({kind:'republica',activityId})});
+    if(!r.ok&&r.status!==404)console.warn('Aviso push:',r.status)
   }catch(err){console.warn('Aviso push:',err)}
 }
 // A Prefeitura (aberta dentro da República) avisa quando envia uma licitação ao estado.

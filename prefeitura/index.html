@@ -1038,6 +1038,24 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 .chat-audio-lazy{display:flex;flex-direction:row;align-items:center;gap:8px;min-width:min(260px,65vw)}
 .chat-audio-lazy button{border:0;border-radius:999px;padding:9px 12px;background:rgba(127,145,159,.16);color:inherit;font-weight:800;cursor:pointer}
 .chat-audio-lazy small{font-size:9px;opacity:.7}.chat-audio-error{font-size:10px;font-weight:700;color:#b3261e}
+.chat-mention{font-weight:900;color:#1F6FB2}html[data-appearance="dark"] .chat-mention{color:#8CC8FF}.chat-row.mentions-me .chat-bubble{box-shadow:0 0 0 2px #D7A93E}
+.chat-mention-box{margin:0 10px 6px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;max-height:220px;overflow-y:auto}
+.chat-mention-box button{display:flex;width:100%;align-items:center;gap:8px;padding:9px 12px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer;font-size:13px}.chat-mention-box button:hover,.chat-mention-box button:focus{background:rgba(127,145,159,.14)}.chat-mention-box small{color:var(--muted);font-size:11px}
+.chat-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:-6px;padding:0 6px;position:relative;z-index:1}.chat-row.mine .chat-reactions{justify-content:flex-end}
+.chat-react-chip{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:2px 7px;font-size:12px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.08)}.chat-react-chip.mine{border-color:#2F86D4;background:rgba(47,134,212,.12)}
+.chat-react-row{display:flex;justify-content:space-between;gap:4px;padding:4px 2px 10px}.chat-react-row button{flex:1;font-size:24px;border:0;background:rgba(127,145,159,.12);border-radius:12px;padding:7px 0;cursor:pointer}.chat-react-row button.on{background:rgba(47,134,212,.22)}
+.chat-pinned-bar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--card);border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}.chat-pinned-bar.hidden{display:none}.chat-pinned-bar b{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.04em}.chat-pinned-bar .grow{min-width:0;display:flex;flex-direction:column}.chat-pinned-bar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-pinned-bar button{border:0;background:transparent;color:var(--muted);font-size:16px;cursor:pointer}
+button.chat-receipt{border:0;background:transparent;padding:0;font:inherit;font-weight:900;cursor:pointer}
+.chat-readers h4{margin:10px 0 4px;font-size:12px;color:var(--muted)}.chat-readers div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}.chat-readers small{color:var(--muted)}
+.cap{flex-direction:row!important;align-items:center;gap:8px!important;min-width:min(270px,64vw)}.cap audio{display:none}
+.cap-play{flex:none;width:38px;height:38px;border-radius:50%;border:0;background:rgba(127,145,159,.22);color:inherit;font-size:15px;cursor:pointer;display:grid;place-items:center;padding:0}
+.chat-row.mine .cap-play{background:rgba(255,255,255,.2)}.cap.is-playing .cap-play{background:var(--gold);color:#0B2E59}
+.cap-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.cap-track{position:relative;height:28px;display:flex;align-items:center;gap:2px;cursor:pointer;touch-action:none}
+.cap-track i{flex:1;min-width:2px;border-radius:2px;background:currentColor;opacity:.32;transition:opacity .12s}.cap-track i.on{opacity:1}
+.cap-info{display:flex;justify-content:space-between;font-size:10px;font-weight:700;opacity:.8}
+.cap-speed{flex:none;border:0;border-radius:999px;padding:5px 8px;min-width:40px;background:rgba(127,145,159,.2);color:inherit;font-size:11px;font-weight:900;cursor:pointer}
+.chat-row.mine .cap-speed{background:rgba(255,255,255,.18)}
 .chat-send-btn:disabled{opacity:.58;cursor:wait}
 
 
@@ -2530,7 +2548,7 @@ function chatFileSize(n){
 }
 function chatAttachmentMeta(a){
   if(!a)return null;
-  return {kind:a.kind||'file',name:String(a.name||'Anexo').slice(0,120),type:String(a.type||'application/octet-stream').slice(0,120),size:Number(a.size||0),duration:Number(a.duration||0)||0}
+  return {kind:a.kind||'file',name:String(a.name||'Anexo').slice(0,120),type:String(a.type||'application/octet-stream').slice(0,120),size:Number(a.size||0),duration:Number(a.duration||0)||0,...(/^[0-9]{8,64}$/.test(a.wave||'')?{wave:a.wave}:{})}
 }
 async function storeChatMedia(a,owner){
   if(!a?.dataUrl||!chatMediaCollection)return {attachment:a,mediaId:''};
@@ -2574,14 +2592,12 @@ function hydrateChatMedia(){
 }
 async function loadChatAudio(id){
   const m=chatMessages.find(x=>x.id===id),host=document.getElementById('chatAudio_'+id);if(!m?.attachment||!host)return;
-  host.innerHTML='<span>☁ Carregando áudio…</span>';
   try{
     const a=await resolveChatAttachment(m.attachment);
-    if(!a?.dataUrl){host.innerHTML='<span>⚠ Áudio indisponível</span>';return}
-    host.className='chat-audio';host.removeAttribute('id');
-    host.innerHTML=`<span>🎙️ Mensagem de voz${a.duration?' • '+chatDurationText(a.duration):''}</span><audio controls preload="auto" src="${esc(a.dataUrl)}"></audio>`;
-    host.querySelector('audio')?.play().catch(()=>{})
-  }catch{host.innerHTML='<span>⚠ Falha ao carregar áudio</span>'}
+    if(!a?.dataUrl){host.innerHTML='<span class="chat-audio-error">⚠ Áudio indisponível</span>';return}
+    host.outerHTML=chatAudioPlayerHTML(a.dataUrl,a,id);
+    const box=document.querySelector(`.cap[data-msg="${CSS.escape(id)}"]`);if(box)chatAudioToggle(box)
+  }catch{host.innerHTML='<span class="chat-audio-error">⚠ Falha ao carregar o áudio. Toque para tentar de novo.</span>';host.onclick=()=>{host.onclick=null;const r=document.getElementById('chatMessages');if(r)r._chatHTML='';renderChatMessages(false)}}
 }
 
 function chatBadgeText(){return chatUnread>99?'99+':String(chatUnread||'')}
@@ -2626,8 +2642,7 @@ async function setChatNotifySetting(key,value){
 }
 async function unregisterChatPushDevice(){
   try{
-    if(pushTokensCollection)await pushTokensCollection.doc(pushDeviceId()).delete();
-    if(messaging?.deleteToken)await messaging.deleteToken().catch(()=>{});
+    if(pushTokensCollection)await pushTokensCollection.doc(pushDeviceId()).set({notificationsEnabled:false,updatedAt:nowISO()},{merge:true});
   }catch(err){console.warn('Remover push:',err)}
   lastPushOperatorId=''
 }
@@ -2757,32 +2772,15 @@ async function ensurePushRegistration(askPermission=true){
     return Notification.permission==='granted'
   }finally{pushRegistering=false}
 }
-async function sendChatPush(msg){
-  if(!pushBackendConfigured||!pushTokensCollection||!fbAuth?.currentUser)return;
+// O servidor confere a mensagem no banco, monta o aviso e escolhe quem recebe (o aparelho não manda texto nem lista de aparelhos).
+async function postPush(body){
+  if(!pushBackendConfigured||!fbAuth?.currentUser)return;
   try{
-    const snap=await pushTokensCollection.get();
-    const recipients=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x?.token&&x.notificationsEnabled!==false&&x.operatorId!==msg.senderId);
-    if(!recipients.length)return;
-    const idToken=await fbAuth.currentUser.getIdToken();
-    const attachmentLabel=msg.attachment?.kind==='image'?'📷 Imagem':msg.attachment?.kind==='audio'?'🎙️ Mensagem de voz':msg.attachment?'📎 Arquivo':'';
-    const fullBody=(msg.text||attachmentLabel||'Nova mensagem').slice(0,180);
-    const groups=new Map();
-    for(const r of recipients.slice(0,50)){
-      const preview=r.previewEnabled!==false,sound=r.soundEnabled!==false,vibrate=r.vibrateEnabled!==false;
-      const key=[preview?'1':'0',sound?'1':'0',vibrate?'1':'0'].join('');
-      if(!groups.has(key))groups.set(key,{tokens:[],preview,sound,vibrate});
-      groups.get(key).tokens.push(r.token)
-    }
-    for(const g of groups.values()){
-      const body=g.preview?fullBody:'Nova mensagem no Chat da República';
-      const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},body:JSON.stringify({
-        tokens:g.tokens,title:'💬 '+msg.senderName,body,
-        data:{type:'chat',messageId:msg.id||'',senderId:msg.senderId||'',sound:g.sound?'1':'0',vibrate:g.vibrate?'1':'0',preview:g.preview?'1':'0'}
-      })});
-      if(!r.ok){const t=await r.text().catch(()=>String(r.status));console.warn('Push não enviado:',r.status,t)}
-    }
-  }catch(err){console.warn('Push do chat:',err)}
+    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await fbAuth.currentUser.getIdToken()},body:JSON.stringify(body)});
+    if(!r.ok&&r.status!==404)console.warn('Push não enviado:',r.status,await r.text().catch(()=>''))
+  }catch(err){console.warn('Push:',err)}
 }
+function sendChatPush(msg){if(msg?.id)postPush({kind:'chat',messageId:msg.id})}
 async function testPushBackend(){
   try{
     const r=await fetch('/api/push',{cache:'no-store'}),j=await r.json();
@@ -2813,7 +2811,40 @@ function markChatRead(){
   setChatUnread(0);
   if(chatPresenceCollection)touchChatPresence(false)
 }
-function chatTextHTML(text){return esc(text||'').replace(/\n/g,'<br>')}
+function chatTextHTML(text,mentions){
+  let h=esc(text||'');
+  const names=(Array.isArray(mentions)?mentions:[]).map(id=>chatPeople().get(id)?.name).filter(Boolean).sort((a,b)=>b.length-a.length);
+  for(const n of names){const t=esc('@'+n);h=h.split(t).join(`<b class="chat-mention">${t}</b>`)}
+  return h.replace(/\n/g,'<br>')
+}
+// Quem participa do chat (para @menção e "Visto por"): perfis, presença e quem já mandou mensagem.
+function chatPeople(){
+  const out=new Map();
+  for(const o of db.operators||[])if(o?.id&&o.name)out.set(o.id,{id:o.id,name:o.name,role:o.role||''});
+  for(const p of chatPresence||[])if(p?.operatorId&&p.operatorName&&!out.has(p.operatorId))out.set(p.operatorId,{id:p.operatorId,name:p.operatorName,role:p.role||''});
+  for(const m of chatMessages||[])if(m?.senderId&&m.senderName&&!out.has(m.senderId))out.set(m.senderId,{id:m.senderId,name:m.senderName,role:m.senderRole||''});
+  return out
+}
+function chatMentionsIn(text){
+  const t=String(text||'').toLocaleLowerCase('pt-BR'),ids=[];
+  for(const p of [...chatPeople().values()].sort((a,b)=>b.name.length-a.name.length))if(p.id!==db.currentOperatorId&&t.includes('@'+p.name.toLocaleLowerCase('pt-BR')))ids.push(p.id);
+  return ids.slice(0,20)
+}
+function updateChatMentionBox(el){
+  const box=document.getElementById('chatMentionBox');if(!box||!el)return;
+  const before=el.value.slice(0,el.selectionStart??el.value.length),m=before.match(/(?:^|\s)@([^\s@]{0,30})$/);
+  if(!m){box.classList.add('hidden');box.innerHTML='';return}
+  const q=m[1].toLocaleLowerCase('pt-BR'),list=[...chatPeople().values()].filter(p=>p.id!==db.currentOperatorId&&p.name.toLocaleLowerCase('pt-BR').split(/\s+/).some(w=>w.startsWith(q))).slice(0,6);
+  if(!list.length){box.classList.add('hidden');box.innerHTML='';return}
+  box.innerHTML=list.map(p=>`<button type="button" role="option" onmousedown="event.preventDefault()" onclick="App.pickChatMention(${jsArg(p.id)})"><b>@${esc(p.name)}</b><small>${esc(p.role)}</small></button>`).join('');
+  box.classList.remove('hidden')
+}
+function pickChatMention(id){
+  const el=document.getElementById('chatInput'),p=chatPeople().get(id);if(!el||!p)return;
+  const pos=el.selectionStart??el.value.length,before=el.value.slice(0,pos).replace(/@([^\s@]{0,30})$/,'@'+p.name+' ');
+  el.value=before+el.value.slice(pos);el.focus();el.setSelectionRange(before.length,before.length);
+  document.getElementById('chatMentionBox')?.classList.add('hidden');chatAutoGrow(el);updateChatComposerState()
+}
 function chatReadReceipt(m){
   if(m.senderId!==db.currentOperatorId)return '';
   const sent=new Date(m.createdAt||0).getTime();if(!sent)return '✓ Enviada';
@@ -2833,8 +2864,8 @@ function chatAttachmentHTML(m){
   }
   if(a.kind==='audio'){
     const src=a.dataUrl||(a.mediaId&&chatMediaCache.get(a.mediaId)?.dataUrl),dur=a.duration?' • '+chatDurationText(a.duration):'';
-    if(src)return `<div class="chat-audio"><span>🎙️ Mensagem de voz${dur}</span><audio controls preload="metadata" src="${esc(src)}"></audio></div>`;
-    return `<div id="chatAudio_${esc(m.id)}" class="chat-audio chat-audio-lazy"><button type="button" onclick="App.loadChatAudio(${jsArg(m.id)})">▶ Ouvir mensagem de voz</button><small>${a.duration?chatDurationText(a.duration)+' • ':''}${chatFileSize(a.size)}</small></div>`
+    if(src)return chatAudioPlayerHTML(src,a,m.id);
+    return chatAudioPlayerHTML('',a,m.id)
   }
   return `<button type="button" class="chat-file-card" onclick="App.downloadChatAttachment(${jsArg(m.id)})"><span class="chat-file-icon">📎</span><span class="grow"><b>${esc(a.name||'Arquivo')}</b><small>${esc(a.type||'arquivo')} • ${chatFileSize(a.size)}</small></span><span>⬇</span></button>`
 }
@@ -2847,30 +2878,83 @@ function chatMessageHTML(m,prev=null,next=null){
   };
   const groupedPrev=sameSender(prev,m),groupedNext=sameSender(m,next),showIdentity=!mine&&!groupedPrev,showAvatar=!mine&&!groupedNext;
   const quoted=m.reply?`<button type="button" class="chat-quote" onclick="App.scrollToChatMessage(${jsArg(m.reply.id||'')})"><b>${esc(m.reply.senderName||'Mensagem')}</b><span>${esc((m.reply.text||'Anexo').slice(0,90))}</span></button>`:'';
-  const receipt=mine?chatReadReceipt(m):'';
-  return `<div class="chat-row ${mine?'mine':'theirs'} ${groupedPrev?'chat-grouped-prev':'chat-group-start'} ${groupedNext?'chat-grouped-next':'chat-group-end'}" data-chat-id="${esc(m.id)}">
+  const receipt=mine?chatReadReceipt(m):'',mentionsMe=!mine&&Array.isArray(m.mentions)&&m.mentions.includes(db.currentOperatorId);
+  return `<div class="chat-row ${mine?'mine':'theirs'}${mentionsMe?' mentions-me':''} ${groupedPrev?'chat-grouped-prev':'chat-group-start'} ${groupedNext?'chat-grouped-next':'chat-group-end'}" data-chat-id="${esc(m.id)}">
     ${mine?'':showAvatar?`<button type="button" class="chat-avatar-button" onclick="App.openUserProfile(${jsArg(m.senderId||'')})" title="Ver perfil">${profileAvatarHTML(p,'profile-avatar-chat')}</button>`:'<span class="chat-avatar-spacer"></span>'}
     <div class="chat-message-wrap">
       <div class="chat-bubble" ondblclick="App.replyChatMessage(${jsArg(m.id)})">
         ${showIdentity?`<button type="button" class="chat-sender" onclick="App.openUserProfile(${jsArg(m.senderId||'')})"><b>${esc(m.senderName||p.name||'Usuário')}</b><span>${esc(m.senderRole||p.role||'')}</span></button>`:''}
         ${quoted}
-        ${m.text?`<div class="chat-text">${chatTextHTML(m.text)}</div>`:''}
+        ${m.text?`<div class="chat-text">${chatTextHTML(m.text,m.mentions)}</div>`:''}
         ${chatAttachmentHTML(m)}
-        <div class="chat-meta-line"><span>${chatTime(m.createdAt)}${m.editedAt?' · editada':''}</span>${mine?`<span class="chat-receipt ${String(receipt).includes('✓✓')?'read':''}">${esc(receipt||'✓')}</span>`:''}</div>
+        <div class="chat-meta-line"><span>${chatTime(m.createdAt)}${m.editedAt?' · editada':''}</span>${m.pinnedAt?'<span title="Fixada">📌</span>':''}${mine?`<button type="button" class="chat-receipt ${String(receipt).includes('✓✓')?'read':''}" onclick="event.stopPropagation();App.showChatReaders(${jsArg(m.id)})" title="Ver quem leu">${esc(receipt||'✓')}</button>`:''}</div>
       </div>
+      ${chatReactionsHTML(m)}
       <button type="button" class="chat-message-menu" onclick="App.openChatMessageMenu(${jsArg(m.id)})" aria-label="Ações da mensagem">⌄</button>
     </div>
   </div>`
+}
+const CHAT_REACTIONS=['👍','❤️','😂','😮','🙏','✅'];
+function chatReactionsHTML(m){
+  const r=m.reactions&&typeof m.reactions==='object'?m.reactions:{},count=new Map();
+  for(const [pid,e] of Object.entries(r))if(CHAT_REACTIONS.includes(e))count.set(e,(count.get(e)||0)+1);
+  if(!count.size)return '';
+  const mineE=r[db.currentOperatorId];
+  return `<div class="chat-reactions">${[...count].map(([e,n])=>`<button type="button" class="chat-react-chip${mineE===e?' mine':''}" onclick="App.reactChat(${jsArg(m.id)},${jsArg(e)})" title="${esc(chatReactionNames(m,e))}">${e}${n>1?' '+n:''}</button>`).join('')}</div>`
+}
+function chatReactionNames(m,e){const people=chatPeople();return Object.entries(m.reactions||{}).filter(([,x])=>x===e).map(([id])=>people.get(id)?.name||'Alguém').join(', ')}
+// Uma reação por pessoa: tocar na mesma tira, em outra troca.
+async function reactChat(id,emoji){
+  const me=db.currentOperatorId;if(!chatCollection||!me||!CHAT_REACTIONS.includes(emoji))return;
+  const ref=chatCollection.doc(id);
+  try{await fbStore.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)return;const r={...(snap.data().reactions||{})};if(r[me]===emoji)delete r[me];else r[me]=emoji;tx.update(ref,{reactions:r})})}
+  catch(err){console.error('Reagir:',err);toast('Não foi possível reagir agora.')}
+}
+// Mensagem fixada no topo (administração). Só uma por vez.
+let chatPinned=[],chatPinnedUnsub=null;
+async function pinChatMessage(id,pin){
+  if(!isFullAccess()||!chatCollection)return;
+  try{
+    if(pin)for(const p of chatPinned)if(p.id!==id)await chatCollection.doc(p.id).update({pinnedAt:'',pinnedBy:''}).catch(()=>{});
+    await chatCollection.doc(id).update(pin?{pinnedAt:nowISO(),pinnedBy:db.currentOperator||''}:{pinnedAt:'',pinnedBy:''});
+    toast(pin?'Mensagem fixada no topo.':'Mensagem desafixada.')
+  }catch(err){console.error('Fixar:',err);toast('Não foi possível fixar a mensagem.')}
+}
+function renderChatPinned(){
+  const bar=document.getElementById('chatPinnedBar');if(!bar)return;
+  const p=chatPinned[0];if(!p){bar.classList.add('hidden');bar.innerHTML='';return}
+  const label=p.text||(p.attachment?.kind==='audio'?'🎙️ Mensagem de voz':p.attachment?.kind==='image'?'📷 Imagem':p.attachment?'📎 '+(p.attachment.name||'Arquivo'):'Mensagem');
+  bar.innerHTML=`<span aria-hidden="true">📌</span><div class="grow"><b>Fixada por ${esc(p.pinnedBy||'administração')}</b><span>${esc(p.senderName||'')}: ${esc(String(label).slice(0,140))}</span></div>${isFullAccess()?`<button type="button" onclick="event.stopPropagation();App.pinChatMessage(${jsArg(p.id)},false)" aria-label="Desafixar">✕</button>`:''}`;
+  bar.classList.remove('hidden')
+}
+function openPinnedChat(){const p=chatPinned[0];if(p)scrollToChatMessage(p.id)}
+function watchChatPinned(){
+  chatPinnedUnsub?.();if(!chatCollection)return;
+  chatPinnedUnsub=chatCollection.where('pinnedAt','>','').onSnapshot(snap=>{
+    chatPinned=snap.docs.map(d=>Object.assign({id:d.id},d.data())).filter(x=>x.pinnedAt).sort((a,b)=>String(b.pinnedAt).localeCompare(String(a.pinnedAt)));renderChatPinned()
+  },err=>console.warn('Fixadas:',err))
+}
+// "Visto por": quem já abriu o chat depois da mensagem.
+function showChatReaders(id){
+  const m=chatMessages.find(x=>x.id===id);if(!m)return;
+  const sent=new Date(m.createdAt||0).getTime(),people=chatPeople(),pres=new Map((chatPresence||[]).map(p=>[p.operatorId,p]));
+  const leram=[],faltam=[];
+  for(const p of people.values()){if(p.id===m.senderId)continue;const pr=pres.get(p.id),t=new Date(pr?.lastReadAt||0).getTime();(t>=sent?leram:faltam).push({...p,t})}
+  leram.sort((a,b)=>b.t-a.t);
+  showModal('Visto por',`<div class="chat-readers"><h4>✓✓ Leram (${leram.length})</h4>${leram.map(p=>`<div><span>${esc(p.name)}</span><small>${esc(chatTime(new Date(p.t).toISOString()))}</small></div>`).join('')||'<p class="muted">Ninguém leu ainda.</p>'}<h4>Ainda não leram (${faltam.length})</h4>${faltam.map(p=>`<div><span>${esc(p.name)}</span><small>${esc(p.role||'')}</small></div>`).join('')||'<p class="muted">Todos já leram.</p>'}</div>`)
 }
 function openChatMessageMenu(id){
   const m=chatMessages.find(x=>x.id===id);if(!m)return;
   const mine=m.senderId===db.currentOperatorId,canDelete=mine||isFullAccess();
   showModal('Ações da mensagem',`<div class="chat-message-menu-sheet">
     <div class="chat-menu-message-preview"><b>${esc(m.senderName||'Usuário')}</b><span>${esc((m.text||m.attachment?.name||'Anexo').slice(0,110))}</span></div>
+    <div class="chat-react-row">${CHAT_REACTIONS.map(e=>`<button type="button" class="${m.reactions?.[db.currentOperatorId]===e?'on':''}" onclick="App.closeModal();App.reactChat(${jsArg(m.id)},${jsArg(e)})" aria-label="Reagir com ${e}">${e}</button>`).join('')}</div>
     <button class="chat-menu-option" onclick="App.closeModal();App.replyChatMessage(${jsArg(m.id)})"><span>↩</span><b>Responder</b></button>
     ${m.text?`<button class="chat-menu-option" onclick="App.closeModal();App.copyChatMessage(${jsArg(m.id)})"><span>⧉</span><b>Copiar</b></button>`:''}
     ${!mine?`<button class="chat-menu-option" onclick="App.closeModal();App.openUserProfile(${jsArg(m.senderId||'')})"><span>👤</span><b>Ver perfil</b></button>`:''}
     ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage(${jsArg(m.id)})"><span>✎</span><b>Editar</b></button>`:''}
+    ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.showChatReaders(${jsArg(m.id)})"><span>✓✓</span><b>Visto por</b></button>`:''}
+    ${isFullAccess()?`<button class="chat-menu-option" onclick="App.closeModal();App.pinChatMessage(${jsArg(m.id)},${m.pinnedAt?'false':'true'})"><span>📌</span><b>${m.pinnedAt?'Desafixar':'Fixar no topo'}</b></button>`:''}
     <button class="chat-menu-option" onclick="App.closeModal();App.startChatSelect(${jsArg(m.id)})"><span>☑</span><b>Selecionar várias</b></button>
     ${canDelete?`<button class="chat-menu-option danger" onclick="App.closeModal();App.deleteChatMessage(${jsArg(m.id)})"><span>🗑</span><b>Excluir</b></button>`:''}
   </div>`)
@@ -2932,6 +3016,48 @@ function renderChatMessages(forceBottom=false){
   const shouldBottom=forceBottom||chatAutoScroll||wasNearBottom||chatLastRenderedCount===0;chatLastRenderedCount=list.length;
   requestAnimationFrame(()=>{if(shouldBottom)root.scrollTop=root.scrollHeight;updateChatScrollButton()})
 }
+// ---- Player das mensagens de voz: botão, onda (gravada junto com o áudio), posição e velocidade 1x/1,5x/2x
+const CHAT_RATE_KEY='bom_regresso_chat_audio_rate',CHAT_RATES=[1,1.5,2];
+const chatAudioRate=()=>{const v=Number(localStorage.getItem(CHAT_RATE_KEY));return CHAT_RATES.includes(v)?v:1};
+const rateText=v=>String(v).replace('.',',')+'x';
+function chatWaveBars(a,seed){
+  let w=/^[0-9]{8,64}$/.test(a?.wave||'')?a.wave:'';
+  // Áudios antigos não têm onda gravada: desenha uma fixa a partir do id da mensagem.
+  if(!w){let h=0;for(const ch of String(seed||'x'))h=(h*31+ch.charCodeAt(0))>>>0;w='';for(let i=0;i<40;i++){h=(h*1103515245+12345)>>>0;w+=String(2+(h>>>16)%7)}}
+  return [...w].map(d=>`<i style="height:${Math.round(18+Number(d)*9)}%"></i>`).join('')
+}
+function chatAudioPlayerHTML(src,a,id){
+  return `<div ${src?'':`id="chatAudio_${esc(id||'')}" data-lazy="1" `}class="chat-audio cap" data-msg="${esc(id||'')}" data-dur="${Number(a?.duration)||0}"><button type="button" class="cap-play" aria-label="Tocar mensagem de voz">▶</button><div class="cap-main"><div class="cap-track" role="slider" aria-label="Posição do áudio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">${chatWaveBars(a,id)}</div><div class="cap-info"><span class="cap-time">${a?.duration?chatDurationText(a.duration):'0:00'}</span><span>🎙️</span></div></div><button type="button" class="cap-speed" aria-label="Velocidade">${rateText(chatAudioRate())}</button>${src?`<audio preload="metadata" src="${esc(src)}"></audio>`:''}</div>`
+}
+function chatAudioUI(box){
+  const a=box?.querySelector('audio');if(!a)return;
+  const dur=Number.isFinite(a.duration)&&a.duration>0?a.duration:Number(box.dataset.dur)||0,p=dur?Math.min(1,a.currentTime/dur):0,playing=!a.paused&&!a.ended;
+  box.classList.toggle('is-playing',playing);
+  const btn=box.querySelector('.cap-play');btn.textContent=playing?'❚❚':'▶';btn.setAttribute('aria-label',playing?'Pausar':'Tocar mensagem de voz');
+  const bars=box.querySelectorAll('.cap-track i'),on=Math.round(p*bars.length);bars.forEach((b,i)=>b.classList.toggle('on',i<on));
+  box.querySelector('.cap-track')?.setAttribute('aria-valuenow',String(Math.round(p*100)));
+  const t=box.querySelector('.cap-time');if(t)t.textContent=chatDurationText(playing||a.currentTime>0?a.currentTime:dur)
+}
+function chatAudioToggle(box){
+  const a=box.querySelector('audio');if(!a)return;
+  if(a.paused||a.ended){document.querySelectorAll('#chatMessages .cap audio').forEach(x=>{if(x!==a&&!x.paused)x.pause()});a.playbackRate=chatAudioRate();a.play().catch(()=>{})}
+  else a.pause()
+}
+function chatAudioSeek(box,clientX){
+  const a=box.querySelector('audio'),tr=box.querySelector('.cap-track');if(!a||!tr)return;
+  const r=tr.getBoundingClientRect(),f=Math.max(0,Math.min(1,(clientX-r.left)/r.width)),dur=Number.isFinite(a.duration)?a.duration:Number(box.dataset.dur)||0;
+  if(dur){try{a.currentTime=f*dur}catch{}chatAudioUI(box)}
+}
+document.addEventListener('click',e=>{
+  const play=e.target.closest('.cap-play');if(play){const box=play.closest('.cap');if(box.dataset.lazy){if(!box.dataset.loading){box.dataset.loading='1';play.textContent='…';loadChatAudio(box.dataset.msg)}}else chatAudioToggle(box);return}
+  const sp=e.target.closest('.cap-speed');if(sp){const v=CHAT_RATES[(CHAT_RATES.indexOf(chatAudioRate())+1)%CHAT_RATES.length];localStorage.setItem(CHAT_RATE_KEY,String(v));
+    document.querySelectorAll('.cap').forEach(b=>{const s=b.querySelector('.cap-speed');if(s)s.textContent=rateText(v);const a=b.querySelector('audio');if(a)a.playbackRate=v});return}
+});
+document.addEventListener('pointerdown',e=>{const tr=e.target.closest('.cap-track');if(!tr)return;const box=tr.closest('.cap');e.preventDefault();chatAudioSeek(box,e.clientX);
+  const move=ev=>chatAudioSeek(box,ev.clientX),up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);removeEventListener('pointercancel',up)};
+  addEventListener('pointermove',move);addEventListener('pointerup',up);addEventListener('pointercancel',up)});
+document.addEventListener('keydown',e=>{const tr=e.target.closest?.('.cap-track');if(!tr||!['ArrowLeft','ArrowRight'].includes(e.key))return;const a=tr.closest('.cap').querySelector('audio');if(a&&Number.isFinite(a.duration)){a.currentTime=Math.max(0,Math.min(a.duration,a.currentTime+(e.key==='ArrowRight'?5:-5)));chatAudioUI(tr.closest('.cap'))}});
+['play','pause','ended','timeupdate','durationchange','seeked'].forEach(t=>document.addEventListener(t,e=>{const a=e.target;if(a instanceof HTMLAudioElement&&a.closest('.cap'))chatAudioUI(a.closest('.cap'))},true));
 // Áudio gravado em WebM não traz a duração: o player mostrava ∞ e não deixava avançar. Pula para o fim uma vez e volta.
 document.addEventListener('loadedmetadata',e=>{const a=e.target;if(!(a instanceof HTMLAudioElement)||!a.closest('.chat-audio'))return;
   if(Number.isFinite(a.duration))return;const back=()=>{if(!Number.isFinite(a.duration))return;a.removeEventListener('durationchange',back);a.currentTime=0};a.addEventListener('durationchange',back);try{a.currentTime=1e7}catch{}},true);
@@ -3010,7 +3136,7 @@ function stopChatTyping(){
   if(chatTypingSentAt){chatTypingSentAt=0;touchChatPresence(false)}
 }
 function chatInputChanged(el,ev){
-  chatAutoGrow(el);updateChatComposerState();
+  chatAutoGrow(el);updateChatComposerState();updateChatMentionBox(el);
   const hasText=!!String(el?.value||'').trim();
   if(hasText&&Date.now()-chatTypingSentAt>2500){chatTypingSentAt=Date.now();touchChatPresence(true)}
   clearTimeout(chatTypingTimer);
@@ -3236,6 +3362,7 @@ function chat(c){
         <button class="chat-header-icon ${granted?'is-active':''}" onclick="App.requestChatNotifications()" aria-label="Notificações" title="Notificações">${granted?'🔔':'🔕'}</button>
         <button class="chat-header-icon chat-search-trigger" onclick="App.toggleChatSearch()" aria-label="Pesquisar" title="Pesquisar">⌕</button>
       </header>
+      <div id="chatPinnedBar" class="chat-pinned-bar hidden" onclick="App.openPinnedChat()"></div>
       <div id="chatSearchBar" class="chat-search-bar hidden">
         <span>⌕</span><input id="chatSearch" placeholder="Pesquisar mensagens" oninput="App.filterChatMessages()"><button onclick="App.toggleChatSearch(false)" aria-label="Fechar pesquisa">✕</button>
       </div>
@@ -3243,6 +3370,7 @@ function chat(c){
         <div id="chatMessages" class="chat-messages" onscroll="App.chatScrollChanged()"></div>
         <button id="chatScrollBottom" class="chat-scroll-bottom hidden" onclick="App.scrollChatBottom()" aria-label="Ir para mensagens recentes">⌄</button>
       </div>
+      <div id="chatMentionBox" class="chat-mention-box hidden" role="listbox" aria-label="Mencionar alguém"></div>
       <div id="chatReplyPreview" class="chat-reply-preview"></div>
       <div id="chatAttachmentPreview" class="chat-attachment-preview">${chatAttachmentPreviewHTML()}</div>
       <div id="chatEmojiPanel" class="chat-emoji-panel hidden">
@@ -3277,7 +3405,7 @@ function chat(c){
       </footer>
     </div>
   </div>`;
-  renderChatMessages(true);renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();bindChatSwipeReply();bindChatLongPress();
+  renderChatMessages(true);renderChatPinned();renderChatReplyPreview();renderChatPresence();touchChatPresence(false);updateChatComposerState();syncChatViewportHeight();bindChatTouchGuard();bindChatSwipeReply();bindChatLongPress();
   setTimeout(()=>{
     const input=document.getElementById('chatInput');
     if(window.innerWidth>760)input?.focus({preventScroll:true});
@@ -3290,6 +3418,7 @@ function startChatSync(){
   chatMediaCollection=fbStore.collection('chatMedia_'+DATA_NAMESPACE);
   if(chatUnsub)chatUnsub();
   let primed=false,known=new Set();
+  watchChatPinned();
   chatUnsub=chatCollection.orderBy('createdAt','desc').limit(80).onSnapshot(snap=>{
     const next=snap.docs.map(d=>Object.assign({id:d.id},d.data())).reverse();
     const incoming=primed?next.filter(m=>!known.has(m.id)&&m.senderId!==db.currentOperatorId):[];
@@ -3410,7 +3539,7 @@ async function startChatRecordingNow(mode){
       try{
         const dataUrl=await blobToDataURL(blob);
         if(dataUrl.length>CHAT_AUDIO_MAX_DATAURL){toast('A mensagem de voz ficou grande demais. Grave um áudio mais curto.');resetChatRecordGesture();return}
-        chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl,duration:Math.max(1,Math.round(duration))};
+        chatPendingAttachment={kind:'audio',name:'Mensagem de voz',type:mime,size:blob.size,dataUrl,duration:Math.max(1,Math.round(duration)),wave:await chatAudioWave(blob)};
         renderChatAttachmentPreview();
         if(sendAfter)await sendChatMessage();else toast('Mensagem de voz pronta.')
       }catch(err){console.error('Preparar áudio:',err);toast('Não foi possível preparar a mensagem de voz.')}
@@ -3439,6 +3568,16 @@ function finishChatRecording(cancel=false,send=true){
 }
 // Microfone para mensagem de voz: sem cancelamento de eco/ruído (feitos para chamadas, picotam a gravação).
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&chatRecorder?.state==='recording')finishChatRecording(false,false)});
+// Onda da mensagem de voz: 40 barras (0–9) calculadas do próprio áudio. Se o aparelho não decodificar, fica sem.
+async function chatAudioWave(blob){
+  try{
+    const C=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!C)return '';
+    const ab=await Promise.race([new C(1,1,44100).decodeAudioData(await blob.arrayBuffer()),new Promise((_,no)=>setTimeout(()=>no(new Error('tempo')),2500))]);
+    const d=ab.getChannelData(0),n=40,step=Math.max(1,Math.floor(d.length/n)),rms=[];
+    for(let i=0;i<n;i++){let sum=0;const end=Math.min(d.length,(i+1)*step);for(let j=i*step;j<end;j++)sum+=d[j]*d[j];rms.push(Math.sqrt(sum/Math.max(1,end-i*step)))}
+    const max=Math.max(...rms)||1;return rms.map(v=>Math.min(9,Math.round(v/max*9))).join('')
+  }catch{return ''}
+}
 function chatMicStream(){return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true,channelCount:1}}).catch(()=>navigator.mediaDevices.getUserMedia({audio:true}))}
 function dropChatMicPrefetch(){const p=chatMicPrefetch;chatMicPrefetch=null;p?.then(st=>st.getTracks().forEach(t=>t.stop())).catch(()=>{})}
 function chatMicPointerDown(e){
@@ -3498,10 +3637,11 @@ async function sendChatMessage(){
       attachment=stored.attachment;mediaId=stored.mediaId
     }
     const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,reply:chatReplyTarget?cloneData(chatReplyTarget):null,createdAt:nowISO()};
+    const mentions=chatMentionsIn(text);if(mentions.length)msg.mentions=mentions;
     clearTimeout(chatTypingTimer);chatTypingSentAt=0;touchChatPresence(false);
     const ref=await chatCollection.add(msg);playChatTone('send');
     sendChatPush({...msg,id:ref.id});
-    if(input){input.value='';input.style.height='40px';input.focus()}
+    if(input){input.value='';input.style.height='40px';input.focus()}document.getElementById('chatMentionBox')?.classList.add('hidden');
     chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);chatAutoScroll=true
   }catch(err){
     console.error('Enviar chat:',err);
@@ -4197,6 +4337,7 @@ function saveLicit(){
   db.licitations.push(x);recordActivity('licit','Envio',`${db.currentOperator} enviou a licitação "${x.title}" ao governo do estado.`,[{collection:'licitations',id:x.id,before:null,after:x}]);
   save();toast('Licitação enviada ao governo do estado.');go('licit','confirm');
   if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'LICIT_SENT',cityId:CITY_ID,title:x.title,valor:x.valor||0},location.origin)}catch{}}
+  setTimeout(()=>postPush({kind:'licitacao',cityId:CITY_ID,licitId:x.id}),1500)
 }
 function licitConfirm(v){const rows=db.licitations.filter(x=>LIC_AGUARDANDO.includes(x.status)).slice().reverse();v.innerHTML=`<div class="panel"><h3>Aguardando o governo do estado</h3><div class="sub">O governo do estado aprova ou nega no sistema dele. Assim que decidir, a licitação vai para o Histórico com a resposta.</div><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Nome</th><th>Valor</th><th>Resumo</th><th>Enviado por</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${x.valor?esc(money(x.valor)):'-'}</td><td>${esc(x.item||'-')}</td><td>${esc(x.sentBy)}</td><td><button class="btn btn-secondary" onclick="App.cancelLicit(${jsArg(x.id)})">Cancelar envio</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma licitação aguardando o estado.</td></tr>'}</tbody></table></div></div>`}
 function cancelLicit(id){if(!requireFull())return;const x=db.licitations.find(r=>r.id===id);if(!x||!LIC_AGUARDANDO.includes(x.status))return toast('Esta licitação já foi decidida pelo estado.');if(!confirm(`Cancelar o envio da licitação "${x.title}"?`))return;const before=cloneData(x);x.status='Cancelada pela prefeitura';recordActivity('licit','Cancelamento',`${db.currentOperator} cancelou o envio da licitação "${x.title}".`,[{collection:'licitations',id:x.id,before,after:x}]);save();renderPage();toast('Envio cancelado.')}
@@ -4811,7 +4952,7 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault()
 });
 document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
-window.App={cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
