@@ -9,22 +9,23 @@ const RECENTE=15*60*1000;
 const recente=iso=>{const t=Date.parse(iso||'');return Number.isFinite(t)&&Math.abs(Date.now()-t)<RECENTE};
 const cleanId=v=>String(v||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,120);
 // O aparelho chama logo depois de gravar; espera um pouco se o registro ainda não chegou ao banco.
-async function esperar(ler,ok){for(let i=0;i<4;i++){const v=await ler();if(v&&ok(v))return v;if(i<3)await G.sleep(1200)}return null}
+async function esperar(ler,ok){for(let i=0;i<6;i++){const v=await ler();if(v&&ok(v))return v;if(i<5)await G.sleep(1200)}return null}
 
 async function chat(body){
   const id=cleanId(body.messageId);if(!id)return {status:400,error:'messageId'};
   const m=await esperar(()=>G.fsGet('chatMessages_v5/'+id),m=>!!m.senderId);
   if(!m||!recente(m.createdAt))return {status:404,error:'mensagem_nao_encontrada'};
   if(!(await G.fsCreateOnce('pushSent_v1','chat-'+id,{at:new Date().toISOString(),kind:'chat'})))return {duplicate:true,sent:0};
-  const mentions=new Set(Array.isArray(m.mentions)?m.mentions:[]);
+  const todos=m.mentionAll===true,mentions=new Set(Array.isArray(m.mentions)?m.mentions:[]);
   const a=m.attachment,label=a?.kind==='image'?'📷 Imagem':a?.kind==='audio'?'🎙️ Mensagem de voz':a?'📎 Arquivo':'';
   const text=String(m.text||label||'Nova mensagem').slice(0,180);
   // Quem silenciou o chat ainda recebe quando é mencionado (@nome).
-  const rows=(await A.allTokens()).filter(t=>t.token&&t.operatorId!==m.senderId&&(t.notificationsEnabled!==false||mentions.has(t.operatorId)));
+  // @todos avisa todo mundo, inclusive quem silenciou o chat.
+  const rows=(await A.allTokens()).filter(t=>t.token&&t.operatorId!==m.senderId&&(t.notificationsEnabled!==false||todos||mentions.has(t.operatorId)));
   return A.deliver(rows,t=>{
-    const preview=t.previewEnabled!==false,mencionado=mentions.has(t.operatorId);
+    const preview=t.previewEnabled!==false,mencionado=todos||mentions.has(t.operatorId);
     return {type:'chat',messageId:id,senderId:m.senderId,
-      title:mencionado?`@ ${m.senderName||'Alguém'} mencionou você`:'💬 '+(m.senderName||'Chat da República'),
+      title:mencionado?(todos&&!mentions.has(t.operatorId)?`@todos · ${m.senderName||'Alguém'}`:`@ ${m.senderName||'Alguém'} mencionou você`):'💬 '+(m.senderName||'Chat da República'),
       body:preview?text:(mencionado?'Você foi mencionado no Chat da República':'Nova mensagem no Chat da República'),
       sound:t.soundEnabled===false?'0':'1',vibrate:t.vibrateEnabled===false?'0':'1',preview:preview?'1':'0'};
   });

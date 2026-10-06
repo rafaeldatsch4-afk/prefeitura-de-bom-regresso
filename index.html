@@ -417,8 +417,23 @@ img,svg,a{-webkit-user-drag:none}
 html[data-theme="dark"] .ped-item,html[data-theme="dark"] .obra-item,html[data-theme="dark"] .ato-item{background:#182838}
 html[data-theme="dark"] .ped-resposta,html[data-theme="dark"] .ped-badge{background:#273F55;color:#E6EEF6}html[data-theme="dark"] .obra-bar{background:#273F55}
 html[data-theme="dark"] .gov-alert{background:#3A2F14;color:#FFE3A6}html[data-theme="dark"] .gov-alert.is-warn{background:#3D2412;color:#FFCFA8}
+.enq-item,.agenda-item,.backup-set{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:transparent}
+.enq-item.is-closed{opacity:.85}.enq-item h3{margin:6px 0 2px;font-size:16px}
+.enq-opts{display:flex;flex-direction:column;gap:6px;margin:10px 0 6px}
+.enq-opt{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line,#D9E2EA);background:transparent;color:inherit;font:inherit;text-align:left;overflow:hidden}
+button.enq-opt{cursor:pointer}button.enq-opt:hover{border-color:#2F6FB2}
+.enq-opt i{position:absolute;inset:0 auto 0 0;background:rgba(47,111,178,.14);z-index:0}.enq-opt.is-top i{background:rgba(215,169,62,.28)}.enq-opt.is-mine{border-color:#2F6FB2;box-shadow:inset 0 0 0 1px #2F6FB2}
+.enq-opt span,.enq-opt b{position:relative;z-index:1}.enq-opt b{font-size:12px;white-space:nowrap}
+.agenda-dia{margin:14px 0 6px;font-size:13px;text-transform:capitalize;color:var(--muted,#5D6B7A)}.agenda-dia.is-today{color:#B3261E}
+.agenda-item{display:flex;align-items:center;gap:12px;margin-bottom:8px}.agenda-item.is-cancelled{opacity:.6}.agenda-item.is-cancelled b{text-decoration:line-through}
+.agenda-hora{flex:none;min-width:52px;font-weight:900;font-size:15px;color:#0B2E59}html[data-theme="dark"] .agenda-hora{color:#F3D27A}
+.agenda-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.agenda-main p{margin:4px 0 0;font-size:13px}
+.backup-set{margin-bottom:10px}.backup-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.backup-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line,#E3E9EF)}
+.bell-prefs{margin-top:8px}.bell-prefs summary{cursor:pointer;font-weight:800;font-size:13px}.bell-prefs label{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px}
+@media(max-width:600px){.agenda-item{flex-wrap:wrap}.backup-item{flex-wrap:wrap}}
 </style></head><body><div id="loginScreen" class="login-screen" hidden></div><div class="wco-drag" aria-hidden="true"></div><div class="shell" id="shell"><aside class="side"><div class="brand"><img src="pais/brasao.svg" alt="Brasão de Bom Regresso"><b>Bom Regresso</b><small>Presidência · Sistema nacional</small></div><nav class="nav" id="nav"></nav></aside><main><div class="top"><img class="top-logo" src="pais/brasao.svg" alt=""><div class="top-title"><strong>REPÚBLICA BOM REGRESSENSE</strong><small id="topSubtitle">SISTEMA DA PRESIDÊNCIA</small></div><button type="button" class="top-bell" id="topBell" data-bell aria-label="Avisos" hidden><span aria-hidden="true">🔔</span><b class="bell-count" hidden></b></button><button type="button" class="top-profile" data-page="perfil" aria-label="Abrir meu perfil" id="topProfile"></button></div><div class="content" id="content"></div></main></div><nav class="mobile" id="mobile"></nav><div class="more-backdrop" id="moreBackdrop" hidden><div class="more-sheet"><div class="more-head"><b>Mais opções</b><button type="button" class="close-more" aria-label="Fechar menu" data-close-more>×</button></div><div id="moreItems"></div></div></div><script>window.addEventListener('error',function(){if(window.__republicaStarted)return;var box=document.getElementById('loginScreen');if(!box)return;box.hidden=false;var shell=document.getElementById('shell'),mobile=document.getElementById('mobile');if(shell)shell.hidden=true;if(mobile)mobile.hidden=true;box.innerHTML='<div class="login-card"><h1>Bom Regresso</h1><p>Não foi possível abrir o painel neste navegador. Verifique se o armazenamento de dados de sites está permitido ou abra o link no Chrome.</p><button class="btn" type="button" onclick="location.reload()">Tentar novamente</button></div>'})</script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" integrity="sha384-ZaR6mWzmJtrRibZ1Vm7SoHFr8OXjyAuGAXalGDKqbxFT18oi/z+oZLIRFkpeNor1" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" integrity="sha384-I1LYojsZ5RM1cOda44Z2h42Qa6YfsQ1XkXxREnhp4ueYBR/4d1pG1K+NZM537Vsj" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" integrity="sha384-Ke0FJhH7LyRqDxZ0wt+/OXV38yfQVu7g9VPEEGjYmB4RVOY/ta04uecRhsMwT7V3" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js" integrity="sha384-HY9kcCUNf5iP55Q7dt4qtyKGMq0L6BbtAwNb4LYA6MXDWUL8DRlsj1xhtwKBZ2BL" crossorigin="anonymous"></script><script>
-(()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['lixeira','🗑️','Lixeira'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render();pushLocalActs()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
+(()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['diario','📰','Diário Oficial'],['enquetes','🗳️','Enquetes'],['agenda','📅','Agenda'],['lixeira','🗑️','Lixeira'],['backups','💾','Cópias de segurança'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],atosNacionais:[],enquetes:[],agenda:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render();pushLocalActs()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
   presidencia:{label:'Presidência',icon:'🏛️',roles:['Presidente','Vice-presidente']},
   estadual:{label:'Governo estadual',icon:'🗺️',roles:['Governador','Vice-governador']},
   prefeitura:{label:'Prefeitura',icon:'🏘️',roles:['Prefeito','Vice-prefeito','Secretário da Agricultura','Motorista','Servidor / Outro']},
@@ -451,7 +466,7 @@ isBomRegresso=x=>x?.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso',
 municipalTargetCity=()=>data.municipios.find(isBomRegresso)||null,
 municipalSystem=()=>{const p=current(),city=municipalTargetCity();if(!p||!city)return false;const level=scope(p);if(level==='nacional')return true;if(level==='estadual')return p.jurisdictionId===city.estado;return p.jurisdictionId===city.id},
 scope=p=>(presidencyRoles.includes(p?.role)||p?.role==='Assistente universal')?'nacional':stateRoles.includes(p?.role)?'estadual':municipalRoles.includes(p?.role)?'municipal':'administrativo',
-canPage=k=>{const level=scope(current());if(level==='nacional')return true;if(level==='estadual')return ['inicio','chat','estados','municipios','adminmunicipio','aparencia','perfil','relatorios','lixeira'].includes(k);if(level==='municipal')return ['inicio','chat','municipios','aparencia','perfil','relatorios','lixeira',...(cityManager()?['adminmunicipio','usuarios']:[])].includes(k);return ['inicio','chat','municipios','aparencia','perfil','relatorios'].includes(k)},
+canPage=k=>{const level=scope(current());if(level==='nacional')return true;if(level==='estadual')return ['inicio','chat','estados','municipios','adminmunicipio','aparencia','perfil','relatorios','lixeira','diario','enquetes','agenda'].includes(k);if(level==='municipal')return ['inicio','chat','municipios','aparencia','perfil','relatorios','lixeira','diario','enquetes','agenda',...(cityManager()?['adminmunicipio','usuarios']:[])].includes(k);return ['inicio','chat','municipios','aparencia','perfil','relatorios','diario','enquetes','agenda'].includes(k)},
 canState=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.id),
 cityManager=()=>scope(current())!=='municipal'||['Prefeito','Vice-prefeito'].includes(current()?.role),
 canCity=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.estado)||(scope(current())==='municipal'&&current()?.jurisdictionId===x.id),
@@ -466,7 +481,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-more-rows]
 // "epoca" muda quando a República é zerada: aparelhos com cópia antiga descartam a cópia em vez de reenviá-la.
 // Formatadores de número e data reaproveitados: criar um novo a cada valor pesava nas listas longas.
 function fmtCache(kind,opts){const c=fmtCache.m||(fmtCache.m=new Map()),k=kind+JSON.stringify(opts||{});let f=c.get(k);if(!f){f=kind==='n'?new Intl.NumberFormat('pt-BR',opts):new Intl.DateTimeFormat('pt-BR',opts);c.set(k,f)}return f}
-const COUNTRY_FIELDS=['cofreInicial','estados','municipios','lancamentos','pib','ano','profiles','movimentos','pibHistorico','atividades','lixeira','epoca'];
+const COUNTRY_FIELDS=['cofreInicial','estados','municipios','lancamentos','pib','ano','profiles','movimentos','pibHistorico','atividades','lixeira','atosNacionais','enquetes','agenda','epoca'];
 const sameEpoch=(remote,local)=>(remote?.epoca||'')===(local?.epoca||'');
 const COUNTRY_BACKUP_KEY=KEY+'_backup_before_cloud';
 const COUNTRY_DIRTY_KEY=KEY+'_pending_sync';
@@ -543,6 +558,7 @@ function mergeCountryData(remote,local){
   append('pibHistorico',local.pibHistorico||[]);
   append('atividades',local.atividades||[]);
   append('lixeira',local.lixeira||[]);
+  for(const k of ['atosNacionais','enquetes','agenda'])append(k,local[k]||[]);
   append('movimentos',(local.movimentos||[]).map(x=>({...x,estado:stateIds.get(x.estado)||x.estado,municipio:cityIds.get(x.municipio)||x.municipio})));
   append('profiles',(local.profiles||[]).map(x=>({...x,jurisdictionId:stateIds.get(x.jurisdictionId)||cityIds.get(x.jurisdictionId)||x.jurisdictionId})));
   return merged;
@@ -551,7 +567,7 @@ function applyCountryCloud(remote){
   const selected=sessionStorage.getItem(SESSION_PROFILE_KEY)||'',wasLoggedIn=!!data.currentProfileId;
   rememberPhotos(data);
   data=Object.assign(defaults(),Object.fromEntries(COUNTRY_FIELDS.map(k=>[k,remote[k]??defaults()[k]])));
-  for(const key of ['estados','municipios','lancamentos','profiles','movimentos','pibHistorico','atividades','lixeira'])if(!Array.isArray(data[key]))data[key]=[];for(const p of data.profiles){if(p.role==='RH'||p.role==='DRH'){p.role='Assistente universal';if(!p.sector||p.sector==='RH'||p.sector==='DRH')p.sector='Administração geral'}}
+  for(const key of ['estados','municipios','lancamentos','profiles','movimentos','pibHistorico','atividades','lixeira','atosNacionais','enquetes','agenda'])if(!Array.isArray(data[key]))data[key]=[];for(const p of data.profiles){if(p.role==='RH'||p.role==='DRH'){p.role='Assistente universal';if(!p.sector||p.sector==='RH'||p.sector==='DRH')p.sector='Administração geral'}}
   data.currentProfileId=data.profiles.some(p=>p.id===selected)?selected:'';sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId);
   // Only a signed-in person whose profile vanished goes back to the start; someone mid-registration keeps the form.
   if(!data.currentProfileId&&wasLoggedIn){page='inicio';loginMode='start'}
@@ -688,7 +704,7 @@ function render(){
   $('topSubtitle').textContent=(user.role==='Assistente universal'?'ASSISTÊNCIA UNIVERSAL':level==='nacional'?'SISTEMA DA PRESIDÊNCIA':level==='estadual'?'PAINEL DO GOVERNO ESTADUAL':level==='municipal'?'PAINEL DA PREFEITURA':'PAINEL ADMINISTRATIVO')+(countryReady?' · ☁':' · LOCAL');
   $('topProfile').innerHTML=avatar(user)+`<span><b>${esc(user.name)}</b><small>${esc(user.role)}</small></span>`;updateBell();
   const visible=sections.filter(([k])=>canPage(k));
-  const primary=visible.filter(([k])=>!['adminmunicipio','economia','aparencia','perfil','relatorios','lixeira'].includes(k)).slice(0,4);
+  const primary=visible.filter(([k])=>!['adminmunicipio','economia','aparencia','perfil','relatorios','lixeira','diario','enquetes','agenda','backups'].includes(k)).slice(0,4);
   const more=visible.filter(([k])=>!primary.some(([p])=>p===k));
   $('nav').innerHTML=visible.map(([key,icon,label])=>`<button class="${page===key?'active':''}" data-page="${key}"><span class="nav-icon">${icon}</span>${label}</button>`).join('');
   $('mobile').style.gridTemplateColumns=`repeat(${primary.length+1},minmax(0,1fr))`;
@@ -698,7 +714,7 @@ function render(){
   // conversation for everyone. Keep the live frame while the page and the profile sent to it stay the same.
   const frameId=page==='chat'?'republicChatFrame':embeddedView?'municipalAppFrame':'';
   const embedKey=frameId?page+'|'+JSON.stringify(page==='chat'?chatProfilePayload():municipalProfilePayload(openCity)):'';
-  if(!embedKey||!$(frameId)||$('content').dataset.embedKey!==embedKey){const act=document.activeElement?.matches?.('[data-act-filter="q"]')?[document.activeElement.closest('[data-act-ctx]')?.dataset.actCtx,document.activeElement.selectionStart]:null;$('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil,atividades,relatorios,lixeira})[page]();if(act){const el=$('content').querySelector(`[data-act-ctx="${act[0]}"] [data-act-filter="q"]`);if(el){el.focus();try{el.setSelectionRange(act[1],act[1])}catch{}}}}
+  if(!embedKey||!$(frameId)||$('content').dataset.embedKey!==embedKey){const act=document.activeElement?.matches?.('[data-act-filter="q"]')?[document.activeElement.closest('[data-act-ctx]')?.dataset.actCtx,document.activeElement.selectionStart]:null;$('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil,atividades,relatorios,lixeira,diario,enquetes,agenda,backups})[page]();if(act){const el=$('content').querySelector(`[data-act-ctx="${act[0]}"] [data-act-filter="q"]`);if(el){el.focus();try{el.setSelectionRange(act[1],act[1])}catch{}}}}
   if(page==='chat'){chatUnseen=false;document.querySelector('.chat-toast')?.remove()}$('content').dataset.embedKey=embedKey;setTimeout(updateChatDot,0);
   const viewKey=[page,govStateId,govTab,govCityId,cityTab,profileTargetId,govPickerMode].join('|'),dir=fxNavGlide(navSnap);
   // Valores mostrados na última vez (um cartão aberto para edição guarda o valor de antes).
@@ -1445,20 +1461,28 @@ document.addEventListener('click',e=>{
 
 // ---- Avisos: o que outras pessoas fizeram no seu estado, no seu município ou (para a Presidência) na República
 const NOTIFY_KEY=KEY+'_avisos_aparelho',alertsSeenKey=()=>KEY+'_avisos_vistos_'+(current()?.id||'');
-const relevantTo=(a,p)=>{if(!p||!a||(a.autorId&&a.autorId===p.id))return false;const level=scope(p);if(level==='nacional')return true;if(!p.jurisdictionId)return false;if(level==='estadual')return a.estado===p.jurisdictionId||data.municipios.find(c=>c.id===a.municipio)?.estado===p.jurisdictionId;return a.municipio===p.jurisdictionId};
+const relevantTo=(a,p)=>{if(!p||!a||(a.autorId&&a.autorId===p.id))return false;if(a.publico)return inPublico(a.publico,p);const level=scope(p);if(level==='nacional')return true;if(!p.jurisdictionId)return false;if(level==='estadual')return a.estado===p.jurisdictionId||data.municipios.find(c=>c.id===a.municipio)?.estado===p.jurisdictionId;return a.municipio===p.jurisdictionId};
 const myAlerts=()=>{const p=current();return (data.atividades||[]).filter(a=>relevantTo(a,p)).sort((x,y)=>String(y.at).localeCompare(String(x.at)))};
 function alertsSeenAt(){const k=alertsSeenKey();let v=localStorage.getItem(k);if(!v){v=new Date().toISOString();localStorage.setItem(k,v)}return v}
 const unreadAlerts=()=>{const seen=alertsSeenAt();return myAlerts().filter(a=>String(a.at)>seen)};
+// Tipos de aviso que este aparelho quer receber (o servidor também respeita, pelo registro do aparelho).
+const ALERT_TYPES=[['pedido','📨 Pedidos de verba'],['repasse','💸 Repasses'],['licitacao','📑 Licitações'],['enquete','🗳️ Enquetes'],['agenda','📅 Agenda'],['diario','📰 Diário Oficial']];
+const ALERT_TYPES_KEY=KEY+'_tipos_aviso';
+const alertTypes=()=>{try{return JSON.parse(localStorage.getItem(ALERT_TYPES_KEY)||'{}')||{}}catch{return {}}};
+const actCat=a=>({'Pedido de verba':'pedido','Pedido recusado':'pedido','Repasse':'repasse','Licitação aprovada':'licitacao','Licitação negada':'licitacao','Licitação enviada':'licitacao','Nova enquete':'enquete','Enquete encerrada':'enquete','Novo evento':'agenda','Evento cancelado':'agenda','Ato publicado':'diario','Revogação':'diario'})[a?.acao]||'';
+const alertTypeOn=cat=>!cat||alertTypes()[cat]!==false;
+const alertTypesFull=()=>Object.fromEntries(ALERT_TYPES.map(([k])=>[k,alertTypeOn(k)]));
 const deviceAlertsOn=()=>localStorage.getItem(NOTIFY_KEY)==='1'&&'Notification' in window&&Notification.permission==='granted';
 let knownActs=null;
 // Chamado quando chegam dados novos da nuvem: atualiza o sino e, com o app em segundo plano, avisa no aparelho.
 function noteIncoming(){
   const acts=Array.isArray(data.atividades)?data.atividades:[],ids=new Set(acts.map(a=>a.id));
   if(!knownActs){knownActs=ids;return}
-  const p=current(),fresh=acts.filter(a=>!knownActs.has(a.id)&&relevantTo(a,p)).sort((x,y)=>String(y.at).localeCompare(String(x.at)));knownActs=ids;
+  const p=current();let fresh=acts.filter(a=>!knownActs.has(a.id)&&relevantTo(a,p)).sort((x,y)=>String(y.at).localeCompare(String(x.at)));knownActs=ids;
   if(!fresh.length)return;
   setTimeout(()=>{const b=$('topBell');if(b&&fxMotionOK()){b.classList.remove('ring');void b.offsetWidth;b.classList.add('ring')}},60);
   if(!document.hidden||!deviceAlertsOn())return;
+  fresh=fresh.filter(x=>alertTypeOn(actCat(x)));if(!fresh.length)return;
   const a=fresh[0],title=fresh.length>1?`${fresh.length} novidades na República`:`${a.acao||'Novidade'} · ${a.area||'República'}`;
   const body=fresh.length>1?fresh.slice(0,3).map(x=>`${x.autor||'Alguém'}: ${x.texto||''}`).join('\n'):`${a.autor||'Alguém'}: ${a.texto||''}`;
   const opts={body,icon:'/app-icon.svg',badge:'/app-icon.svg',tag:fresh.length>1?'republica-avisos':'republica-'+a.id,renotify:true,data:{type:'republica',url:'/?open=atividades'}};
@@ -1478,7 +1502,7 @@ function openBell(){
   const seen=alertsSeenAt(),list=myAlerts().slice(0,20),level=scope(p),perm='Notification' in window?Notification.permission:'unsupported',on=deviceAlertsOn();
   const where=level==='nacional'?'Tudo o que outras pessoas fazem na República.':level==='estadual'?'O que acontece no seu estado e nos municípios dele.':'O que acontece no seu município.';
   let box=$('bellBackdrop');if(!box){box=document.createElement('div');box.id='bellBackdrop';box.className='bell-backdrop';document.body.appendChild(box)}
-  box.innerHTML=`<div class="bell-panel" role="dialog" aria-modal="true" aria-label="Avisos"><div class="bell-head"><b>🔔 Avisos</b><button type="button" class="close-more" data-bell-close aria-label="Fechar avisos">×</button></div><p class="muted bell-sub">${esc(where)}</p>${list.length?`<div class="bell-list">${list.map(a=>`<div class="bell-item${String(a.at)>seen?' is-new':''}">${activityRow(a)}</div>`).join('')}</div>`:'<p class="gov-empty">Nenhum aviso por enquanto.</p>'}<div class="bell-foot">${perm==='unsupported'?'<small class="muted">Este navegador não mostra avisos no aparelho.</small>':`<button type="button" class="btn secondary" data-bell-device>${on?'🔕 Parar de avisar no aparelho':'📲 Avisar também no aparelho'}</button>`}<button type="button" class="btn" data-page="atividades" data-bell-close>Ver todas as atividades</button></div>${perm!=='unsupported'?`<small class="muted bell-note">${on?(pushBackend.ok?'Ligado: pedidos de verba, repasses e licitações chegam mesmo com o app fechado. O resto aparece com o app aberto em segundo plano.':'Ligado: com o app aberto em segundo plano, as novidades aparecem como notificação. Com o app fechado, falta configurar o servidor de notificações.'):'Pedidos de verba, repasses e licitações também chegam com o app fechado.'}</small>`:''}</div>`;
+  box.innerHTML=`<div class="bell-panel" role="dialog" aria-modal="true" aria-label="Avisos"><div class="bell-head"><b>🔔 Avisos</b><button type="button" class="close-more" data-bell-close aria-label="Fechar avisos">×</button></div><p class="muted bell-sub">${esc(where)}</p>${list.length?`<div class="bell-list">${list.map(a=>`<div class="bell-item${String(a.at)>seen?' is-new':''}">${activityRow(a)}</div>`).join('')}</div>`:'<p class="gov-empty">Nenhum aviso por enquanto.</p>'}<div class="bell-foot">${perm==='unsupported'?'<small class="muted">Este navegador não mostra avisos no aparelho.</small>':`<button type="button" class="btn secondary" data-bell-device>${on?'🔕 Parar de avisar no aparelho':'📲 Avisar também no aparelho'}</button>`}<button type="button" class="btn" data-page="atividades" data-bell-close>Ver todas as atividades</button></div>${on?`<details class="bell-prefs"><summary>Escolher quais avisos receber</summary>${ALERT_TYPES.map(([k,l])=>`<label><input type="checkbox" data-alert-type="${k}"${alertTypeOn(k)?' checked':''}> ${l}</label>`).join('')}</details>`:''}${perm!=='unsupported'?`<small class="muted bell-note">${on?(pushBackend.ok?'Ligado: pedidos de verba, repasses e licitações chegam mesmo com o app fechado. O resto aparece com o app aberto em segundo plano.':'Ligado: com o app aberto em segundo plano, as novidades aparecem como notificação. Com o app fechado, falta configurar o servidor de notificações.'):'Pedidos de verba, repasses e licitações também chegam com o app fechado.'}</small>`:''}</div>`;
   box.hidden=false;localStorage.setItem(alertsSeenKey(),new Date().toISOString());updateBell();
   setTimeout(()=>box.querySelector('[data-bell-close]')?.focus(),0)
 }
@@ -1497,6 +1521,8 @@ document.addEventListener('click',e=>{
   if(e.target.closest('[data-bell-close]')||e.target.id==='bellBackdrop')closeBell()
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeBell()});
+document.addEventListener('change',e=>{const c=e.target.closest?.('[data-alert-type]');if(!c)return;const t=alertTypes();t[c.dataset.alertType]=c.checked;
+  localStorage.setItem(ALERT_TYPES_KEY,JSON.stringify(t));pushTokensCol()?.doc(pushDeviceId()).set({alertTypes:alertTypesFull(),updatedAt:nowISO()},{merge:true}).catch(()=>{});showToast(c.checked?'✓ Vai avisar':'Não vai mais avisar')});
 
 // ---- Notificações push (chegam com o app fechado). O aparelho se registra em pushTokens_v5, a mesma lista do chat
 // da Prefeitura, e os eventos que pedem uma ação avisam só quem precisa agir (estado ou prefeitura), nunca quem fez.
@@ -1518,7 +1544,7 @@ async function syncDevicePush(){
     const reg=await navigator.serviceWorker.ready,messaging=app.messaging();
     const token=await messaging.getToken(vapidKey?{vapidKey,serviceWorkerRegistration:reg}:{serviceWorkerRegistration:reg});if(!token||current()?.id!==p.id)return false;
     const ref=col.doc(pushDeviceId()),old=await ref.get().catch(()=>null),now=nowISO();
-    await ref.set({token,operatorId:p.id,operatorName:p.name||'',role:p.role||'',updatedAt:now,lastRegisteredAt:now,platform:navigator.platform||'',standalone:matchMedia('(display-mode: standalone)').matches,republicaAlerts:true,
+    await ref.set({token,operatorId:p.id,operatorName:p.name||'',role:p.role||'',updatedAt:now,lastRegisteredAt:now,platform:navigator.platform||'',standalone:matchMedia('(display-mode: standalone)').matches,republicaAlerts:true,alertTypes:alertTypesFull(),
       ...(old?.exists?{}:{notificationsEnabled:true,previewEnabled:true,soundEnabled:true,vibrateEnabled:true})},{merge:true});
     return true
   }catch(err){console.warn('Notificações da República:',err);return false}
@@ -1531,7 +1557,7 @@ function pushLocalActs(){
   const ids=[];
   for(const a of (data.atividades||[]).slice(0,80)){if(!localActs.has(a.id)||pushedActs.has(a.id))continue;pushedActs.add(a.id);if(PUSH_ACOES.has(a.acao))ids.push(a.id)}
   localActs.clear();
-  if(ids.length)setTimeout(()=>ids.forEach(postRepublicaPush),1200)
+  ids.forEach(postRepublicaPush)
 }
 // O servidor confere a atividade no banco e escolhe quem recebe; aqui só diz qual foi.
 async function postRepublicaPush(activityId){
@@ -1549,6 +1575,140 @@ window.addEventListener('message',e=>{
   const cid=String(e.data.cityId||''),c=cid?data.municipios.find(x=>x.id===cid):municipalTargetCity(),st=c&&data.estados.find(x=>x.id===c.estado);if(!st)return;
   const title=String(e.data.title||'Licitação').slice(0,120),valor=Number(e.data.valor)||0;
   govLog(st,{acao:'Licitação enviada',area:'Licitações',texto:`${c.nome} enviou a licitação "${title}"${valor>0?` de ${money(valor)}`:''} para o governo aprovar`,municipio:c.id});save()
+});
+
+// ---- Público de enquetes, agenda e atos nacionais (o servidor usa a mesma regra para mandar os avisos)
+const PUBLICOS=[['todos','Todos'],['governadores','Governadores'],['prefeitos','Prefeitos'],['presidencia','Presidência']];
+const publicoNome=v=>(PUBLICOS.find(x=>x[0]===v)||PUBLICOS[0])[1];
+function inPublico(pub,p){if(!p)return false;const lv=scope(p);if(pub==='governadores')return lv==='estadual'||lv==='nacional';if(pub==='prefeitos')return ['Prefeito','Vice-prefeito'].includes(p.role)||lv==='nacional';if(pub==='presidencia')return lv==='nacional';return true}
+const publicoOptions=sel=>PUBLICOS.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');
+// Atividade da República (aparece no sino de quem é do público e vira notificação pelo servidor).
+function repLog({acao,area,texto,ref='',publico='todos'}){const me=current(),e={id:id(),at:nowISO(),autor:me?.name||'Sistema',autorId:me?.id||'',cargo:me?.role||'',nivel:'republica',estado:'',municipio:'',area,acao,texto,ref,publico};localActs.add(e.id);data.atividades=[e,...(data.atividades||[])]}
+const listOf=k=>{if(!Array.isArray(data[k]))data[k]=[];return data[k]};
+const trimTo=(list,max)=>{if(list.length>max)list.splice(0,list.length-max)};
+
+// ---- Diário Oficial da República (atos da Presidência)
+const DIARIO_TIPOS=['Decreto','Lei','Medida Provisória','Portaria'];
+function diario(){
+  const atos=(data.atosNacionais||[]).slice().sort((a,b)=>String(b.data+b.criadoEm).localeCompare(String(a.data+a.criadoEm))),pode=scope(current())==='nacional',vig=atos.filter(a=>a.status!=='revogado');
+  const card=a=>`<article class="ato-item${a.status==='revogado'?' is-revoked':''}"><div class="ato-head"><b>${esc(a.tipo)} nº ${esc(a.numero)}</b><span class="ato-status">${a.status==='revogado'?'Revogado':'Em vigor'}</span></div><h3>${esc(a.titulo)}</h3><small class="muted">${esc(fmtDate(a.data))} · ${esc(a.autor||'Presidência')}${a.revogadoEm?` · revogado em ${esc(fmtDate(String(a.revogadoEm).slice(0,10)))}`:''}</small>${a.texto?`<details><summary>Ler o texto</summary><p class="ato-texto">${esc(a.texto)}</p></details>`:''}${pode&&a.status!=='revogado'?`<div class="ato-actions"><button class="btn secondary" type="button" data-rep-ato-revogar="${esc(a.id)}">Revogar</button></div>`:''}</article>`;
+  return heading('Diário Oficial da República','Leis, decretos e portarias da Presidência. Todos os perfis leem; quando um ato sai, todo mundo recebe o aviso.')+
+  `<div class="gov-cards">${govCard('Em vigor',num(vig.length),'Atos valendo')}${DIARIO_TIPOS.map(t=>govCard(t==='Medida Provisória'?'Medidas provisórias':t+'s',num(atos.filter(a=>a.tipo===t).length),'Publicados')).join('')}</div>`+
+  (pode?`<section class="panel"><h2>Publicar ato</h2><form id="repAtoForm" class="form"><label class="field">Tipo<select name="tipo">${DIARIO_TIPOS.map(t=>`<option>${t}</option>`).join('')}</select></label><label class="field">Data<input name="data" type="date" value="${todayISO()}"></label><label class="field wide">Título<input name="titulo" required maxlength="120" placeholder="Ex.: Institui o Dia Nacional da Agricultura"></label><label class="field wide">Texto<textarea name="texto" rows="5" maxlength="2000" placeholder="Art. 1º …"></textarea></label><div class="field wide"><button class="btn">📰 Publicar no Diário Oficial</button></div></form></section>`:'')+
+  `<section class="panel" style="margin-top:14px"><h2>Atos publicados</h2>${atos.length?`<div class="ato-list">${atos.map(card).join('')}</div>`:'<p class="gov-empty">Nenhum ato publicado ainda.</p>'}</section>`
+}
+
+// ---- Enquetes e votações
+const enqAberta=e=>!e.encerrada&&(!e.prazo||e.prazo>=todayISO());
+function enquetes(){
+  const me=current(),pode=scope(me)==='nacional',list=(data.enquetes||[]).filter(e=>inPublico(e.publico,me)||pode).slice().sort((a,b)=>(enqAberta(b)-enqAberta(a))||String(b.criadoEm).localeCompare(String(a.criadoEm)));
+  const card=e=>{const votos=e.votos&&typeof e.votos==='object'?e.votos:{},total=Object.keys(votos).length,meu=votos[me.id],aberta=enqAberta(e),vota=aberta&&inPublico(e.publico,me);
+    const counts=e.opcoes.map((_,i)=>Object.values(votos).filter(v=>v===i).length),max=Math.max(1,...counts);
+    return `<article class="enq-item${aberta?'':' is-closed'}"><div class="ato-head"><b>🗳️ ${esc(publicoNome(e.publico))}</b><span class="ato-status">${aberta?'Aberta':'Encerrada'}</span></div><h3>${esc(e.pergunta)}</h3>
+      <small class="muted">${esc(e.autor||'Presidência')} · ${num(total)} ${total===1?'voto':'votos'}${e.prazo?` · até ${esc(fmtDate(e.prazo))}`:''}</small>
+      <div class="enq-opts">${e.opcoes.map((o,i)=>{const pct=total?Math.round(counts[i]/total*100):0;return `<${vota?'button type="button" data-enq-votar="'+esc(e.id)+'|'+i+'"':'div'} class="enq-opt${meu===i?' is-mine':''}${counts[i]===max&&total?' is-top':''}"><i style="width:${total?counts[i]/max*100:0}%"></i><span>${meu===i?'✓ ':''}${esc(o)}</span><b>${num(counts[i])} · ${pct}%</b></${vota?'button':'div'}>`}).join('')}</div>
+      ${vota?`<small class="muted">${meu===undefined?'Toque numa opção para votar.':'Você pode trocar o voto enquanto estiver aberta.'}</small>`:''}
+      ${pode?`<div class="ato-actions">${aberta?`<button class="btn secondary" type="button" data-enq-encerrar="${esc(e.id)}">Encerrar</button>`:''}<button class="btn danger" type="button" data-enq-excluir="${esc(e.id)}">Excluir</button></div>`:''}</article>`};
+  return heading('Enquetes','Votações rápidas da Presidência para governadores, prefeitos ou todos. Cada perfil vota uma vez e pode trocar o voto até encerrar.')+
+  (pode?`<section class="panel"><h2>Nova enquete</h2><form id="enqForm" class="form"><label class="field wide">Pergunta<input name="pergunta" required maxlength="160" placeholder="Ex.: Aprovar o orçamento de 2027?"></label><label class="field wide">Opções (uma por linha)<textarea name="opcoes" rows="4" maxlength="600">Sim\nNão\nAbstenção</textarea></label><label class="field">Quem vota<select name="publico">${publicoOptions('todos')}</select></label><label class="field">Prazo (opcional)<input name="prazo" type="date" min="${todayISO()}"></label><div class="field wide"><button class="btn">🗳️ Abrir enquete</button></div></form></section>`:'')+
+  `<section class="panel" style="margin-top:14px"><h2>Enquetes</h2>${list.length?`<div class="ato-list">${list.map(card).join('')}</div>`:'<p class="gov-empty">Nenhuma enquete por enquanto.</p>'}</section>`
+}
+
+// ---- Agenda oficial (o servidor avisa no dia, às 7h)
+function agenda(){
+  const me=current(),pode=['nacional','estadual'].includes(scope(me)),hoje=todayISO(),amanha=new Date(Date.now()+864e5-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const vis=(data.agenda||[]).filter(e=>inPublico(e.publico,me)||e.autorId===me.id||scope(me)==='nacional');
+  const prox=vis.filter(e=>e.data>=hoje).sort((a,b)=>String(a.data+(a.hora||'')).localeCompare(String(b.data+(b.hora||'')))),pass=vis.filter(e=>e.data<hoje).sort((a,b)=>String(b.data).localeCompare(String(a.data))).slice(0,15);
+  const dia=d=>d===hoje?'Hoje':d===amanha?'Amanhã':new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  const item=e=>`<div class="agenda-item${e.cancelado?' is-cancelled':''}"><div class="agenda-hora">${esc(e.hora||'—')}</div><div class="agenda-main"><b>${esc(e.titulo)}</b><small class="muted">${[e.local,publicoNome(e.publico),e.autor].filter(Boolean).map(esc).join(' · ')}${e.cancelado?' · <b>Cancelado</b>':''}</small>${e.descricao?`<p>${esc(e.descricao)}</p>`:''}</div>${!e.cancelado&&(e.autorId===me.id||scope(me)==='nacional')&&e.data>=hoje?`<button class="btn secondary" type="button" data-agenda-cancelar="${esc(e.id)}">Cancelar</button>`:''}</div>`;
+  const grupos=[];for(const e of prox){const g=grupos.find(x=>x.d===e.data);if(g)g.l.push(e);else grupos.push({d:e.data,l:[e]})}
+  return heading('Agenda oficial','Reuniões, sessões e eventos. Quem faz parte do público recebe o aviso quando o evento é marcado e de novo no dia.')+
+  (pode?`<section class="panel"><h2>Marcar evento</h2><form id="agendaForm" class="form"><label class="field wide">O quê<input name="titulo" required maxlength="100" placeholder="Ex.: Reunião com os governadores"></label><label class="field">Dia<input name="data" type="date" required min="${hoje}" value="${hoje}"></label><label class="field">Hora<input name="hora" type="time"></label><label class="field">Local<input name="local" maxlength="80" placeholder="Ex.: Palácio da República"></label><label class="field">Para quem<select name="publico">${publicoOptions('todos')}</select></label><label class="field wide">Detalhes (opcional)<textarea name="descricao" rows="2" maxlength="400"></textarea></label><div class="field wide"><button class="btn">📅 Marcar na agenda</button></div></form></section>`:'')+
+  `<section class="panel" style="margin-top:14px"><h2>Próximos</h2>${grupos.length?grupos.map(g=>`<h3 class="agenda-dia${g.d===hoje?' is-today':''}">${esc(dia(g.d))}</h3>${g.l.map(item).join('')}`).join(''):'<p class="gov-empty">Nada marcado.</p>'}</section>`+
+  (pass.length?`<section class="panel" style="margin-top:14px"><details><summary><b>Já aconteceram (${pass.length})</b></summary>${pass.map(e=>`<h3 class="agenda-dia">${esc(fmtDate(e.data))}</h3>${item(e)}`).join('')}</details></section>`:'')
+}
+
+// ---- Cópias de segurança (Presidência): o servidor copia tudo toda semana; daqui dá para copiar agora e restaurar.
+let backupState={at:0,list:null,error:'',loading:false};
+async function backupApi(method,body){
+  const user=countryAuthUser();if(!user)throw new Error('sem sessão');
+  const r=await fetch('/api/backup',{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+await user.getIdToken()},...(body?{body:JSON.stringify(body)}:{})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||String(r.status)),{status:r.status});return j
+}
+async function loadBackups(force){
+  if(backupState.loading||(!force&&backupState.list&&Date.now()-backupState.at<60000))return;
+  backupState.loading=true;
+  try{const j=await backupApi('GET');backupState={at:Date.now(),list:j.copias||[],error:'',loading:false}}
+  catch(err){backupState={at:Date.now(),list:backupState.list,error:err.status===503?'O servidor ainda não tem a chave do Firebase configurada.':'Não foi possível carregar as cópias agora.',loading:false}}
+  if(page==='backups'){formEditing=false;render()}
+}
+function backups(){
+  if(scope(current())!=='nacional')return heading('Cópias de segurança','Só a Presidência vê esta tela.');
+  if(!backupState.list&&!backupState.error)setTimeout(()=>loadBackups(),0);
+  const L=backupState.list||[],fmt=iso=>iso?new Date(iso).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';
+  return heading('Cópias de segurança','Toda semana o servidor guarda uma cópia da República e de cada prefeitura (ficam as 10 últimas). Restaurar volta aquele conteúdo — antes disso, o estado atual também é copiado.')+
+  `<section class="panel"><div class="ato-actions" style="margin:0 0 10px"><button class="btn" type="button" data-backup-now>💾 Fazer uma cópia agora</button><button class="btn secondary" type="button" data-backup-reload>↻ Atualizar</button></div>`+
+  (backupState.error?`<p class="note">${esc(backupState.error)}</p>`:'')+
+  (!backupState.list&&!backupState.error?'<p class="muted">Carregando cópias…</p>':L.length?L.map(s=>`<div class="backup-set"><div class="backup-head"><b>${esc(fmt(s.em))}</b><span class="act-badge">${esc(s.motivo||'cópia')}</span></div>${s.itens.map(it=>`<div class="backup-item"><span>${esc(it.nome)}</span><button class="btn secondary" type="button" data-backup-restore="${esc(it.id)}" data-backup-name="${esc(it.nome)}" data-backup-when="${esc(fmt(s.em))}">↩ Restaurar</button></div>`).join('')}</div>`).join(''):'<p class="gov-empty">Nenhuma cópia ainda. A primeira é feita automaticamente esta semana, ou toque em "Fazer uma cópia agora".</p>')+
+  `</section>`
+}
+
+// ---- Formulários e botões das telas novas
+document.addEventListener('submit',e=>{
+  const f=e.target,fid=f.getAttribute('id');if(!['repAtoForm','enqForm','agendaForm'].includes(fid))return;
+  e.preventDefault();const o=Object.fromEntries(new FormData(f).entries()),me=current();if(!me)return;
+  if(fid==='repAtoForm'){
+    if(scope(me)!=='nacional')return;
+    const tipo=DIARIO_TIPOS.includes(o.tipo)?o.tipo:'Decreto',titulo=String(o.titulo||'').trim().slice(0,120);if(!titulo)return alert('Dê um título ao ato.');
+    const dt=/^\d{4}-\d{2}-\d{2}$/.test(o.data||'')?o.data:todayISO(),ano=dt.slice(0,4),list=listOf('atosNacionais');
+    const numero=`${list.filter(a=>a.tipo===tipo&&String(a.data).startsWith(ano)).length+1}/${ano}`;
+    list.push({id:id(),tipo,numero,titulo,texto:String(o.texto||'').trim().slice(0,2000),data:dt,status:'vigente',criadoEm:nowISO(),autor:me.name});trimTo(list,250);
+    repLog({acao:'Ato publicado',area:'Diário Oficial',texto:`${tipo} nº ${numero}: ${titulo}`,publico:'todos'});save();return
+  }
+  if(fid==='enqForm'){
+    if(scope(me)!=='nacional')return;
+    const pergunta=String(o.pergunta||'').trim().slice(0,160),opcoes=[...new Set(String(o.opcoes||'').split('\n').map(x=>x.trim().slice(0,80)).filter(Boolean))].slice(0,8);
+    if(!pergunta)return alert('Escreva a pergunta.');if(opcoes.length<2)return alert('Coloque pelo menos duas opções, uma por linha.');
+    const publico=PUBLICOS.some(x=>x[0]===o.publico)?o.publico:'todos',prazo=/^\d{4}-\d{2}-\d{2}$/.test(o.prazo||'')?o.prazo:'',ref=id(),list=listOf('enquetes');
+    list.push({id:ref,pergunta,opcoes,publico,prazo,votos:{},criadoEm:nowISO(),autor:me.name,autorId:me.id});trimTo(list,100);
+    repLog({acao:'Nova enquete',area:'Enquetes',texto:`Enquete para ${publicoNome(publico).toLowerCase()}: ${pergunta}`,ref,publico});save();return
+  }
+  if(fid==='agendaForm'){
+    if(!['nacional','estadual'].includes(scope(me)))return;
+    const titulo=String(o.titulo||'').trim().slice(0,100),dt=/^\d{4}-\d{2}-\d{2}$/.test(o.data||'')?o.data:'';if(!titulo||!dt)return alert('Preencha o evento e o dia.');
+    if(dt<todayISO())return alert('Escolha hoje ou um dia futuro.');
+    const hora=/^\d{2}:\d{2}$/.test(o.hora||'')?o.hora:'',publico=PUBLICOS.some(x=>x[0]===o.publico)?o.publico:'todos',ref=id(),list=listOf('agenda');
+    list.push({id:ref,titulo,data:dt,hora,local:String(o.local||'').trim().slice(0,80),descricao:String(o.descricao||'').trim().slice(0,400),publico,criadoEm:nowISO(),autor:me.name,autorId:me.id});
+    // Eventos com mais de um ano saem da lista.
+    const limite=new Date(Date.now()-365*864e5).toISOString().slice(0,10);data.agenda=list.filter(x=>x.data>=limite);trimTo(data.agenda,300);
+    repLog({acao:'Novo evento',area:'Agenda',texto:`${titulo} · ${fmtDate(dt)}${hora?' às '+hora:''}${o.local?' · '+String(o.local).trim().slice(0,80):''}`,ref,publico});save();return
+  }
+});
+document.addEventListener('click',async e=>{
+  const me=current();if(!me)return;
+  const rv=e.target.closest('[data-rep-ato-revogar]');
+  if(rv){if(scope(me)!=='nacional')return;const a=(data.atosNacionais||[]).find(x=>x.id===rv.dataset.repAtoRevogar);if(!a||a.status==='revogado'||!confirm(`Revogar ${a.tipo} nº ${a.numero}?`))return;a.status='revogado';a.revogadoEm=nowISO();repLog({acao:'Revogação',area:'Diário Oficial',texto:`${a.tipo} nº ${a.numero} revogado: ${a.titulo}`});save();return}
+  const vt=e.target.closest('[data-enq-votar]');
+  if(vt){const [eid,i]=vt.dataset.enqVotar.split('|'),q=(data.enquetes||[]).find(x=>x.id===eid);if(!q||!enqAberta(q)||!inPublico(q.publico,me))return;const n=Number(i);if(!(n>=0&&n<q.opcoes.length))return;q.votos={...(q.votos||{}),[me.id]:n};save();return}
+  const enc=e.target.closest('[data-enq-encerrar]');
+  if(enc){if(scope(me)!=='nacional')return;const q=(data.enquetes||[]).find(x=>x.id===enc.dataset.enqEncerrar);if(!q||!confirm('Encerrar esta enquete? Ninguém mais poderá votar.'))return;q.encerrada=true;q.encerradaEm=nowISO();
+    const votos=Object.values(q.votos||{}),top=q.opcoes.map((o,k)=>[o,votos.filter(v=>v===k).length]).sort((a,b)=>b[1]-a[1])[0];
+    repLog({acao:'Enquete encerrada',area:'Enquetes',texto:`${q.pergunta} — ${votos.length?`mais votada: ${top[0]} (${top[1]})`:'sem votos'}`,publico:q.publico});save();return}
+  const ex=e.target.closest('[data-enq-excluir]');
+  if(ex){if(scope(me)!=='nacional')return;const q=(data.enquetes||[]).find(x=>x.id===ex.dataset.enqExcluir);if(!q||!confirm(`Excluir a enquete "${q.pergunta}"?`))return;data.enquetes=data.enquetes.filter(x=>x.id!==q.id);save();return}
+  const ac=e.target.closest('[data-agenda-cancelar]');
+  if(ac){const ev=(data.agenda||[]).find(x=>x.id===ac.dataset.agendaCancelar);if(!ev||!(ev.autorId===me.id||scope(me)==='nacional')||!confirm(`Cancelar "${ev.titulo}"?`))return;ev.cancelado=true;repLog({acao:'Evento cancelado',area:'Agenda',texto:`${ev.titulo} (${fmtDate(ev.data)}) foi cancelado`,publico:ev.publico});save();return}
+  if(e.target.closest('[data-backup-reload]')){loadBackups(true);return}
+  const bn=e.target.closest('[data-backup-now]');
+  if(bn){if(scope(me)!=='nacional')return;bn.disabled=true;bn.textContent='Copiando…';try{const j=await backupApi('POST',{op:'agora'});showToast(`✓ Cópia feita: ${j.feitos?.length||0} ${j.feitos?.length===1?'item':'itens'}`);loadBackups(true)}catch(err){alert(err.status===503?'O servidor ainda não tem a chave do Firebase configurada.':'Não foi possível fazer a cópia agora.');bn.disabled=false;bn.textContent='💾 Fazer uma cópia agora'}return}
+  const br=e.target.closest('[data-backup-restore]');
+  if(br){if(scope(me)!=='nacional')return;const nome=br.dataset.backupName,quando=br.dataset.backupWhen;
+    const ok=prompt(`Restaurar "${nome}" como estava em ${quando}?\n\nTudo o que mudou depois disso nele será desfeito (o estado atual é copiado antes, então dá para voltar).\n\nDigite RESTAURAR para confirmar:`,'');
+    if(String(ok||'').trim().toUpperCase()!=='RESTAURAR')return;
+    br.disabled=true;br.textContent='Restaurando…';
+    try{await backupApi('POST',{op:'restaurar',id:br.dataset.backupRestore});showToast('✓ Restaurado: '+nome);loadBackups(true)}
+    catch{alert('Não foi possível restaurar agora.');br.disabled=false;br.textContent='↩ Restaurar'}
+    return}
 });
 
 // ---- Planilhas (CSV) e relatório em PDF
