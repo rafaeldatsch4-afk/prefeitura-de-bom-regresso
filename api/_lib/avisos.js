@@ -67,10 +67,10 @@ async function deliver(rows,data){
   await Promise.all(stale.map(r=>G.fsDelete('pushTokens_v5/'+r.id).catch(()=>{})));
   return {sent,failed,removidos:stale.length};
 }
-async function sendRepublica({to,title,cat},body,messageId,exclude){
+async function sendRepublica({to,title,cat},body,messageId,exclude,url='/?open=atividades'){
   const ids=new Set(to.filter(x=>x&&x!==exclude));if(!ids.size)return {sent:0,failed:0,removidos:0};
   const rows=(await allTokens()).filter(t=>ids.has(t.operatorId)&&wantsRepublica(t,cat));
-  return deliver(rows,{type:'republica',title,body:String(body||'').slice(0,200),messageId,url:'/?open=atividades'});
+  return deliver(rows,{type:'republica',title,body:String(body||'').slice(0,200),messageId,url});
 }
 
 module.exports={ROLES,scope,isBR,money,stateLeaders,cityLeaders,audience,PUBLICO_NOME,republicaRule,wantsRepublica,allTokens,deliver,sendRepublica};

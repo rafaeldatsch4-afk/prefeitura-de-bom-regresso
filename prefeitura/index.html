@@ -17,7 +17,7 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 .hidden{display:none!important}.app{min-height:100vh}.center{display:grid;place-items:center;min-height:100vh;padding:22px}
 .login-card{width:min(520px,100%);background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:26px;text-align:center}
 .logo{width:240px;max-height:200px;object-fit:contain}.login-card h1{font-size:24px;color:var(--navy);margin:8px 0 4px}.login-card p{color:var(--muted);margin:0 0 22px}
-.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:700}.btn-primary{background:var(--gold);color:var(--navy)}.btn-primary:hover{background:var(--gold2)}
+.btn{border:0;border-radius:12px;padding:11px 14px;font-weight:700}.btn-primary{background:var(--gold);color:var(--on-gold,#0B2E59)}.btn-primary:disabled{opacity:.55;cursor:not-allowed}.btn-primary:hover{background:var(--gold2)}
 .btn-secondary{background:#E7EDF3;color:var(--navy)}.btn-danger{background:#F8E7E7;color:var(--danger)}.btn-ok{background:#E8F5EE;color:var(--ok)}
 .field{display:flex;flex-direction:column;gap:6px;text-align:left;margin:10px 0}.field label{font-size:12px;font-weight:800;color:var(--navy)}
 .field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--text);outline:none}
@@ -1038,6 +1038,7 @@ html[data-appearance="dark"] .push-diag>div{background:#131C24}
 .chat-audio-lazy{display:flex;flex-direction:row;align-items:center;gap:8px;min-width:min(260px,65vw)}
 .chat-audio-lazy button{border:0;border-radius:999px;padding:9px 12px;background:rgba(127,145,159,.16);color:inherit;font-weight:800;cursor:pointer}
 .chat-audio-lazy small{font-size:9px;opacity:.7}.chat-audio-error{font-size:10px;font-weight:700;color:#b3261e}
+.chat-search-kinds{grid-column:1/-1;display:flex;gap:6px;overflow-x:auto;padding-top:4px;scrollbar-width:none}.chat-search-kinds button{flex:none;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}.chat-search-kinds button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .chat-mention{font-weight:900;color:#1F6FB2}html[data-appearance="dark"] .chat-mention{color:#8CC8FF}.chat-row.mentions-me .chat-bubble{box-shadow:0 0 0 2px #D7A93E}
 .chat-mention-box{margin:0 10px 6px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;max-height:220px;overflow-y:auto}
 .chat-mention-box button{display:flex;width:100%;align-items:center;gap:8px;padding:9px 12px;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer;font-size:13px}.chat-mention-box button:hover,.chat-mention-box button:focus{background:rgba(127,145,159,.14)}.chat-mention-box small{color:var(--muted);font-size:11px}
@@ -1794,7 +1795,7 @@ let pushVapidPublicKey='',pushRegistering=false,lastPushOperatorId='',pushBacken
 const CHAT_UNREAD_KEY='bom_regresso_chat_unread_'+DATA_NAMESPACE;
 const CHAT_LAST_READ_PREFIX='bom_regresso_chat_last_read_'+DATA_NAMESPACE+'_';
 const CHAT_NOTIFY_SETTINGS_KEY='bom_regresso_chat_notify_'+DATA_NAMESPACE;
-let chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false,chatRecordingSendOnStop=false;
+let chatSearchKind='',chatMessages=[],chatReady=false,chatUnread=0,chatPendingAttachment=null,chatRecorder=null,chatRecorderStream=null,chatAudioChunks=[],chatRecordingTimer=null,chatRecordingStartedAt=0,chatRecordingCancelled=false,chatRecordingSendOnStop=false;
 let chatRecordGesture={pointerId:null,pointerDown:false,startX:0,startY:0,longPressTimer:null,mode:'idle',locked:false,cancelCandidate:false,lockCandidate:false};
 let chatReplyTarget=null,chatSearchTerm='',chatAutoScroll=true,chatLastRenderedCount=0,chatSending=false;
 const chatMediaCache=new Map();let chatMediaObserver=null,chatMicPrefetch=null;
@@ -2226,13 +2227,22 @@ async function deriveRHPassword(password,salt,iterations=120000){
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:base64ToBytes(salt),iterations,hash:'SHA-256'},key,256);
   return bytesToBase64(new Uint8Array(bits))
 }
-async function setRHPasswordForProfile(profile,password){
+// Senha que já existe só é trocada pelo servidor, conferindo a atual (o banco não deixa o aparelho sobrescrever).
+async function senhaApi(body){
+  if(!fbAuth?.currentUser)throw new Error('sem sessão');
+  const r=await fetch('/api/senha',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await fbAuth.currentUser.getIdToken()},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||String(r.status)),{status:r.status,info:j});return j
+}
+async function setRHPasswordForProfile(profile,password,currentPassword){
   if(!profile||!isPasswordProtectedProfile(profile))throw new Error('Este perfil não exige senha.');
   if(!profileSecretsCollection)throw new Error('Banco de credenciais indisponível.');
-  const salt=randomSalt(),iterations=PASSWORD_ITERATIONS,hash=await deriveRHPassword(password,salt,iterations);
-  await profileSecretsCollection.doc(profile.id).set({
-    hash,salt,iterations,role:profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()
-  },{merge:false});
+  if(currentPassword!==undefined&&await protectedProfileHasSecret(profile.id))await senhaApi({op:'trocar',profileId:profile.id,atual:currentPassword,nova:password});
+  else{
+    const salt=randomSalt(),iterations=PASSWORD_ITERATIONS,hash=await deriveRHPassword(password,salt,iterations);
+    await profileSecretsCollection.doc(profile.id).set({
+      hash,salt,iterations,role:profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()
+    },{merge:false});
+  }
   clearLegacyPasswordFields(profile);
   profile.passwordConfigured=true;profile.updatedAt=nowISO();
   save()
@@ -2247,10 +2257,8 @@ async function verifyRHPassword(profile,password){
   return true
 }
 // Refaz o resumo da senha com mais rodadas, sem a pessoa perceber.
-async function upgradeRHPassword(profile,password,secret){
-  if(!profileSecretsCollection)return;
-  const salt=randomSalt(),hash=await deriveRHPassword(password,salt,PASSWORD_ITERATIONS);
-  await profileSecretsCollection.doc(profile.id).set({hash,salt,iterations:PASSWORD_ITERATIONS,role:secret.role||profile.role||'',schemaVersion:PASSWORD_SCHEMA_VERSION,updatedAt:nowISO()},{merge:false})
+async function upgradeRHPassword(profile,password){
+  await senhaApi({op:'trocar',profileId:profile.id,atual:password,nova:password})
 }
 // Depois de 3 erros seguidos, espera cada vez maior antes da próxima tentativa (5 s, 10 s, 20 s… até 5 min).
 const loginFails=new Map();
@@ -2304,8 +2312,11 @@ async function resetProtectedProfilePassword(id){
   const p=db.operators.find(x=>x.id===id);if(!p||!isPasswordProtectedProfile(p))return toast('Este perfil não usa senha.');
   if(db.currentOperatorId===id)return toast('Para alterar a própria senha, use “Meu perfil → Alterar senha”.');
   if(!confirm(`Redefinir a senha de ${p.name}? Na próxima entrada, será necessário criar uma nova senha.`))return;
+  // Confirma com a senha de quem está redefinindo: sem isso, qualquer um poderia apagar a senha de um perfil protegido.
+  const minha=prompt('Para confirmar, digite a SUA senha:','');if(minha==null)return;
   try{
-    await profileSecretsCollection?.doc(id).delete();
+    try{await senhaApi({op:'redefinir',profileId:id,adminId:db.currentOperatorId,adminSenha:minha})}
+    catch(err){return toast(err.info?.error==='sem_senha'?'Só quem tem senha cadastrada pode redefinir a senha de outra pessoa.':err.status===403?(err.info?.error==='sem_permissao'?'Seu cargo não pode redefinir senhas.':'Sua senha está incorreta.'):err.status===429?'Muitas tentativas erradas. Aguarde alguns minutos.':'Não foi possível redefinir agora.')}
     p.passwordConfigured=false;p.updatedAt=nowISO();save();
     recordActivity('users','Redefinição de senha',`${db.currentOperator} solicitou redefinição da senha do perfil de ${p.name}.`);
     toast('Senha redefinida. O usuário criará uma nova senha no próximo acesso.');
@@ -2333,8 +2344,8 @@ async function saveMyRHPasswordChange(){
     const wait=loginWait(p.id);if(wait)return toast(`Muitas tentativas erradas. Aguarde ${Math.ceil(wait/1000)} s.`);
     if(configured&&!(await verifyRHPassword(p,current))){noteLoginFail(p.id);document.getElementById('rhChangeError')?.classList.remove('hidden');return}
     loginFails.delete(p.id);
-    await setRHPasswordForProfile(p,next);closeModal();toast('Senha do perfil alterada.')
-  }catch(err){console.error(err);toast('Não foi possível alterar a senha.')}
+    await setRHPasswordForProfile(p,next,current);closeModal();toast('Senha do perfil alterada.')
+  }catch(err){console.error(err);toast(err.status===403?'Senha atual incorreta.':err.status===429?'Muitas tentativas erradas. Aguarde alguns minutos.':'Não foi possível alterar a senha.')}
 }
 const validAvatarColor=c=>/^#[0-9A-F]{6}$/i.test(String(c||''))?String(c).toUpperCase():'';
 function profileAvatarHTML(profile,extraClass=''){
@@ -2961,12 +2972,16 @@ function openChatMessageMenu(id){
     ${canDelete?`<button class="chat-menu-option danger" onclick="App.closeModal();App.deleteChatMessage(${jsArg(m.id)})"><span>🗑</span><b>Excluir</b></button>`:''}
   </div>`)
 }
+// Filtro por tipo: fotos, áudios, arquivos ou mensagens que me mencionam.
+const chatKindMatch=m=>{if(!chatSearchKind)return true;if(chatSearchKind==='mention')return m.senderId!==db.currentOperatorId&&(m.mentionAll===true||(Array.isArray(m.mentions)&&m.mentions.includes(db.currentOperatorId)));
+  const k=m.attachment?.kind;return chatSearchKind==='file'?!!m.attachment&&k!=='image'&&k!=='audio':k===chatSearchKind};
+function setChatSearchKind(k){chatSearchKind=k;document.querySelectorAll('[data-chat-kind]').forEach(b=>b.classList.toggle('on',b.dataset.chatKind===k));renderChatMessages(false)}
 function toggleChatSearch(force){
   const bar=document.getElementById('chatSearchBar');if(!bar)return;
   const show=typeof force==='boolean'?force:bar.classList.contains('hidden');
   bar.classList.toggle('hidden',!show);
   if(show)setTimeout(()=>document.getElementById('chatSearch')?.focus(),30);
-  else{const input=document.getElementById('chatSearch');if(input){input.value='';chatSearchTerm='';renderChatMessages(false)}}
+  else{const input=document.getElementById('chatSearch');if(input)input.value='';chatSearchTerm='';chatSearchKind='';document.querySelectorAll('[data-chat-kind]').forEach(b=>b.classList.toggle('on',!b.dataset.chatKind));renderChatMessages(false)}
 }
 
 const chatReduceMotion=()=>!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -2998,7 +3013,7 @@ function renderChatMessages(forceBottom=false){
   if(!forceBottom&&[...root.querySelectorAll('audio')].some(a=>!a.paused&&!a.ended)){root._renderPending=true;return}
   root._renderPending=false;
   const wasNearBottom=root.scrollHeight-root.scrollTop-root.clientHeight<110,q=chatSearchTerm.trim().toLocaleLowerCase('pt-BR');
-  const list=chatMessages.filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
+  const list=chatMessages.filter(m=>chatKindMatch(m)).filter(m=>!q||String(m.text||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.senderName||'').toLocaleLowerCase('pt-BR').includes(q)||String(m.attachment?.name||'').toLocaleLowerCase('pt-BR').includes(q));
   if(!list.length){root._chatHTML='';chatTypingRowEl=null;if(!q)root._shownIds=new Set();root.innerHTML=q?'<div class="chat-empty"><div class="chat-empty-icon">⌕</div><b>Nenhuma mensagem encontrada</b><span>Tente outra pesquisa.</span></div>':'<div class="chat-empty"><div class="chat-empty-icon">💬</div><b>Nenhuma mensagem ainda</b><span>Comece a conversa da Prefeitura.</span></div>';return}
   let lastDay='',html='';
   for(let i=0;i<list.length;i++){
@@ -3367,6 +3382,7 @@ function chat(c){
       <div id="chatPinnedBar" class="chat-pinned-bar hidden" onclick="App.openPinnedChat()"></div>
       <div id="chatSearchBar" class="chat-search-bar hidden">
         <span>⌕</span><input id="chatSearch" placeholder="Pesquisar mensagens" oninput="App.filterChatMessages()"><button onclick="App.toggleChatSearch(false)" aria-label="Fechar pesquisa">✕</button>
+        <div class="chat-search-kinds" role="group" aria-label="Filtrar por tipo">${[['','Tudo'],['image','📷 Fotos'],['audio','🎙️ Áudios'],['file','📎 Arquivos'],['mention','@ Menções a mim']].map(([k,l])=>`<button type="button" data-chat-kind="${k}" class="${chatSearchKind===k?'on':''}" onclick="App.setChatSearchKind('${k}')">${l}</button>`).join('')}</div>
       </div>
       <div class="chat-messages-wrap">
         <div id="chatMessages" class="chat-messages" onscroll="App.chatScrollChanged()"></div>
@@ -3731,6 +3747,8 @@ function applyTheme(theme=getTheme()){
   root.style.setProperty('--navy3',shade(primary,20));
   root.style.setProperty('--gold',accent);
   root.style.setProperty('--gold2',shade(accent,18));
+  // Texto do botão dourado: escuro sobre cor clara, branco sobre cor escura (antes usava a cor principal e sumia no tema escuro).
+  {const n=parseInt(accent.slice(1),16),lum=(0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))/255;root.style.setProperty('--on-gold',lum>0.55?'#0B2E59':'#FFFFFF')}
   const dark=theme.appearance==='dark'||(theme.appearance==='auto'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   root.dataset.appearance=dark?'dark':'light';
   const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=primary;
@@ -4954,7 +4972,7 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault()
 });
 document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
-window.App={reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{

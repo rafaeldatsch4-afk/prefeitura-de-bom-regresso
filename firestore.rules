@@ -9,6 +9,13 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isMap(d) { return d is map; }
     function optString(d, k, max) { return !(k in d) || (d[k] is string && d[k].size() <= max); }
+    // Uma gravação não pode sumir com muitos itens de uma vez (apagar tudo era possível para qualquer visitante).
+    // O app apaga um perfil/estado por vez; um estado leva junto os municípios dele.
+    function shrinksAtMost(k, max) {
+      return !(k in resource.data) || !(resource.data[k] is list)
+        || (k in request.resource.data && request.resource.data[k] is list
+            && request.resource.data[k].size() >= resource.data[k].size() - max);
+    }
 
     // República (perfis, estados, municípios, cofre, histórico)
     match /republica/{docId} {
@@ -16,7 +23,8 @@ service cloud.firestore {
       allow create, update: if signedIn() && docId == 'dados_v1' && isMap(request.resource.data)
         && (!('profiles' in request.resource.data) || request.resource.data.profiles is list)
         && (!('estados' in request.resource.data) || request.resource.data.estados is list)
-        && (!('municipios' in request.resource.data) || request.resource.data.municipios is list);
+        && (!('municipios' in request.resource.data) || request.resource.data.municipios is list)
+        && (resource == null || (shrinksAtMost('profiles', 3) && shrinksAtMost('estados', 1) && shrinksAtMost('municipios', 60)));
       allow delete: if false;
     }
 
@@ -37,14 +45,16 @@ service cloud.firestore {
     // Sistema completo da Prefeitura de Bom Regresso e configuração das notificações
     match /municipio/{docId} {
       allow read: if signedIn() && docId in ['dados_v5', 'push_config_v2'];
-      allow create, update: if signedIn() && docId in ['dados_v5', 'push_config_v2'] && isMap(request.resource.data);
+      allow create, update: if signedIn() && docId in ['dados_v5', 'push_config_v2'] && isMap(request.resource.data)
+        && (resource == null || shrinksAtMost('operators', 3));
       allow delete: if false;
     }
 
     // Sistema completo de cada outro município (um documento por município)
     match /prefeituras_v5/{cityId} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && cityId.size() <= 80 && isMap(request.resource.data);
+      allow create, update: if signedIn() && cityId.size() <= 80 && isMap(request.resource.data)
+        && (resource == null || shrinksAtMost('operators', 3));
       allow delete: if false;
       match /carriers/{carrierId} {
         allow read: if signedIn();
@@ -62,10 +72,12 @@ service cloud.firestore {
     match /profileSecrets_v5/{profileId} {
       allow get: if signedIn();
       allow list: if false;
-      allow create, update: if signedIn() && request.resource.data.hash is string && request.resource.data.salt is string
+      // O aparelho só cria a senha que ainda não existe. Trocar ou redefinir passa pelo servidor (/api/senha),
+      // que confere a senha atual ou a de quem tem acesso total. Antes qualquer visitante sobrescrevia a senha de qualquer perfil.
+      allow create: if signedIn() && request.resource.data.hash is string && request.resource.data.salt is string
         && request.resource.data.iterations is int && request.resource.data.iterations >= 100000
         && request.resource.data.hash.size() <= 200 && request.resource.data.salt.size() <= 200;
-      allow delete: if signedIn();
+      allow update, delete: if false;
     }
 
     // Chat da República

@@ -418,7 +418,7 @@ html[data-theme="dark"] .ped-item,html[data-theme="dark"] .obra-item,html[data-t
 html[data-theme="dark"] .ped-resposta,html[data-theme="dark"] .ped-badge{background:#273F55;color:#E6EEF6}html[data-theme="dark"] .obra-bar{background:#273F55}
 html[data-theme="dark"] .gov-alert{background:#3A2F14;color:#FFE3A6}html[data-theme="dark"] .gov-alert.is-warn{background:#3D2412;color:#FFCFA8}
 .enq-item,.agenda-item,.backup-set{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:transparent}
-.enq-item.is-closed{opacity:.85}.enq-item h3{margin:6px 0 2px;font-size:16px}
+.enq-item.is-closed{opacity:.85}.enq-secret{flex-direction:row!important;align-items:center;gap:8px}.enq-item h3{margin:6px 0 2px;font-size:16px}
 .enq-opts{display:flex;flex-direction:column;gap:6px;margin:10px 0 6px}
 .enq-opt{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--line,#D9E2EA);background:transparent;color:inherit;font:inherit;text-align:left;overflow:hidden}
 button.enq-opt{cursor:pointer}button.enq-opt:hover{border-color:#2F6FB2}
@@ -434,8 +434,15 @@ button.enq-opt{cursor:pointer}button.enq-opt:hover{border-color:#2F6FB2}
 @media(max-width:600px){.agenda-item{flex-wrap:wrap}.backup-item{flex-wrap:wrap}}
 .install-app-btn{width:100%;min-height:48px;font-size:16px}.install-done{font-weight:800;color:#1F7A4D}html[data-theme="dark"] .install-done{color:#7FD1A6}
 .install-help{margin-top:12px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px}.install-help p{margin:4px 0}
+.pend-panel{margin-bottom:14px;border-left:4px solid var(--gold)}.pend-panel h2{margin-bottom:8px}
+.pend-list{display:flex;flex-direction:column;gap:6px}
+.pend-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer}
+.pend-item:hover{border-color:var(--gold)}.pend-item b{flex:1;min-width:0;font-weight:700}.pend-icon{font-size:20px}.pend-go{font-size:20px;color:var(--muted)}
+.pend-item.is-urgent{border-color:#C0392B;background:rgba(192,57,43,.06)}
+.month-report{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.month-report input{padding:10px 12px;border-radius:11px;border:1px solid var(--line);font:inherit;background:transparent;color:inherit}
+.report-actions.is-highlight{box-shadow:0 0 0 3px var(--gold)}
 </style></head><body><div id="loginScreen" class="login-screen" hidden></div><div class="wco-drag" aria-hidden="true"></div><div class="shell" id="shell"><aside class="side"><div class="brand"><img src="pais/brasao.svg" alt="Brasão de Bom Regresso"><b>Bom Regresso</b><small>Presidência · Sistema nacional</small></div><nav class="nav" id="nav"></nav></aside><main><div class="top"><img class="top-logo" src="pais/brasao.svg" alt=""><div class="top-title"><strong>REPÚBLICA BOM REGRESSENSE</strong><small id="topSubtitle">SISTEMA DA PRESIDÊNCIA</small></div><button type="button" class="top-bell" id="topBell" data-bell aria-label="Avisos" hidden><span aria-hidden="true">🔔</span><b class="bell-count" hidden></b></button><button type="button" class="top-profile" data-page="perfil" aria-label="Abrir meu perfil" id="topProfile"></button></div><div class="content" id="content"></div></main></div><nav class="mobile" id="mobile"></nav><div class="more-backdrop" id="moreBackdrop" hidden><div class="more-sheet"><div class="more-head"><b>Mais opções</b><button type="button" class="close-more" aria-label="Fechar menu" data-close-more>×</button></div><div id="moreItems"></div></div></div><script>window.addEventListener('error',function(){if(window.__republicaStarted)return;var box=document.getElementById('loginScreen');if(!box)return;box.hidden=false;var shell=document.getElementById('shell'),mobile=document.getElementById('mobile');if(shell)shell.hidden=true;if(mobile)mobile.hidden=true;box.innerHTML='<div class="login-card"><h1>Bom Regresso</h1><p>Não foi possível abrir o painel neste navegador. Verifique se o armazenamento de dados de sites está permitido ou abra o link no Chrome.</p><button class="btn" type="button" onclick="location.reload()">Tentar novamente</button></div>'})</script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" integrity="sha384-ZaR6mWzmJtrRibZ1Vm7SoHFr8OXjyAuGAXalGDKqbxFT18oi/z+oZLIRFkpeNor1" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" integrity="sha384-I1LYojsZ5RM1cOda44Z2h42Qa6YfsQ1XkXxREnhp4ueYBR/4d1pG1K+NZM537Vsj" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" integrity="sha384-Ke0FJhH7LyRqDxZ0wt+/OXV38yfQVu7g9VPEEGjYmB4RVOY/ta04uecRhsMwT7V3" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js" integrity="sha384-HY9kcCUNf5iP55Q7dt4qtyKGMq0L6BbtAwNb4LYA6MXDWUL8DRlsj1xhtwKBZ2BL" crossorigin="anonymous"></script><script>
-(()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['diario','📰','Diário Oficial'],['enquetes','🗳️','Enquetes'],['agenda','📅','Agenda'],['lixeira','🗑️','Lixeira'],['backups','💾','Cópias de segurança'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],atosNacionais:[],enquetes:[],agenda:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render();pushLocalActs()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
+(()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['diario','📰','Diário Oficial'],['enquetes','🗳️','Enquetes'],['agenda','📅','Agenda'],['lixeira','🗑️','Lixeira'],['backups','💾','Cópias de segurança'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],atosNacionais:[],enquetes:[],agenda:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios',enquetes:'enquetes',agenda:'agenda',diario:'diario'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render();pushLocalActs()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
   presidencia:{label:'Presidência',icon:'🏛️',roles:['Presidente','Vice-presidente']},
   estadual:{label:'Governo estadual',icon:'🗺️',roles:['Governador','Vice-governador']},
   prefeitura:{label:'Prefeitura',icon:'🏘️',roles:['Prefeito','Vice-prefeito','Secretário da Agricultura','Motorista','Servidor / Outro']},
@@ -566,6 +573,7 @@ function mergeCountryData(remote,local){
   return merged;
 }
 function applyCountryCloud(remote){
+  syncBase=pickCountry(remote);
   const selected=sessionStorage.getItem(SESSION_PROFILE_KEY)||'',wasLoggedIn=!!data.currentProfileId;
   rememberPhotos(data);
   data=Object.assign(defaults(),Object.fromEntries(COUNTRY_FIELDS.map(k=>[k,remote[k]??defaults()[k]])));
@@ -577,6 +585,42 @@ function applyCountryCloud(remote){
   persistSoon();
   resetLogBase();noteIncoming();
   render()
+}
+// ---- Junta alterações feitas ao mesmo tempo em aparelhos diferentes.
+// "base" é a última versão da nuvem que este aparelho conhecia. Na hora de gravar, compara base × minha versão × nuvem
+// atual: o que só eu mudei vale o meu, o que só os outros mudaram vale o deles, e listas com id (pedidos, votos,
+// movimentações…) são juntadas item por item. Antes a gravação inteira substituía a da outra pessoa.
+let syncBase=null;
+const sameJSON=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const isPlain=v=>v&&typeof v==='object'&&!Array.isArray(v);
+const idList=(...ls)=>ls.every(l=>l===undefined||(Array.isArray(l)&&l.every(x=>isPlain(x)&&x.id!=null)))&&ls.some(Array.isArray);
+function merge3(base,mine,theirs){
+  if(sameJSON(mine,base))return theirs;
+  if(sameJSON(theirs,base)||sameJSON(theirs,mine))return mine;
+  if(idList(base,mine,theirs)){
+    const B=new Map((base||[]).map(x=>[x.id,x])),M=new Map((mine||[]).map(x=>[x.id,x])),out=[],seen=new Set();
+    for(const t of theirs||[]){seen.add(t.id);
+      if(M.has(t.id))out.push(merge3(B.get(t.id),M.get(t.id),t));
+      else if(!B.has(t.id))out.push(t);                       // novo de outra pessoa
+      else if(!sameJSON(t,B.get(t.id)))out.push(t)}          // eu apaguei, mas a outra pessoa mexeu: fica
+    for(const m of mine||[])if(!seen.has(m.id)){
+      if(!B.has(m.id))out.push(m);                            // novo meu
+      else if(!sameJSON(m,B.get(m.id)))out.push(m)}          // a outra pessoa apagou, mas eu mexi: fica
+    return out
+  }
+  if(isPlain(mine)&&isPlain(theirs)){
+    const out={},b=isPlain(base)?base:{};
+    for(const k of new Set([...Object.keys(mine),...Object.keys(theirs),...Object.keys(b)])){const v=merge3(b[k],mine[k],theirs[k]);if(v!==undefined)out[k]=v}
+    return out
+  }
+  return mine
+}
+const pickCountry=v=>JSON.parse(JSON.stringify(Object.fromEntries(COUNTRY_FIELDS.map(k=>[k,v?.[k]]))));
+function mergeCountryWrite(remote){
+  const mine=countryPayload();if(!remote||!syncBase)return mine;
+  const out={};for(const k of COUNTRY_FIELDS){const v=merge3(syncBase[k],mine[k],remote[k]);if(v!==undefined)out[k]=v}
+  if(Array.isArray(out.atividades))out.atividades.sort((x,y)=>String(y.at).localeCompare(String(x.at)));
+  return out
 }
 function writeCountryCloud(){
   localStorage.setItem(COUNTRY_DIRTY_KEY,'1');
@@ -593,13 +637,17 @@ async function flushCountryCloud(){
       written=countryWriteVersion;
       await storePhotos();
       // Confere a época antes de gravar: se a República foi zerada enquanto este aparelho estava aberto, não regrava a cópia antiga.
-      let stale=null;
+      let stale=null,merged=null;
       await countryStore.runTransaction(async transaction=>{
         const snap=await transaction.get(countryDoc);
         if(snap.exists&&!sameEpoch(snap.data(),data)){stale=snap.data();return}
-        transaction.set(countryDoc,{...countryPayload(),updatedAt:new Date().toISOString()},{merge:true})
+        merged=mergeCountryWrite(snap.exists?snap.data():null);
+        transaction.set(countryDoc,{...merged,updatedAt:new Date().toISOString()},{merge:true})
       });
       if(stale){localStorage.removeItem(COUNTRY_DIRTY_KEY);applyCountryCloud(stale);break}
+      syncBase=pickCountry(merged);
+      // Entrou alteração de outra pessoa junto: mostra já a versão juntada.
+      if(merged&&written===countryWriteVersion&&countryFingerprint(merged)!==countryFingerprint(countryPayload())){localStorage.removeItem(COUNTRY_DIRTY_KEY);applyCountryCloud(merged)}
     }
     localStorage.removeItem(COUNTRY_DIRTY_KEY);
     countryNotice=''
@@ -671,7 +719,7 @@ async function initCountryCloud(){
     const snapshot=await doc.get();
     if(!countryEnabled)return;
     localStorage.setItem(COUNTRY_MIGRATED_KEY,'1');
-    const remote=snapshot.data();
+    const remote=snapshot.data();if(remote)syncBase=pickCountry(remote);
     if(remote&&countryFingerprint(remote)!==countryFingerprint(data)){
       if(countryHasRecords(data)&&!localStorage.getItem(COUNTRY_BACKUP_KEY))localStorage.setItem(COUNTRY_BACKUP_KEY,JSON.stringify(data));
       applyCountryCloud(remote)
@@ -680,7 +728,7 @@ async function initCountryCloud(){
     countryDoc=doc;countryStore=store;countryReady=true;countryLoading=false;countryNotice='';render();watchChat();
     countryUnsub?.();countryUnsub=doc.onSnapshot(s=>{
       if(!s.exists||countryWriting||localStorage.getItem(COUNTRY_DIRTY_KEY)==='1'||s.metadata.hasPendingWrites)return;
-      const remote=s.data();if(countryFingerprint(remote)!==countryFingerprint(data))applyCountryCloud(remote)
+      const remote=s.data();if(countryFingerprint(remote)!==countryFingerprint(data))applyCountryCloud(remote);else syncBase=pickCountry(remote)
     },err=>countryConnectionLost(err,'Atualizações da República:'))
   }catch(err){countryConnectionLost(err,'Firebase da República indisponível:')}
   finally{countryInitializing=false}
@@ -716,7 +764,7 @@ function render(){
   // conversation for everyone. Keep the live frame while the page and the profile sent to it stay the same.
   const frameId=page==='chat'?'republicChatFrame':embeddedView?'municipalAppFrame':'';
   const embedKey=frameId?page+'|'+JSON.stringify(page==='chat'?chatProfilePayload():municipalProfilePayload(openCity)):'';
-  if(!embedKey||!$(frameId)||$('content').dataset.embedKey!==embedKey){const act=document.activeElement?.matches?.('[data-act-filter="q"]')?[document.activeElement.closest('[data-act-ctx]')?.dataset.actCtx,document.activeElement.selectionStart]:null;$('content').innerHTML=({inicio,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil,atividades,relatorios,lixeira,diario,enquetes,agenda,backups})[page]();if(act){const el=$('content').querySelector(`[data-act-ctx="${act[0]}"] [data-act-filter="q"]`);if(el){el.focus();try{el.setSelectionRange(act[1],act[1])}catch{}}}}
+  if(!embedKey||!$(frameId)||$('content').dataset.embedKey!==embedKey){const act=document.activeElement?.matches?.('[data-act-filter="q"]')?[document.activeElement.closest('[data-act-ctx]')?.dataset.actCtx,document.activeElement.selectionStart]:null;$('content').innerHTML=({inicio:inicioComPendencias,chat:chatPortal,estados,municipios,adminmunicipio,cofre,economia,aparencia,usuarios,perfil,atividades,relatorios,lixeira,diario,enquetes,agenda,backups})[page]();if(act){const el=$('content').querySelector(`[data-act-ctx="${act[0]}"] [data-act-filter="q"]`);if(el){el.focus();try{el.setSelectionRange(act[1],act[1])}catch{}}}}
   if(page==='chat'){chatUnseen=false;document.querySelector('.chat-toast')?.remove()}$('content').dataset.embedKey=embedKey;setTimeout(updateChatDot,0);
   const viewKey=[page,govStateId,govTab,govCityId,cityTab,profileTargetId,govPickerMode].join('|'),dir=fxNavGlide(navSnap);
   // Valores mostrados na última vez (um cartão aberto para edição guarda o valor de antes).
@@ -743,6 +791,11 @@ async function pwHash(password,salt,iterations){
 }
 const pwSame=(a,b)=>{a=String(a||'');b=String(b||'');let d=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)d|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return d===0};
 const pwSecretRef=id=>countryStore.collection('profileSecrets_v5').doc(id);
+async function senhaApi(body){
+  const user=countryAuthUser();if(!user)throw new Error('sem sessão');
+  const r=await fetch('/api/senha',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await user.getIdToken()},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||String(r.status)),{status:r.status,info:j});return j
+}
 async function pwStore(p,password){const a=new Uint8Array(16);crypto.getRandomValues(a);const salt=pwB64(a);await pwSecretRef(p.id).set({hash:await pwHash(password,salt,PW_ITERATIONS),salt,iterations:PW_ITERATIONS,role:p.role||'',schemaVersion:PW_SCHEMA,updatedAt:new Date().toISOString()},{merge:false})}
 let pwStep={id:'',state:'',error:'',busy:false};const pwFails=new Map();
 const pwWait=id=>{const f=pwFails.get(id);return f&&f.n>=3?Math.max(0,f.until-Date.now()):0};
@@ -790,7 +843,8 @@ document.addEventListener('submit',async e=>{
     if(!d?.hash){pwStep.busy=false;pwStep.state='create';pwStep.error='';render();return}
     const it=Number(d.iterations)||120000,ok=pwSame(await pwHash(v('senha'),d.salt,it),d.hash);
     if(!ok){pwFail(p.id);pwStep.busy=false;pwStep.error='Senha incorreta.';render();return}
-    if(it<PW_ITERATIONS)pwStore(p,v('senha')).catch(err=>console.warn('Atualizar proteção da senha:',err));
+    // Senha antiga com menos rodadas: o servidor refaz o resumo (o banco não deixa o aparelho sobrescrever uma senha).
+    if(it<PW_ITERATIONS)senhaApi({op:'trocar',profileId:p.id,atual:v('senha'),nova:v('senha')}).catch(err=>console.warn('Atualizar proteção da senha:',err));
     finishPasswordLogin(p)
   }catch(err){console.error('Senha do perfil:',err);pwStep.busy=false;pwStep.error='Não foi possível conferir a senha agora.';render()}
 });
@@ -1468,7 +1522,7 @@ const myAlerts=()=>{const p=current();return (data.atividades||[]).filter(a=>rel
 function alertsSeenAt(){const k=alertsSeenKey();let v=localStorage.getItem(k);if(!v){v=new Date().toISOString();localStorage.setItem(k,v)}return v}
 const unreadAlerts=()=>{const seen=alertsSeenAt();return myAlerts().filter(a=>String(a.at)>seen)};
 // Tipos de aviso que este aparelho quer receber (o servidor também respeita, pelo registro do aparelho).
-const ALERT_TYPES=[['pedido','📨 Pedidos de verba'],['repasse','💸 Repasses'],['licitacao','📑 Licitações'],['enquete','🗳️ Enquetes'],['agenda','📅 Agenda'],['diario','📰 Diário Oficial']];
+const ALERT_TYPES=[['pedido','📨 Pedidos de verba'],['repasse','💸 Repasses'],['licitacao','📑 Licitações'],['obras','🏗️ Obras atrasadas'],['enquete','🗳️ Enquetes'],['agenda','📅 Agenda'],['diario','📰 Diário Oficial'],['relatorio','📊 Relatório mensal']];
 const ALERT_TYPES_KEY=KEY+'_tipos_aviso';
 const alertTypes=()=>{try{return JSON.parse(localStorage.getItem(ALERT_TYPES_KEY)||'{}')||{}}catch{return {}}};
 const actCat=a=>({'Pedido de verba':'pedido','Pedido recusado':'pedido','Repasse':'repasse','Licitação aprovada':'licitacao','Licitação negada':'licitacao','Licitação enviada':'licitacao','Nova enquete':'enquete','Enquete encerrada':'enquete','Novo evento':'agenda','Evento cancelado':'agenda','Ato publicado':'diario','Revogação':'diario'})[a?.acao]||'';
@@ -1605,14 +1659,14 @@ const enqAberta=e=>!e.encerrada&&(!e.prazo||e.prazo>=todayISO());
 function enquetes(){
   const me=current(),pode=scope(me)==='nacional',list=(data.enquetes||[]).filter(e=>inPublico(e.publico,me)||pode).slice().sort((a,b)=>(enqAberta(b)-enqAberta(a))||String(b.criadoEm).localeCompare(String(a.criadoEm)));
   const card=e=>{const votos=e.votos&&typeof e.votos==='object'?e.votos:{},total=Object.keys(votos).length,meu=votos[me.id],aberta=enqAberta(e),vota=aberta&&inPublico(e.publico,me);
-    const counts=e.opcoes.map((_,i)=>Object.values(votos).filter(v=>v===i).length),max=Math.max(1,...counts);
-    return `<article class="enq-item${aberta?'':' is-closed'}"><div class="ato-head"><b>🗳️ ${esc(publicoNome(e.publico))}</b><span class="ato-status">${aberta?'Aberta':'Encerrada'}</span></div><h3>${esc(e.pergunta)}</h3>
+    const counts=e.opcoes.map((_,i)=>Object.values(votos).filter(v=>v===i).length),max=Math.max(1,...counts),oculto=e.secreta&&aberta;
+    return `<article class="enq-item${aberta?'':' is-closed'}"><div class="ato-head"><b>🗳️ ${esc(publicoNome(e.publico))}${e.secreta?' · 🔒 Secreta':''}</b><span class="ato-status">${aberta?'Aberta':'Encerrada'}</span></div><h3>${esc(e.pergunta)}</h3>
       <small class="muted">${esc(e.autor||'Presidência')} · ${num(total)} ${total===1?'voto':'votos'}${e.prazo?` · até ${esc(fmtDate(e.prazo))}`:''}</small>
-      <div class="enq-opts">${e.opcoes.map((o,i)=>{const pct=total?Math.round(counts[i]/total*100):0;return `<${vota?'button type="button" data-enq-votar="'+esc(e.id)+'|'+i+'"':'div'} class="enq-opt${meu===i?' is-mine':''}${counts[i]===max&&total?' is-top':''}"><i style="width:${total?counts[i]/max*100:0}%"></i><span>${meu===i?'✓ ':''}${esc(o)}</span><b>${num(counts[i])} · ${pct}%</b></${vota?'button':'div'}>`}).join('')}</div>
+      <div class="enq-opts">${e.opcoes.map((o,i)=>{const pct=total?Math.round(counts[i]/total*100):0;return `<${vota?'button type="button" data-enq-votar="'+esc(e.id)+'|'+i+'"':'div'} class="enq-opt${meu===i?' is-mine':''}${!oculto&&counts[i]===max&&total?' is-top':''}"><i style="width:${!oculto&&total?counts[i]/max*100:0}%"></i><span>${meu===i?'✓ ':''}${esc(o)}</span>${oculto?'':`<b>${num(counts[i])} · ${pct}%</b>`}</${vota?'button':'div'}>`}).join('')}</div>${oculto?'<small class="muted">🔒 Enquete secreta: o resultado aparece quando encerrar. Ninguém vê em quem cada pessoa votou.</small>':''}
       ${vota?`<small class="muted">${meu===undefined?'Toque numa opção para votar.':'Você pode trocar o voto enquanto estiver aberta.'}</small>`:''}
       ${pode?`<div class="ato-actions">${aberta?`<button class="btn secondary" type="button" data-enq-encerrar="${esc(e.id)}">Encerrar</button>`:''}<button class="btn danger" type="button" data-enq-excluir="${esc(e.id)}">Excluir</button></div>`:''}</article>`};
   return heading('Enquetes','Votações rápidas da Presidência para governadores, prefeitos ou todos. Cada perfil vota uma vez e pode trocar o voto até encerrar.')+
-  (pode?`<section class="panel"><h2>Nova enquete</h2><form id="enqForm" class="form"><label class="field wide">Pergunta<input name="pergunta" required maxlength="160" placeholder="Ex.: Aprovar o orçamento de 2027?"></label><label class="field wide">Opções (uma por linha)<textarea name="opcoes" rows="4" maxlength="600">Sim\nNão\nAbstenção</textarea></label><label class="field">Quem vota<select name="publico">${publicoOptions('todos')}</select></label><label class="field">Prazo (opcional)<input name="prazo" type="date" min="${todayISO()}"></label><div class="field wide"><button class="btn">🗳️ Abrir enquete</button></div></form></section>`:'')+
+  (pode?`<section class="panel"><h2>Nova enquete</h2><form id="enqForm" class="form"><label class="field wide">Pergunta<input name="pergunta" required maxlength="160" placeholder="Ex.: Aprovar o orçamento de 2027?"></label><label class="field wide">Opções (uma por linha)<textarea name="opcoes" rows="4" maxlength="600">Sim\nNão\nAbstenção</textarea></label><label class="field">Quem vota<select name="publico">${publicoOptions('todos')}</select></label><label class="field">Prazo (opcional)<input name="prazo" type="date" min="${todayISO()}"></label><label class="field wide enq-secret"><input type="checkbox" name="secreta"> 🔒 Secreta: o resultado só aparece quando encerrar</label><div class="field wide"><button class="btn">🗳️ Abrir enquete</button></div></form></section>`:'')+
   `<section class="panel" style="margin-top:14px"><h2>Enquetes</h2>${list.length?`<div class="ato-list">${list.map(card).join('')}</div>`:'<p class="gov-empty">Nenhuma enquete por enquanto.</p>'}</section>`
 }
 
@@ -1672,7 +1726,7 @@ document.addEventListener('submit',e=>{
     const pergunta=String(o.pergunta||'').trim().slice(0,160),opcoes=[...new Set(String(o.opcoes||'').split('\n').map(x=>x.trim().slice(0,80)).filter(Boolean))].slice(0,8);
     if(!pergunta)return alert('Escreva a pergunta.');if(opcoes.length<2)return alert('Coloque pelo menos duas opções, uma por linha.');
     const publico=PUBLICOS.some(x=>x[0]===o.publico)?o.publico:'todos',prazo=/^\d{4}-\d{2}-\d{2}$/.test(o.prazo||'')?o.prazo:'',ref=id(),list=listOf('enquetes');
-    list.push({id:ref,pergunta,opcoes,publico,prazo,votos:{},criadoEm:nowISO(),autor:me.name,autorId:me.id});trimTo(list,100);
+    list.push({id:ref,pergunta,opcoes,publico,prazo,secreta:o.secreta==='on',votos:{},criadoEm:nowISO(),autor:me.name,autorId:me.id});trimTo(list,100);
     repLog({acao:'Nova enquete',area:'Enquetes',texto:`Enquete para ${publicoNome(publico).toLowerCase()}: ${pergunta}`,ref,publico});save();return
   }
   if(fid==='agendaForm'){
@@ -1729,6 +1783,45 @@ document.addEventListener('click',async e=>{
   if(appInstalled()){showToast('O aplicativo já está instalado');return}
   if(installPromptEvt){const p=installPromptEvt;installPromptEvt=null;p.prompt();const r=await p.userChoice.catch(()=>({outcome:'dismissed'}));if(r.outcome==='accepted')showToast('✓ Instalando…');else render();return}
   installHelp=true;render()
+});
+
+// ---- Pendências: o que esta pessoa precisa fazer agora (aparece no topo do Início)
+function pendencias(){
+  const p=current();if(!p)return [];
+  const lv=scope(p),hoje=todayISO(),out=[],plural=(n,a,b)=>`${num(n)} ${n===1?a:b}`;
+  if(lv==='nacional'||lv==='estadual'){
+    for(const st of data.estados){
+      if(lv==='estadual'&&p.jurisdictionId!==st.id)continue;
+      const pend=(st.pedidos||[]).filter(x=>x.status==='pendente');
+      if(pend.length)out.push({icon:'📨',text:`${plural(pend.length,'pedido de verba esperando','pedidos de verba esperando')} resposta · ${st.nome}`,attr:`data-pend-state="${esc(st.id)}" data-pend-tab="pedidos"`,urg:pend.some(x=>Date.now()-Date.parse(x.criadoEm)>3*864e5)});
+      const atras=(st.obras||[]).filter(o=>o.status!=='concluida'&&o.prazo&&o.prazo<hoje);
+      if(atras.length)out.push({icon:'🏗️',text:`${plural(atras.length,'obra atrasada','obras atrasadas')} · ${st.nome}`,attr:`data-pend-state="${esc(st.id)}" data-pend-tab="obras"`,urg:true});
+    }
+  }
+  if(lv==='municipal'&&p.jurisdictionId){
+    const c=data.municipios.find(x=>x.id===p.jurisdictionId),st=c&&data.estados.find(x=>x.id===c.estado);
+    const resp=(st?.pedidos||[]).filter(x=>x.municipio===c.id&&x.status!=='pendente'&&x.respostaEm&&Date.now()-Date.parse(x.respostaEm)<7*864e5);
+    if(resp.length)out.push({icon:'📬',text:`${plural(resp.length,'resposta do estado','respostas do estado')} aos pedidos de ${c.nome} nesta semana`,attr:`data-pend-city="${esc(c.id)}" data-pend-tab="pedidos"`});
+    const espera=(st?.pedidos||[]).filter(x=>x.municipio===c.id&&x.status==='pendente');
+    if(espera.length)out.push({icon:'⏳',text:`${plural(espera.length,'pedido seu aguarda','pedidos seus aguardam')} o estado`,attr:`data-pend-city="${esc(c.id)}" data-pend-tab="pedidos"`});
+  }
+  const enq=(data.enquetes||[]).filter(e=>enqAberta(e)&&inPublico(e.publico,p)&&!(e.votos&&Object.prototype.hasOwnProperty.call(e.votos,p.id)));
+  if(enq.length)out.push({icon:'🗳️',text:`${plural(enq.length,'enquete esperando','enquetes esperando')} o seu voto`,attr:'data-page="enquetes"',urg:enq.some(e=>e.prazo&&e.prazo<=hoje)});
+  for(const e of (data.agenda||[]).filter(e=>e.data===hoje&&!e.cancelado&&inPublico(e.publico,p)).sort((a,b)=>String(a.hora).localeCompare(String(b.hora))))
+    out.push({icon:'📅',text:`Hoje${e.hora?' às '+e.hora:''}: ${e.titulo}${e.local?' · '+e.local:''}`,attr:'data-page="agenda"'});
+  return out
+}
+function pendenciasHTML(){
+  const list=pendencias();if(!list.length)return '';
+  return `<section class="panel pend-panel"><h2>📌 Pendências</h2><div class="pend-list">${list.map(i=>`<button type="button" class="pend-item${i.urg?' is-urgent':''}" ${i.attr}><span class="pend-icon" aria-hidden="true">${i.icon}</span><b>${esc(i.text)}</b><span class="pend-go" aria-hidden="true">›</span></button>`).join('')}</div></section>`
+}
+const inicioComPendencias=()=>{const h=inicio(),k=h.indexOf('</p>');return k<0?pendenciasHTML()+h:h.slice(0,k+4)+pendenciasHTML()+h.slice(k+4)};
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-pend-state],[data-pend-city]');if(!t||!current())return;
+  formEditing=false;govPickerMode='list';
+  if(t.dataset.pendState){page='estados';govStateId=t.dataset.pendState;govTab=t.dataset.pendTab||'painel'}
+  else{page='municipios';govCityId=t.dataset.pendCity;cityView='republica';cityTab=t.dataset.pendTab||'painel'}
+  render();window.scrollTo(0,0)
 });
 
 // ---- Planilhas (CSV) e relatório em PDF
@@ -1791,6 +1884,7 @@ function relatorios(){
   const s=reportScope(),r=rankingData(s),nacional=s.level==='nacional',estadual=s.level==='estadual',many=s.municipios.length>1;
   return heading('Relatórios',`Rankings, planilhas e relatório em PDF · ${esc(s.nome)}`)+
   `<section class="panel report-actions"><h2>Baixar</h2><p class="muted">Relatório pronto para imprimir ou mandar, e planilhas que abrem no Excel e no Google Planilhas.</p><div class="actions"><button type="button" class="btn" data-report-pdf>📄 Relatório em PDF</button></div>${csvButtons()}</section>`+
+  `<section class="panel report-actions${reportMes?' is-highlight':''}"><h2>📅 Relatório do mês</h2><p class="muted">Repasses, pedidos, obras, atos, enquetes e agenda de um mês. No dia 1º a Presidência recebe o aviso do mês que terminou.</p><div class="actions month-report"><input type="month" id="reportMonth" value="${esc(reportMes||mesAnterior())}" max="${todayISO().slice(0,7)}" aria-label="Mês do relatório"><button type="button" class="btn" data-report-month>📄 Baixar o mês</button></div></section>`+
   `<div class="grid report-grid">${many?`<section class="panel"><h2>🏆 Quem mais recebeu repasses</h2><p class="muted">Total recebido dos estados, desde o começo.</p>${rankBars(r.recebeu)}</section><section class="panel"><h2>📈 Quem mais cresceu</h2><p class="muted">Quanto o caixa de cada município aumentou nos últimos 30 dias.</p>${rankBars(r.cresceu)}</section><section class="panel"><h2>💰 Maior caixa municipal</h2><p class="muted">Dinheiro disponível hoje em cada município.</p>${rankBars(r.caixaCidade)}</section><section class="panel"><h2>👥 Mais populosos</h2><p class="muted">População cadastrada.</p>${popBars(r.populacao)}</section>`:''}${nacional||estadual?`<section class="panel"><h2>🗺️ ${nacional?'Estados com mais caixa':'Caixa do estado'}</h2><p class="muted">Dinheiro disponível hoje.</p>${rankBars(r.caixaEstado)}</section>`:''}${nacional?`<section class="panel"><h2>📊 PIB ano a ano</h2><p class="muted">Valores informados em Economia.</p>${pibChart()}</section>`:''}${!many&&s.municipios[0]?`<section class="panel"><h2>🏘️ ${esc(s.municipios[0].nome)}</h2><p class="muted">Caixa hoje: <b>${esc(money(cityCash(s.municipios[0])))}</b> · Repasses recebidos: <b>${esc(money(r.recebeu[0]?.value||0))}</b> · Últimos 30 dias: <b>${esc(money(r.cresceu[0]?.value||0))}</b></p></section>`:''}</div>`+
   (nacional?dbPanel():'')
 }
@@ -1810,8 +1904,13 @@ function ensurePdfLib(){
 }
 // As fontes padrão do PDF só têm acentos do português (Latin-1): emojis e símbolos fora disso saem.
 const pdfText=v=>String(v??'').replace(/[–—]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[  ]/g,' ').replace(/[^\x20-\xff\n]/g,'').replace(/ {2,}/g,' ').trim();
-async function buildReportPdf(){
-  const {jsPDF}=await ensurePdfLib(),s=reportScope(),r=rankingData(s),me=current();
+const MESES_NOME=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const mesExtenso=m=>/^\d{4}-\d{2}$/.test(m)?`${MESES_NOME[Number(m.slice(5,7))-1]} de ${m.slice(0,4)}`:m;
+const mesAnterior=()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`};
+// Mês vindo da notificação do dia 1º (/?open=relatorios&mes=2026-09)
+let reportMes=(()=>{const m=new URLSearchParams(location.search).get('mes')||'';return /^\d{4}-\d{2}$/.test(m)?m:''})();
+async function buildReportPdf(mes=''){
+  const {jsPDF}=await ensurePdfLib(),s=reportScope(),r=rankingData(s),me=current(),mesNome=mes?mesExtenso(mes):'';
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true}),W=210,M=16,navy=[11,46,89],gold=[215,169,62],ink=[38,50,61],muted=[102,118,132];
   let y=0;
   const page=()=>{doc.addPage();y=M};
@@ -1819,13 +1918,38 @@ async function buildReportPdf(){
   const text=(t,x,yy,o={})=>doc.text(pdfText(t),x,yy,o);
   doc.setFillColor(...navy);doc.rect(0,0,W,34,'F');doc.setFillColor(...gold);doc.rect(0,34,W,1.6,'F');
   doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(17);text('República Bom Regressense',M,15);
-  doc.setFont('helvetica','normal');doc.setFontSize(10.5);text(`Relatório · ${s.nome}`,M,23);
+  doc.setFont('helvetica','normal');doc.setFontSize(10.5);text(mes?`Relatório de ${mesNome} · ${s.nome}`:`Relatório · ${s.nome}`,M,23);
   doc.setFontSize(8.5);text(`Gerado em ${new Date().toLocaleString('pt-BR')} por ${me?.name||''} (${me?.role||''})`,M,29.5);
   y=46;
   const title=t=>{need(16);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(12.5);text(t,M,y);doc.setDrawColor(...gold);doc.setLineWidth(.6);doc.line(M,y+2,M+22,y+2);y+=9};
   const kpis=items=>{const w=(W-2*M-6*(items.length-1))/items.length;need(22);items.forEach(([l,v],i)=>{const x=M+i*(w+6);doc.setFillColor(243,246,250);doc.roundedRect(x,y,w,18,2.5,2.5,'F');doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(7.5);text(l,x+3.5,y+6);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(10.5);const val=doc.splitTextToSize(pdfText(v),w-7);doc.text(val[0],x+3.5,y+13.5)});y+=25};
   const bars=(items,fmt=money)=>{items=items.filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,8);if(!items.length){doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(9);need(8);text('Nada registrado ainda.',M,y);y+=9;return}const max=Math.max(...items.map(x=>x.value)),lw=52,vw=44,bw=W-2*M-lw-vw-6;items.forEach((x,i)=>{need(8);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...ink);text(doc.splitTextToSize(pdfText(x.label),lw-2)[0],M,y+4);doc.setFillColor(232,238,243);doc.roundedRect(M+lw,y,bw,5,1.2,1.2,'F');doc.setFillColor(...(i===0?gold:[42,120,214]));doc.roundedRect(M+lw,y,Math.max(1.5,bw*x.value/max),5,1.2,1.2,'F');doc.setFont('helvetica','bold');doc.setTextColor(...navy);text(fmt(x.value),W-M,y+4,{align:'right'});y+=8});y+=4};
   const table=(cols,rows,widths)=>{const lineH=5.2;const head=()=>{need(9);doc.setFillColor(...navy);doc.rect(M,y,W-2*M,7,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);let x=M+2;cols.forEach((c,i)=>{text(c,x,y+4.8);x+=widths[i]});y+=7};head();doc.setFont('helvetica','normal');rows.forEach((r,ri)=>{const cells=r.map((c,i)=>doc.splitTextToSize(pdfText(c),widths[i]-3).slice(0,2));const h=Math.max(...cells.map(c=>c.length))*lineH+2;if(y+h>297-M){page();head();doc.setFont('helvetica','normal')}if(ri%2){doc.setFillColor(246,248,251);doc.rect(M,y,W-2*M,h,'F')}doc.setTextColor(...ink);doc.setFontSize(8);let x=M+2;cells.forEach((c,i)=>{doc.text(c,x,y+4.6);x+=widths[i]});y+=h});y+=6};
+  if(mes){
+    // ---- Relatório do mês: só o que aconteceu naquele mês, dentro do território de quem baixa.
+    const inM=d=>monthKey(String(d||'').slice(0,10))===mes,sid=new Set(s.estados.map(x=>x.id)),cid=new Set(s.municipios.map(x=>x.id)),sum=l=>l.reduce((a,m)=>a+(Number(m.valor)||0),0);
+    const movs=s.movimentos.filter(m=>inM(m.data)),repa=movs.filter(m=>m.tipo==='repasse'),arr=movs.filter(m=>m.tipo==='arrecadacao'),desp=movs.filter(m=>m.tipo==='despesa');
+    const peds=data.estados.flatMap(st=>(st.pedidos||[]).filter(p=>sid.has(st.id)||cid.has(p.municipio)).map(p=>({...p,st})));
+    const pedM=peds.filter(p=>inM(p.criadoEm)),aprov=peds.filter(p=>p.status==='aprovado'&&inM(p.respostaEm)),recus=peds.filter(p=>p.status==='recusado'&&inM(p.respostaEm));
+    kpis([['Repasses',money(sum(repa))],['Arrecadação',money(sum(arr))],['Despesas',money(sum(desp))],['Movimentações',num(movs.length)]]);
+    kpis([['Pedidos de verba',num(pedM.length)],['Aprovados',num(aprov.length)],['Recusados',num(recus.length)],['Ainda esperando',num(peds.filter(p=>p.status==='pendente').length)]]);
+    if(s.estados.length>1){title('Repasses por estado');table(['Estado','Repasses','Total'],s.estados.map(st=>{const l=repa.filter(m=>m.estado===st.id);return [st.nome,num(l.length),money(sum(l))]}),[90,30,58])}
+    if(s.municipios.length>1){title('Municípios que mais receberam no mês');const by=new Map();for(const m of repa)by.set(m.municipio,(by.get(m.municipio)||0)+(Number(m.valor)||0));bars([...by].map(([k,v])=>({label:cityName(k),value:v})))}
+    title('Pedidos de verba');
+    if(pedM.length)table(['Data','Município','Valor','Situação'],pedM.sort((a,b)=>String(a.criadoEm).localeCompare(String(b.criadoEm))).map(p=>[fmtDate(String(p.criadoEm).slice(0,10)),cityName(p.municipio),money(p.valor),p.status==='aprovado'?'Aprovado':p.status==='recusado'?'Recusado':'Esperando']),[24,64,44,46]);
+    else{doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(9);need(8);text('Nenhum pedido neste mês.',M,y);y+=9}
+    const obras=data.estados.filter(st=>sid.has(st.id)).flatMap(st=>(st.obras||[]).map(o=>({...o,st})));
+    if(obras.length){title('Obras');table(['Obra','Município','Situação','Pago no mês','Prazo'],obras.map(o=>[o.nome,o.municipio?cityName(o.municipio):'Estado',o.status==='concluida'?'Concluída':o.prazo&&o.prazo<todayISO()?'Atrasada':o.status==='parada'?'Parada':o.status==='planejada'?'Planejada':'Em andamento',money(sum(movs.filter(m=>m.obraId===o.id))),o.prazo?fmtDate(o.prazo):'-']),[54,36,28,34,26])}
+    const atos=[...(s.level==='nacional'?(data.atosNacionais||[]).map(a=>({...a,de:'República'})):[]),...data.estados.filter(st=>sid.has(st.id)).flatMap(st=>(st.atos||[]).map(a=>({...a,de:st.nome})))].filter(a=>inM(a.data));
+    if(atos.length){title('Atos publicados');table(['Data','Ato','Título','De'],atos.map(a=>[fmtDate(a.data),`${a.tipo} nº ${a.numero}`,a.titulo,a.de]),[22,40,84,32])}
+    const enqs=(data.enquetes||[]).filter(e=>e.encerrada&&inM(e.encerradaEm));
+    if(enqs.length){title('Enquetes encerradas');table(['Pergunta','Mais votada','Votos'],enqs.map(e=>{const v=Object.values(e.votos||{}),top=e.opcoes.map((o,k)=>[o,v.filter(x=>x===k).length]).sort((a,b)=>b[1]-a[1])[0];return [e.pergunta,v.length?`${top[0]} (${top[1]})`:'-',num(v.length)]}),[100,54,24])}
+    const ag=(data.agenda||[]).filter(e=>inM(e.data)&&!e.cancelado);
+    if(ag.length){title('Agenda');table(['Dia','Hora','Evento','Local'],ag.sort((a,b)=>String(a.data+a.hora).localeCompare(String(b.data+b.hora))).map(e=>[fmtDate(e.data),e.hora||'-',e.titulo,e.local||'-']),[24,18,96,40])}
+    title('Movimentações do mês');
+    if(movs.length)table(['Data','Tipo','Descrição','Valor'],movs.slice().sort(movSort).slice(0,60).map(m=>[fmtDate(m.data),MOV_TIPO[m.tipo]||m.tipo||'',movLabel(m),money(m.valor)]),[22,24,96,36]);
+    else{doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(9);text('Nenhuma movimentação neste mês.',M,y);y+=8}
+  }else{
   if(s.level==='nacional')kpis([['Cofre nacional',money(balance())],['PIB anual',money(data.pib)],['Estados',num(data.estados.length)],['Municípios',num(data.municipios.length)]]);
   else if(s.level==='estadual'&&s.estados[0])kpis([['Caixa do estado',money(stateCash(s.estados[0]))],['Municípios',num(s.municipios.length)],['População',num(s.municipios.reduce((a,c)=>a+(Number(c.populacao)||0),0))]]);
   else if(s.municipios[0])kpis([['Caixa do município',money(cityCash(s.municipios[0]))],['População',num(s.municipios[0].populacao)],['Repasses recebidos',money(r.recebeu[0]?.value||0)]]);
@@ -1836,9 +1960,18 @@ async function buildReportPdf(){
   title('Movimentações recentes');
   if(recent.length)table(['Data','Tipo','Descrição','Valor'],recent.map(m=>[fmtDate(m.data),MOV_TIPO[m.tipo]||m.tipo||'',movLabel(m),money(m.valor)]),[22,24,96,36]);
   else{doc.setTextColor(...muted);doc.setFont('helvetica','normal');doc.setFontSize(9);text('Nenhuma movimentação registrada.',M,y);y+=8}
+  }
   const pages=doc.getNumberOfPages();for(let i=1;i<=pages;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...muted);text(`República Bom Regressense · página ${i} de ${pages}`,W/2,297-7,{align:'center'})}
   return doc
 }
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-report-month]');if(!b||b.disabled)return;
+  const mes=document.getElementById('reportMonth')?.value||'';if(!/^\d{4}-\d{2}$/.test(mes))return alert('Escolha o mês.');
+  b.disabled=true;const was=b.textContent;b.textContent='⏳ Gerando PDF…';
+  try{const doc=await buildReportPdf(mes);downloadFile(`relatorio-${mes}-${plainText(reportScope().nome).replace(/[^a-z0-9]+/g,'-')}.pdf`,doc.output('blob'));showToast('✓ Relatório de '+mesExtenso(mes));reportMes=''}
+  catch(err){console.error('PDF do mês:',err);alert('Não foi possível gerar o PDF agora. Verifique a internet e tente de novo.')}
+  finally{b.disabled=false;b.textContent=was}
+});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-report-pdf]');if(!b||b.disabled)return;
   b.disabled=true;const was=b.textContent;b.textContent='⏳ Gerando PDF…';
