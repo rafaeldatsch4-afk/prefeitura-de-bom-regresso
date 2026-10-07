@@ -321,7 +321,7 @@ html[data-theme="dark"] .viz,html[data-theme="dark"] .viz-rows,html[data-theme="
 .viz-hit{fill:transparent}
 .viz-band{cursor:pointer;outline:none}.viz-band:focus-visible .viz-hit{fill:rgba(127,140,155,.12)}
 .viz-bar{transition:opacity .18s ease}
-.viz svg:hover .viz-band:not(:hover) .viz-bar,.viz svg:has(.viz-band.is-active) .viz-band:not(.is-active) .viz-bar{opacity:.38}
+.viz svg:hover .viz-band:not(:hover) :is(.viz-bar,.viz-dot),.viz svg:has(.viz-band.is-active) .viz-band:not(.is-active) :is(.viz-bar,.viz-dot){opacity:.38}
 .viz-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--viz-ink2)}
 .viz-legend span{display:inline-flex;align-items:center;gap:6px}
 .viz-key{width:10px;height:10px;border-radius:3px;display:inline-block}.viz-key.s1{background:var(--s1)}.viz-key.s2{background:var(--s2)}
@@ -404,7 +404,7 @@ img,svg,a{-webkit-user-drag:none}
 .ato-item h3{margin:6px 0 4px;color:var(--navy);font-size:17px}.ato-item details{margin-top:8px}.ato-item summary{cursor:pointer;font-weight:700;color:var(--navy)}
 .ato-texto{white-space:pre-wrap;margin:8px 0 0;line-height:1.5;-webkit-user-select:text;user-select:text}
 .ato-item.is-revoked{opacity:.7}.ato-item.is-revoked h3{text-decoration:line-through}.ato-item.is-revoked .ato-status{background:#EEF0F2;color:#5E6B76}
-.orc-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 46px;gap:12px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)}.orc-row:last-child{border-bottom:0}
+.orc-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr auto;gap:12px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)}.orc-row:last-child{border-bottom:0}
 .orc-label b{display:block;color:var(--navy)}.orc-label small{color:var(--muted);font-size:12px}.orc-row .obra-bar{margin:0}.orc-pct{font-weight:800;color:var(--navy);text-align:right}
 .orc-row.is-over .obra-bar i{background:linear-gradient(90deg,#d6453d,#e5615a)}.orc-row.is-over .orc-pct{color:#B3261E}
 .gov-alerts{display:grid;gap:8px;margin:14px 0}
@@ -413,7 +413,7 @@ img,svg,a{-webkit-user-drag:none}
 .termo-face{font-size:42px}.termo-top b{display:block;font-size:30px;color:var(--navy);line-height:1}.termo-top small{color:var(--muted);font-weight:700}
 .termo-bar{height:14px;border-radius:999px;background:linear-gradient(90deg,#d6453d,#e8b23a 45%,#2e9e62);position:relative;overflow:visible}.termo-bar i{display:block;height:100%;background:transparent;border-right:4px solid var(--navy);border-radius:0}
 .termo-fatores{display:grid;gap:8px}.termo-f{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(80px,30%) 32px;gap:10px;align-items:center}.termo-f b{display:block;color:var(--navy);font-size:14px}.termo-f small{color:var(--muted);font-size:12px}.termo-f .obra-bar{margin:0;height:8px}.termo-f em{font-style:normal;font-weight:800;color:var(--navy);text-align:right}
-@media(max-width:640px){.orc-row{grid-template-columns:1fr 46px}.orc-row .obra-bar{grid-column:1/-1;grid-row:2}.termo-top{grid-template-columns:auto 1fr}.termo-bar{grid-column:1/-1}.termo-f{grid-template-columns:24px minmax(0,1fr) 30px}.termo-f .obra-bar{grid-column:2/-1;grid-row:2}}
+@media(max-width:640px){.orc-row{grid-template-columns:1fr auto}.orc-row .obra-bar{grid-column:1/-1;grid-row:2}.termo-top{grid-template-columns:auto 1fr}.termo-bar{grid-column:1/-1}.termo-f{grid-template-columns:24px minmax(0,1fr) 30px}.termo-f .obra-bar{grid-column:2/-1;grid-row:2}}
 html[data-theme="dark"] .ped-item,html[data-theme="dark"] .obra-item,html[data-theme="dark"] .ato-item{background:#182838}
 html[data-theme="dark"] .ped-resposta,html[data-theme="dark"] .ped-badge{background:#273F55;color:#E6EEF6}html[data-theme="dark"] .obra-bar{background:#273F55}
 html[data-theme="dark"] .gov-alert{background:#3A2F14;color:#FFE3A6}html[data-theme="dark"] .gov-alert.is-warn{background:#3D2412;color:#FFCFA8}
@@ -441,6 +441,57 @@ button.enq-opt{cursor:pointer}button.enq-opt:hover{border-color:#2F6FB2}
 .pend-item.is-urgent{border-color:#C0392B;background:rgba(192,57,43,.06)}
 .month-report{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.month-report input{padding:10px 12px;border-radius:11px;border:1px solid var(--line);font:inherit;background:transparent;color:inherit}
 .report-actions.is-highlight{box-shadow:0 0 0 3px var(--gold)}
+
+/* ---- Gráficos: linha com área, medidor e barras de progresso */
+.viz{--s1-track:#DCE7F5;--good:#2e9e62;--warn:#d9971a;--bad:#d6453d;--great:#1f7a4d}
+html[data-theme="dark"] .viz,html[data-theme="dark"] .termo,html[data-theme="dark"] .panel{--s1-track:#22384F;--good:#3fb47a;--warn:#e3a62f;--bad:#e2554c;--great:#2f9a63}
+.panel{--s1-track:#DCE7F5;--good:#2e9e62;--warn:#d9971a;--bad:#d6453d;--great:#1f7a4d;--s1-bar:#2a78d6}
+html[data-theme="dark"] .panel{--s1-bar:#3987e5}
+.viz-line-path{fill:none;stroke:var(--s1);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0;animation:vizDraw 1s cubic-bezier(.35,.1,.25,1) .15s both}
+.viz-area{fill:var(--s1);opacity:.1;animation:vizArea .7s ease .55s both}
+.viz-dot{fill:var(--s1);stroke:var(--viz-surface);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:uiPop .35s cubic-bezier(.3,1.4,.5,1) both;animation-delay:calc(.3s + var(--i,0)*.12s);transition:r .15s ease,opacity .18s ease}
+.viz-band.is-active .viz-dot,.viz-band:focus-visible .viz-dot{r:6px}
+.viz-cross{stroke:var(--viz-base);stroke-width:1;opacity:0;transition:opacity .15s ease;shape-rendering:crispEdges}
+.viz-band.is-active .viz-cross,.viz-band:focus-visible .viz-cross{opacity:1}
+.viz-linechart .viz-band.is-active .viz-hit{fill:transparent}
+.viz-band.is-active .viz-hit{fill:rgba(127,140,155,.08)}
+.viz-delta{margin-top:6px;font-size:12.5px;color:var(--viz-ink2)}.viz-delta b{font-variant-numeric:tabular-nums}.viz-delta.is-up b{color:var(--good)}.viz-delta.is-down b{color:var(--bad)}
+.viz-tip .viz-line.none{background:transparent}
+@keyframes vizDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes vizArea{from{opacity:0}to{opacity:.1}}
+@keyframes gaugeNeedle{from{transform:rotate(-90deg)}to{transform:rotate(var(--rot))}}
+@keyframes gaugeZone{from{stroke-dasharray:0 400}to{stroke-dasharray:400 0}}
+/* Barras de progresso: cor lisa num trilho do mesmo tom; vermelho/âmbar/verde só quando a cor diz o estado */
+.obra-bar,.db-meter{background:var(--s1-track)!important}
+.obra-bar i,.db-meter i{background:var(--s1-bar,#2a78d6)!important;transform-origin:left;animation:uiGrowX .8s cubic-bezier(.2,.75,.25,1) both;animation-delay:calc(.2s + var(--i,0)*.07s)}
+.orc-row.is-over .obra-bar i,.db-meter.is-danger i,.obra-bar.is-bad i{background:var(--bad)!important}
+.db-meter.is-warn i,.obra-bar.is-warn i{background:var(--warn)!important}
+.obra-bar.is-good i{background:var(--good)!important}
+.enq-opt i{transform-origin:left;animation:uiGrowX .8s cubic-bezier(.2,.75,.25,1) .15s both}
+/* Medidor do termômetro */
+.termo-top{display:grid!important;grid-template-columns:minmax(220px,300px) 1fr!important;gap:22px!important;align-items:start!important}
+.gauge{margin:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.gauge svg{width:100%;max-width:280px;height:auto;overflow:visible}
+.gauge-zone{fill:none;stroke-width:16;stroke-linecap:butt;animation:gaugeZone .9s ease both;animation-delay:calc(var(--i,0)*.12s)}
+.gauge-zone.is-bad{stroke:var(--bad)}.gauge-zone.is-warn{stroke:var(--warn)}.gauge-zone.is-good{stroke:var(--good)}.gauge-zone.is-great{stroke:var(--great)}
+.gauge-tick{stroke:var(--muted);stroke-width:1.5;opacity:.55}
+.gauge-end{font-size:10px;fill:var(--muted);font-weight:700}
+.gauge-needle{transform:rotate(var(--rot));animation:gaugeNeedle 1.3s cubic-bezier(.3,1.3,.5,1) .35s both}
+.gauge-needle path{fill:var(--text)}.gauge-needle circle{fill:var(--text);stroke:#fff;stroke-width:3}
+html[data-theme="dark"] .gauge-needle circle{stroke:#182838}
+.gauge figcaption{display:grid;grid-template-columns:auto auto;column-gap:10px;align-items:center;justify-content:center;margin-top:-6px}
+.gauge-face{grid-row:span 2;font-size:34px}
+.gauge figcaption b{font-size:30px;line-height:1;color:var(--navy);text-align:left;font-variant-numeric:normal}
+.gauge figcaption small{color:var(--muted);font-weight:700;text-align:left}
+.gauge-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 12px;margin-top:10px;font-size:11.5px;color:var(--muted)}
+.gauge-legend span{display:inline-flex;align-items:center;gap:5px;font-weight:700}.gauge-legend small{font-weight:600;opacity:.8}
+.gauge-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.gauge-legend i.is-bad{background:var(--bad)}.gauge-legend i.is-warn{background:var(--warn)}.gauge-legend i.is-good{background:var(--good)}.gauge-legend i.is-great{background:var(--great)}
+.termo-f .obra-bar{height:8px}
+@media(max-width:700px){.termo-top{grid-template-columns:1fr!important}}
+/* Só anima quando o gráfico aparece na tela (rolando) */
+.will-reveal:not(.revealed) :is(.viz-bar,.viz-row-bar i,.obra-bar i,.db-meter i,.viz-line-path,.viz-area,.viz-dot,.gauge-needle,.gauge-zone,.enq-opt i){animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){:is(.viz-bar,.viz-row-bar i,.obra-bar i,.db-meter i,.viz-line-path,.viz-area,.viz-dot,.gauge-needle,.gauge-zone,.enq-opt i){animation:none!important}}
 </style></head><body><div id="loginScreen" class="login-screen" hidden></div><div class="wco-drag" aria-hidden="true"></div><div class="shell" id="shell"><aside class="side"><div class="brand"><img src="pais/brasao.svg" alt="Brasão de Bom Regresso"><b>Bom Regresso</b><small>Presidência · Sistema nacional</small></div><nav class="nav" id="nav"></nav></aside><main><div class="top"><img class="top-logo" src="pais/brasao.svg" alt=""><div class="top-title"><strong>REPÚBLICA BOM REGRESSENSE</strong><small id="topSubtitle">SISTEMA DA PRESIDÊNCIA</small></div><button type="button" class="top-bell" id="topBell" data-bell aria-label="Avisos" hidden><span aria-hidden="true">🔔</span><b class="bell-count" hidden></b></button><button type="button" class="top-profile" data-page="perfil" aria-label="Abrir meu perfil" id="topProfile"></button></div><div class="content" id="content"></div></main></div><nav class="mobile" id="mobile"></nav><div class="more-backdrop" id="moreBackdrop" hidden><div class="more-sheet"><div class="more-head"><b>Mais opções</b><button type="button" class="close-more" aria-label="Fechar menu" data-close-more>×</button></div><div id="moreItems"></div></div></div><script>window.addEventListener('error',function(){if(window.__republicaStarted)return;var box=document.getElementById('loginScreen');if(!box)return;box.hidden=false;var shell=document.getElementById('shell'),mobile=document.getElementById('mobile');if(shell)shell.hidden=true;if(mobile)mobile.hidden=true;box.innerHTML='<div class="login-card"><h1>Bom Regresso</h1><p>Não foi possível abrir o painel neste navegador. Verifique se o armazenamento de dados de sites está permitido ou abra o link no Chrome.</p><button class="btn" type="button" onclick="location.reload()">Tentar novamente</button></div>'})</script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" integrity="sha384-ZaR6mWzmJtrRibZ1Vm7SoHFr8OXjyAuGAXalGDKqbxFT18oi/z+oZLIRFkpeNor1" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" integrity="sha384-I1LYojsZ5RM1cOda44Z2h42Qa6YfsQ1XkXxREnhp4ueYBR/4d1pG1K+NZM537Vsj" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" integrity="sha384-Ke0FJhH7LyRqDxZ0wt+/OXV38yfQVu7g9VPEEGjYmB4RVOY/ta04uecRhsMwT7V3" crossorigin="anonymous"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js" integrity="sha384-HY9kcCUNf5iP55Q7dt4qtyKGMq0L6BbtAwNb4LYA6MXDWUL8DRlsj1xhtwKBZ2BL" crossorigin="anonymous"></script><script>
 (()=>{'use strict';const safeStorage=name=>{let store=null;try{store=window[name];store.getItem('__probe__')}catch{store=null}const memory=new Map();return{getItem(k){if(memory.has(k))return memory.get(k);try{return store?store.getItem(k):null}catch{return null}},setItem(k,v){v=String(v);try{if(!store)throw 0;store.setItem(k,v);memory.delete(k)}catch{memory.set(k,v)}},removeItem(k){memory.delete(k);try{store?.removeItem(k)}catch{}}}};const localStorage=safeStorage('localStorage'),sessionStorage=safeStorage('sessionStorage');const KEY='bom_regresso_pais_v2';const FEDERATION_PROTOCOL='bom-regresso-federation';const MUNICIPAL_EMBED='';const sections=[['inicio','🏠','Início'],['chat','💬','Chat'],['estados','🗺️','Estados'],['municipios','🏘️','Municípios'],['cofre','💰','Cofre'],['adminmunicipio','⚙️','Cadastro municipal'],['economia','📈','Economia'],['atividades','📜','Atividades'],['relatorios','📊','Relatórios'],['diario','📰','Diário Oficial'],['enquetes','🗳️','Enquetes'],['agenda','📅','Agenda'],['lixeira','🗑️','Lixeira'],['backups','💾','Cópias de segurança'],['aparencia','🎨','Aparência'],['usuarios','👥','Perfis'],['perfil','👤','Meu perfil']];const defaults=()=>({epoca:'',cofreInicial:1000000,estados:[],municipios:[],lancamentos:[],pib:0,ano:new Date().getFullYear(),profiles:[],movimentos:[],pibHistorico:[],atividades:[],lixeira:[],atosNacionais:[],enquetes:[],agenda:[],currentProfileId:''});let data;try{data=Object.assign(defaults(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{data=defaults()}const SESSION_PROFILE_KEY=KEY+'_session_profile';const sessionProfile=sessionStorage.getItem(SESSION_PROFILE_KEY);if(sessionProfile!==null)data.currentProfileId=sessionProfile;else sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');data.profiles=Array.isArray(data.profiles)?data.profiles:[];data.municipios=Array.isArray(data.municipios)?data.municipios:[];data.movimentos=Array.isArray(data.movimentos)?data.movimentos:[];data.pibHistorico=Array.isArray(data.pibHistorico)?data.pibHistorico:[];data.atividades=Array.isArray(data.atividades)?data.atividades:[];data.lixeira=Array.isArray(data.lixeira)?data.lixeira:[];let roleMigration=false;for(const p of data.profiles){if(p.role==='DRH'||p.role==='RH'){p.role='Assistente universal';if(!p.sector||p.sector==='DRH'||p.sector==='RH')p.sector='Administração geral';roleMigration=true}}if(roleMigration)localStorage.setItem(KEY,JSON.stringify(data));{const br=data.municipios.find(x=>x.nome?.trim().toLocaleLowerCase('pt-BR')==='bom regresso');if(br)for(const p of data.profiles){if(['Assistente universal','Secretário da Agricultura','Motorista','Servidor / Outro'].includes(p.role)&&!p.jurisdictionId)p.jurisdictionId=br.id}}let page=({chat:'chat',perfil:'perfil',atividades:'atividades',relatorios:'relatorios',enquetes:'enquetes',agenda:'agenda',diario:'diario'})[new URLSearchParams(location.search).get('open')]||'inicio';let formEditing=false;let profileDraft=null,photoBusy=false,profileTargetId='';let editStateId='',editCityId='',editUserId='';let govStateId='',govTab='painel',govCityId='',cityTab='painel',cityView='',govSendTo='',govPickerMode='list',editLancId='',editMovId='',editPibId='';let loginMode='start';let selectedMode='presidencia';const THEME_KEY='bom_regresso_pais_theme_v1';let theme=localStorage.getItem(THEME_KEY)||'claro';if(!['claro','escuro','sistema'].includes(theme))theme='claro';const applyTheme=()=>{document.documentElement.dataset.theme=theme==='sistema'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):(theme==='escuro'?'dark':'light')};applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',applyTheme);const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),MONEY_SCALES=[[1e63,'vigintilhão'],[1e60,'novendecilhão'],[1e57,'octodecilhão'],[1e54,'septendecilhão'],[1e51,'sexdecilhão'],[1e48,'quindecilhão'],[1e45,'quatuordecilhão'],[1e42,'tredecilhão'],[1e39,'duodecilhão'],[1e36,'undecilhão'],[1e33,'decilhão'],[1e30,'nonilhão'],[1e27,'octilhão'],[1e24,'septilhão'],[1e21,'sextilhão'],[1e18,'quintilhão'],[1e15,'quatrilhão'],[1e12,'trilhão'],[1e9,'bilhão'],[1e6,'milhão'],[1e3,'mil']],moneyWords=(v,min,digits)=>{const n=Number(v)||0,a=Math.abs(n);if(!Number.isFinite(n))return 'R$ ∞';if(a<min)return null;if(a>=1e66)return `${n<0?'-':''}R$ ${pow10Text(a,digits)}`;let i=MONEY_SCALES.findIndex(([size])=>a>=size);if(i>0&&Number((a/MONEY_SCALES[i][0]).toFixed(digits))>=1000)i--;const [scale,unit]=MONEY_SCALES[i],shown=Number((a/scale).toFixed(digits));return `${n<0?'-':''}R$ ${fmtCache('n',{maximumFractionDigits:digits}).format(shown)} ${unit==='mil'||shown<2?unit:unit.replace('ão','ões')}`},money=n=>moneyWords(n,1e9,2)||fmtCache('n',{style:'currency',currency:'BRL'}).format(Number(n||0)),num=n=>fmtCache('n').format(Number(n||0)),id=()=>crypto.randomUUID?.()||String(Date.now()+Math.random()),saveLocal=()=>{sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');localStorage.setItem(KEY,JSON.stringify(data));render()},save=()=>{formEditing=false;syncGovernors();logChanges();data.updatedAtLocal=Date.now();if(!fitCountryPayload())return;showToast('✓ Salvo');sessionStorage.setItem(SESSION_PROFILE_KEY,data.currentProfileId||'');clearTimeout(persistTimer);persistTimer=0;const json=JSON.stringify(data);localStorage.setItem(KEY,json);lastFitData=json;writeCountryCloud();render();pushLocalActs()},cofreNet=()=>data.lancamentos.reduce((s,x)=>s+(x.tipo==='Entrada'?1:-1)*Number(x.valor),0),balance=()=>Number(data.cofreInicial||0)+cofreNet(),current=()=>{const p=data.profiles.find(x=>x.id===data.currentProfileId);return p&&(!needsPassword(p)||pwVerified(p.id))?p:undefined},AVATAR_COLORS=[['#D7A93E','#0B2E59','Dourado'],['#0B2E59','#FFFFFF','Azul-marinho'],['#2F6FB2','#FFFFFF','Azul'],['#1F7A4D','#FFFFFF','Verde'],['#0E7C86','#FFFFFF','Turquesa'],['#6A3FA0','#FFFFFF','Roxo'],['#C2185B','#FFFFFF','Rosa'],['#B3261E','#FFFFFF','Vermelho'],['#E07A1F','#1B1B1B','Laranja'],['#5D6B7A','#FFFFFF','Cinza']],avatarStyle=p=>{const c=AVATAR_COLORS.find(x=>x[0]===p?.color);return c?` style="background:${c[0]};color:${c[1]}"`:''},firstGrapheme=v=>{v=String(v||'').trim();if(!v)return'';try{return [...new Intl.Segmenter('pt',{granularity:'grapheme'}).segment(v)][0].segment}catch{return Array.from(v)[0]}},initialsOf=name=>String(name||'').trim().split(/\s+/).filter(Boolean).map(w=>Array.from(w)[0]).slice(0,2).join('').toUpperCase()||'?',avatar=(p,size='')=>isPhotoData(p?.photo)?`<img class="avatar ${size}" src="${esc(p.photo)}" alt="">`:p?.emoji?`<span class="avatar ${size}"${avatarStyle(p)}>${esc(firstGrapheme(p.emoji))}</span>`:`<span class="avatar initials ${size}"${avatarStyle(p)}>${esc(initialsOf(p?.name))}</span>`,ROLE_GROUPS={
   presidencia:{label:'Presidência',icon:'🏛️',roles:['Presidente','Vice-presidente']},
@@ -1306,13 +1357,23 @@ function govGastoPorArea(st,year){const m=new Map();for(const x of data.moviment
 function govOrcamento(st){
   const year=String(new Date().getFullYear()),areas=st.orcamento?.ano===year?(st.orcamento.areas||{}):{},gasto=govGastoPorArea(st,year);
   const plan=orcAreas().reduce((a,k)=>a+(Number(areas[k])||0),0),spent=[...gasto.values()].reduce((a,v)=>a+v,0);
-  const row=k=>{const p=Number(areas[k])||0,g=gasto.get(k)||0,pct=p?g/p*100:0;return (p||g)?`<div class="orc-row${pct>100?' is-over':''}"><div class="orc-label"><b>${esc(k)}</b><small>${esc(moneyShort(g))} de ${p?esc(moneyShort(p)):'sem meta'}</small></div><div class="obra-bar"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></div><span class="orc-pct">${p?`${pct.toFixed(0)}%`:'—'}</span></div>`:''};
+  const row=k=>{const p=Number(areas[k])||0,g=gasto.get(k)||0,pct=p?g/p*100:0;return (p||g)?`<div class="orc-row${pct>100?' is-over':''}"><div class="orc-label"><b>${esc(k)}</b><small>${esc(moneyShort(g))} de ${p?esc(moneyShort(p)):'sem meta'}</small></div><div class="obra-bar"><i style="width:${Math.min(100,pct).toFixed(1)}%"></i></div><span class="orc-pct">${p?`${pct>100?'⚠ ':''}${pct.toFixed(0)}%`:'—'}</span></div>`:''};
   return govHead('Orçamento por área',`Metas de gasto de ${year} para cada área e quanto já foi usado (repasses e despesas do estado).`)+
   `<div class="gov-cards">${govCard('Planejado',esc(moneyShort(plan)),`Metas de ${year}`)}${govCard('Usado',esc(moneyShort(spent)),plan?`${(spent/plan*100).toFixed(0)}% do planejado`:'Sem metas ainda',plan&&spent>plan?'warn':'')}${govCard('Caixa estadual',esc(moneyShort(stateCash(st))),'Disponível agora')}${govCard('Áreas acima da meta',num(orcAreas().filter(k=>(Number(areas[k])||0)&&(gasto.get(k)||0)>(Number(areas[k])||0)).length),'Gastaram mais que o planejado')}</div>`+
   `<div class="gov-grid"><section class="panel"><h2>Uso por área</h2>${orcAreas().map(row).join('')||'<p class="gov-empty">Defina as metas ao lado.</p>'}</section>`+
   (canState(st)?`<section class="panel"><h2>Metas de ${year}</h2><form id="govOrcForm" class="form">${orcAreas().map(k=>`<label class="field">${esc(k)}<input name="area:${esc(k)}" type="text" inputmode="decimal" autocomplete="off" data-money="1" value="${esc(moneyIn(Number(areas[k])||0))}"></label>`).join('')}<div class="field wide"><button class="btn">🎯 Salvar metas</button></div></form></section>`:'')+`</div>`
 }
 
+// Medidor em semicírculo (0–100) com faixas Ruim / Regular / Boa / Excelente e um ponteiro que gira até a nota.
+const GAUGE_ZONES=[[0,40,'bad','Ruim'],[40,60,'warn','Regular'],[60,80,'good','Boa'],[80,100,'great','Excelente']];
+function gaugeSVG(score,face,label){
+  const cx=110,cy=104,r=84,pt=(v,rr=r)=>{const a=Math.PI*(1-v/100);return [(cx+rr*Math.cos(a)).toFixed(1),(cy-rr*Math.sin(a)).toFixed(1)]};
+  const arc=(a,b)=>{const [x1,y1]=pt(a),[x2,y2]=pt(b);return `M${x1},${y1}A${r},${r} 0 0 1 ${x2},${y2}`};
+  const zones=GAUGE_ZONES.map(([a,b,k],i)=>`<path class="gauge-zone is-${k}" d="${arc(a+(a?0.9:0),b-(b<100?0.9:0))}" style="--i:${i}"/>`).join('');
+  const ticks=[20,40,60,80].map(v=>{const [x1,y1]=pt(v,r-14),[x2,y2]=pt(v,r-19);return `<line class="gauge-tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`}).join('');
+  const rot=(score/100*180-90).toFixed(1);
+  return `<figure class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${score}" aria-label="Aprovação do governo: ${score}%, ${esc(label)}"><svg viewBox="0 0 220 128" aria-hidden="true">${zones}${ticks}<text class="gauge-end" x="${cx-r}" y="${cy+18}" text-anchor="middle">0</text><text class="gauge-end" x="${cx+r}" y="${cy+18}" text-anchor="middle">100</text><g class="gauge-needle" style="--rot:${rot}deg;transform-origin:${cx}px ${cy}px"><path d="M${cx-3.5},${cy}L${cx},${cy-r+16}L${cx+3.5},${cy}Z"/><circle cx="${cx}" cy="${cy}" r="8"/></g></svg><figcaption><span class="gauge-face" aria-hidden="true">${face}</span><b data-count="${score}" data-suffix="%">${score}%</b><small>${esc(label)}</small></figcaption><div class="gauge-legend">${GAUGE_ZONES.map(([a,b,k,l])=>`<span><i class="is-${k}"></i>${l} <small>${a}–${b===100?100:b-1}</small></span>`).join('')}</div></figure>`
+}
 // ---- Termômetro do governo (aprovação popular fictícia, com os fatores à mostra)
 function govTermometro(st){
   const cities=stateCities(st),pop=Math.max(1,cities.reduce((a,c)=>a+(Number(c.populacao)||0),0)),year=String(new Date().getFullYear());
@@ -1330,7 +1391,8 @@ function govTermometro(st){
     ['📰','Transparência',clamp(vig*20),`${num(vig)} ${vig===1?'ato':'atos'} em vigor no Diário Oficial`]
   ],w=[.3,.2,.2,.15,.1,.05],score=Math.round(f.reduce((a,x,i)=>a+x[2]*w[i],0));
   const [face,label,tone]=score>=80?['😄','Excelente','good']:score>=60?['🙂','Boa','good']:score>=40?['😐','Regular','warn']:['😟','Ruim','bad'];
-  return `<section class="panel termo"><h2>🌡️ Termômetro do governo</h2><p class="muted">Aprovação popular fictícia, calculada pelo que o governo faz. Cada fator mostra como melhorar.</p><div class="termo-top is-${tone}"><span class="termo-face" aria-hidden="true">${face}</span><div><b>${score}%</b><small>Aprovação ${label.toLowerCase()}</small></div><div class="termo-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${score}" aria-label="Aprovação do governo"><i style="width:${score}%"></i></div></div><div class="termo-fatores">${f.map(([ic,nome,v,dica])=>`<div class="termo-f"><span aria-hidden="true">${ic}</span><div><b>${esc(nome)}</b><small>${esc(dica)}</small></div><div class="obra-bar"><i style="width:${v.toFixed(0)}%"></i></div><em>${v.toFixed(0)}</em></div>`).join('')}</div></section>`
+  const fTone=v=>v>=60?'is-good':v>=40?'is-warn':'is-bad';
+  return `<section class="panel termo"><h2>🌡️ Termômetro do governo</h2><p class="muted">Aprovação popular fictícia, calculada pelo que o governo faz. Cada fator mostra como melhorar.</p><div class="termo-top is-${tone}">${gaugeSVG(score,face,`Aprovação ${label.toLowerCase()}`)}<div class="termo-fatores">${f.map(([ic,nome,v,dica],i)=>`<div class="termo-f" style="--i:${i}"><span aria-hidden="true">${ic}</span><div><b>${esc(nome)}</b><small>${esc(dica)}</small></div><div class="obra-bar ${fTone(v)}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v.toFixed(0)}" aria-label="${esc(nome)}"><i style="width:${Math.max(v?2:0,v).toFixed(0)}%"></i></div><em>${v.toFixed(0)}</em></div>`).join('')}</div></div></section>`
 }
 // Avisos rápidos no painel do estado.
 function govPainelExtra(st){
@@ -2107,8 +2169,17 @@ function fxBurst(kind){
     p.animate([{transform:'translate(-50%,-50%) scale(.6) rotate(0deg)',opacity:0},{transform:`translate(calc(-50% + ${dx*.35}px),calc(-50% + ${dy*.35}px)) scale(1) rotate(${rot*.3}deg)`,opacity:1,offset:.2},{transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy+fall}px)) scale(.9) rotate(${rot}deg)`,opacity:0}],{duration:1100+Math.random()*600,easing:'cubic-bezier(.2,.6,.35,1)',delay:Math.random()*120}).onfinish=()=>p.remove()
   }
 }
+// Números marcados com data-count sobem do zero até o valor quando aparecem na tela.
+function vizCountUp(root){
+  const els=[...root.querySelectorAll('[data-count]:not([data-counted])')];if(!els.length)return;
+  const run=el=>{el.dataset.counted='1';const end=Number(el.dataset.count)||0,suf=el.dataset.suffix||'';if(!fxMotionOK()||!end){el.textContent=num(end)+suf;return}
+    const t0=performance.now(),dur=900,step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=num(Math.round(end*e))+suf;if(k<1)requestAnimationFrame(step)};el.textContent='0'+suf;requestAnimationFrame(step)};
+  if(!('IntersectionObserver' in window)){els.forEach(run);return}
+  const io=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){io.unobserve(en.target);setTimeout(()=>run(en.target),250)}}),{rootMargin:'0px 0px -8% 0px'});els.forEach(el=>io.observe(el))
+}
 // Blocos abaixo da dobra aparecem quando a pessoa rola até eles.
 function fxReveal(root){
+  vizCountUp(root);
   if(!fxMotionOK()||!('IntersectionObserver' in window))return;
   const vh=innerHeight,items=[...root.querySelectorAll(':scope>section,:scope>.panel,:scope>.grid>*,:scope>.gov-grid>*,.gov-main>section,.gov-main>.gov-grid>*,.gov-main>.panel')].filter(x=>x.getBoundingClientRect().top>vh*.92);
   if(!items.length)return;items.forEach(x=>x.classList.add('will-reveal'));
@@ -2359,16 +2430,20 @@ function vizTicks(max,count=4){
 const vizCol=(x,y,w,h)=>{if(!(h>0.5))return '';const r=Math.min(4,w/2,h),f=v=>v.toFixed(1);return `M${f(x)},${f(y+h)}V${f(y+r)}Q${f(x)},${f(y)} ${f(x+r)},${f(y)}H${f(x+w-r)}Q${f(x+w)},${f(y)} ${f(x+w)},${f(y+r)}V${f(y+h)}Z`};
 const vizTip=(title,rows)=>esc(JSON.stringify({t:title,rows}));
 function vizTable(head,rows){return `<details class="viz-table"><summary>Ver tabela</summary><table><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`}
-function vizGrid(ticks,y,W){return ticks.map(t=>`<line class="viz-grid${t?'':' viz-base'}" x1="0" x2="${W}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`).join('')}
+function vizGrid(ticks,y,W,x0=0){return ticks.map(t=>`<line class="viz-grid${t?'':' viz-base'}" x1="${x0}" x2="${W}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`).join('')}
 // Valores do eixo desenhados depois das barras (ficam por cima, com contorno da cor do fundo).
-function vizTickLabels(ticks,y){return ticks.filter(t=>t).map(t=>`<text class="viz-tick" x="0" y="${(y(t)-4).toFixed(1)}">${esc(vizShort(t))}</text>`).join('')}
+// Eixo: números curtos (750 mil, 80 mi, 1,5 bi); o valor completo fica no balão e na tabela.
+function vizAxis(v){const a=Math.abs(v),u=[[1e12,'tri'],[1e9,'bi'],[1e6,'mi'],[1e3,'mil']].find(([n])=>a>=n);return u?`${(v/u[0]).toLocaleString('pt-BR',{maximumFractionDigits:1})} ${u[1]}`:v.toLocaleString('pt-BR',{maximumFractionDigits:1})}
+function vizTickLabels(ticks,y,x0=0){return x0?ticks.map(t=>`<text class="viz-tick" x="${x0-6}" y="${(y(t)+3).toFixed(1)}" text-anchor="end">${esc(vizAxis(t))}</text>`).join(''):ticks.filter(t=>t).map(t=>`<text class="viz-tick" x="0" y="${(y(t)-4).toFixed(1)}">${esc(vizShort(t))}</text>`).join('')}
+// Largura da margem dos números do eixo (cabe "999 mil").
+const vizGutter=ticks=>Math.min(56,10+Math.max(...ticks.map(t=>vizAxis(t).length))*4.9)
 function flowChart(rows){
   if(!rows.some(r=>r.inflow||r.outflow))return '<p class="gov-empty">Sem entradas nem saídas nos últimos 6 meses.</p>';
-  const W=320,H=182,top=16,base=H-24,ticks=vizTicks(Math.max(...rows.flatMap(r=>[r.inflow,r.outflow]))),max=ticks[ticks.length-1],y=v=>base-(base-top)*v/max;
-  const band=W/rows.length,bw=Math.min(16,band*.3),gap=2;
-  const bands=rows.map((r,i)=>{const cx=band*i+band/2,x1=cx-gap/2-bw,x2=cx+gap/2;
-    return `<g class="viz-band" tabindex="0" role="img" aria-label="${esc(`${r.label}: entradas ${money(r.inflow)}, saídas ${money(r.outflow)}`)}" data-tip="${vizTip(r.label,[['Entradas',money(r.inflow),'s1'],['Saídas',money(r.outflow),'s2']])}" style="--i:${i}"><rect class="viz-hit" x="${(band*i).toFixed(1)}" y="0" width="${band.toFixed(1)}" height="${H}"/><path class="viz-bar s1" d="${vizCol(x1,y(r.inflow),bw,base-y(r.inflow))}"/><path class="viz-bar s2" d="${vizCol(x2,y(r.outflow),bw,base-y(r.outflow))}"/><text class="viz-x" x="${cx.toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(r.label)}</text></g>`}).join('');
-  return `<figure class="viz"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Entradas e saídas nos últimos 6 meses">${vizGrid(ticks,y,W)}${bands}${vizTickLabels(ticks,y)}</svg><figcaption class="viz-legend"><span><i class="viz-key s1"></i>Entradas</span><span><i class="viz-key s2"></i>Saídas</span></figcaption>${vizTable(['Mês','Entradas','Saídas'],rows.map(r=>[r.label,money(r.inflow),money(r.outflow)]))}</figure>`
+  const W=320,H=182,top=16,base=H-24,ticks=vizTicks(Math.max(...rows.flatMap(r=>[r.inflow,r.outflow]))),max=ticks[ticks.length-1],y=v=>base-(base-top)*v/max,G=vizGutter(ticks);
+  const band=(W-G)/rows.length,bw=Math.min(16,band*.3),gap=2;
+  const bands=rows.map((r,i)=>{const cx=G+band*i+band/2,x1=cx-gap/2-bw,x2=cx+gap/2;
+    return `<g class="viz-band" tabindex="0" role="img" aria-label="${esc(`${r.label}: entradas ${money(r.inflow)}, saídas ${money(r.outflow)}`)}" data-tip="${vizTip(r.label,[['Entradas',money(r.inflow),'s1'],['Saídas',money(r.outflow),'s2']])}" style="--i:${i}"><rect class="viz-hit" x="${(G+band*i).toFixed(1)}" y="0" width="${band.toFixed(1)}" height="${H}"/><path class="viz-bar s1" d="${vizCol(x1,y(r.inflow),bw,base-y(r.inflow))}"/><path class="viz-bar s2" d="${vizCol(x2,y(r.outflow),bw,base-y(r.outflow))}"/><text class="viz-x" x="${cx.toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(r.label)}</text></g>`}).join('');
+  return `<figure class="viz"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Entradas e saídas nos últimos 6 meses">${vizGrid(ticks,y,W,G)}${bands}${vizTickLabels(ticks,y,G)}</svg><figcaption class="viz-legend"><span><i class="viz-key s1"></i>Entradas</span><span><i class="viz-key s2"></i>Saídas</span></figcaption>${vizTable(['Mês','Entradas','Saídas'],rows.map(r=>[r.label,money(r.inflow),money(r.outflow)]))}</figure>`
 }
 // Ranking: uma cor só (uma série), valor na ponta da barra.
 function rankBars(items){
@@ -2538,14 +2613,24 @@ function pibSeries(){
   if(Number(data.ano)&&!list.some(x=>x.ano===Number(data.ano)))list.push({ano:Number(data.ano),valor:Number(data.pib)||0});
   return list.sort((a,b)=>a.ano-b.ano).slice(-8)
 }
-function barChart(rows,label){
-  const W=320,H=182,top=22,base=H-24,ticks=vizTicks(Math.max(...rows.map(r=>r.value))),max=ticks[ticks.length-1],y=v=>base-(base-top)*v/max;
-  const band=W/rows.length,bw=Math.min(24,band*.5),last=rows.length-1;
-  const bands=rows.map((r,i)=>{const cx=band*i+band/2,x=cx-bw/2,yy=y(r.value);
-    return `<g class="viz-band" tabindex="0" role="img" aria-label="${esc(`${r.label}: ${money(r.value)}`)}" data-tip="${vizTip(r.label,[[label,money(r.value),'s1']])}" style="--i:${i}"><rect class="viz-hit" x="${(band*i).toFixed(1)}" y="0" width="${band.toFixed(1)}" height="${H}"/><path class="viz-bar s1" d="${vizCol(x,yy,bw,base-yy)}"/>${i===last?`<text class="viz-cap" x="${cx.toFixed(1)}" y="${(yy-6).toFixed(1)}" text-anchor="middle">${esc(vizShort(r.value))}</text>`:''}<text class="viz-x" x="${cx.toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(r.label)}</text></g>`}).join('');
-  return `<figure class="viz"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(label)}">${vizGrid(ticks,y,W)}${bands}${vizTickLabels(ticks,y)}</svg>${vizTable(['Ano',label],rows.map(r=>[r.label,money(r.value)]))}</figure>`
+// Linha com área: mudança ao longo do tempo. A linha se desenha, a área aparece por baixo e os pontos surgem um a um.
+function lineChart(rows,label){
+  const W=320,H=182,top=24,base=H-24,ticks=vizTicks(Math.max(...rows.map(r=>r.value))),max=ticks[ticks.length-1],y=v=>base-(base-top)*v/max,G=vizGutter(ticks),R=18;
+  const n=rows.length,step=(W-G-R)/Math.max(1,n-1),x=i=>G+step*i,pts=rows.map((r,i)=>[x(i),y(r.value)]),f=v=>v.toFixed(1),last=n-1;
+  const line=pts.map(([a,b],i)=>`${i?'L':'M'}${f(a)},${f(b)}`).join(''),area=`${line}L${f(pts[last][0])},${base}L${f(pts[0][0])},${base}Z`;
+  const prev=last>0?rows[last-1].value:0,delta=prev?((rows[last].value-prev)/prev*100):0;
+  const bands=rows.map((r,i)=>{const [px,py]=pts[i],hw=step/2,dv=i&&rows[i-1].value?((r.value-rows[i-1].value)/rows[i-1].value*100):null;
+    return `<g class="viz-band" tabindex="0" role="img" aria-label="${esc(`${r.label}: ${money(r.value)}`)}" data-tip="${vizTip(r.label,[[label,money(r.value),'s1'],...(dv==null?[]:[['vs. ano anterior',`${dv>=0?'+':''}${dv.toFixed(1).replace('.',',')}%`,'none']])])}" style="--i:${i}"><rect class="viz-hit" x="${f(Math.max(G,px-hw))}" y="0" width="${f(Math.min(W,px+hw)-Math.max(G,px-hw))}" height="${H}"/><line class="viz-cross" x1="${f(px)}" x2="${f(px)}" y1="${top-8}" y2="${base}"/><circle class="viz-dot${i===last?' is-end':''}" cx="${f(px)}" cy="${f(py)}" r="${i===last?4.5:3.5}"/>${i===last?`<text class="viz-cap" x="${f(px)}" y="${f(py-11)}" text-anchor="end">${esc(vizShort(r.value))}</text>`:''}<text class="viz-x" x="${f(px)}" y="${H-7}" text-anchor="middle">${esc(r.label)}</text></g>`}).join('');
+  return `<figure class="viz viz-linechart"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(label)}">${vizGrid(ticks,y,W,G)}<path class="viz-area" d="${area}"/><path class="viz-line-path" d="${line}" pathLength="1"/>${bands}${vizTickLabels(ticks,y,G)}</svg>${last>0&&prev?`<figcaption class="viz-delta ${delta>=0?'is-up':'is-down'}"><b>${delta>=0?'▲':'▼'} ${Math.abs(delta).toFixed(1).replace('.',',')}%</b> em relação a ${esc(rows[last-1].label)}</figcaption>`:''}${vizTable(['Ano',label],rows.map(r=>[r.label,money(r.value)]))}</figure>`
 }
-function pibChart(){const rows=pibSeries();return rows.some(r=>r.valor>0)?barChart(rows.map(r=>({label:String(r.ano),value:r.valor})),'PIB por ano'):'<p class="gov-empty">Nenhum PIB informado ainda.</p>'}
+function barChart(rows,label){
+  const W=320,H=182,top=22,base=H-24,ticks=vizTicks(Math.max(...rows.map(r=>r.value))),max=ticks[ticks.length-1],y=v=>base-(base-top)*v/max,G=vizGutter(ticks);
+  const band=(W-G)/rows.length,bw=Math.min(24,band*.5),last=rows.length-1;
+  const bands=rows.map((r,i)=>{const cx=G+band*i+band/2,x=cx-bw/2,yy=y(r.value);
+    return `<g class="viz-band" tabindex="0" role="img" aria-label="${esc(`${r.label}: ${money(r.value)}`)}" data-tip="${vizTip(r.label,[[label,money(r.value),'s1']])}" style="--i:${i}"><rect class="viz-hit" x="${(G+band*i).toFixed(1)}" y="0" width="${band.toFixed(1)}" height="${H}"/><path class="viz-bar s1" d="${vizCol(x,yy,bw,base-yy)}"/>${i===last?`<text class="viz-cap" x="${cx.toFixed(1)}" y="${(yy-6).toFixed(1)}" text-anchor="middle">${esc(vizShort(r.value))}</text>`:''}<text class="viz-x" x="${cx.toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(r.label)}</text></g>`}).join('');
+  return `<figure class="viz"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(label)}">${vizGrid(ticks,y,W,G)}${bands}${vizTickLabels(ticks,y,G)}</svg>${vizTable(['Ano',label],rows.map(r=>[r.label,money(r.value)]))}</figure>`
+}
+function pibChart(){const rows=pibSeries();return rows.some(r=>r.valor>0)?(rows.length>1?lineChart:barChart)(rows.map(r=>({label:String(r.ano),value:r.valor})),'PIB por ano'):'<p class="gov-empty">Nenhum PIB informado ainda.</p>'}
 function nationalInsights(){
   const cofreEntries=()=>data.lancamentos.map(l=>[l.data,(l.tipo==='Entrada'?1:-1)*(Number(l.valor)||0)]);
   const perState=data.estados.map(st=>({label:st.nome,value:data.lancamentos.filter(l=>l.estado===st.id&&l.tipo==='Saída').reduce((a,l)=>a+(Number(l.valor)||0),0)}));
