@@ -54,7 +54,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .big b{display:block;font-size:20px;white-space:nowrap}
 @media (max-width:640px){.big b{font-size:17px}}.big span{font-size:11px;color:var(--muted);font-weight:700}
 .srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
-.srow .ic{width:24px;text-align:center}.srow .n{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.srow .ic{width:24px;text-align:center}
+.srow small{color:var(--muted);font-size:11px}
+#summary .fh{margin:14px 0 2px;font-size:13px}
+#festaChip{position:fixed;left:10px;top:calc(122px + env(safe-area-inset-top));z-index:4;border:0;padding:7px 12px;font-weight:800;font-size:12.5px;background:linear-gradient(90deg,#ffe082,#ffab91);color:#4a2c00;animation:festa 2.4s ease-in-out infinite}
+@keyframes festa{50%{transform:translateY(-2px) rotate(-1deg)}}
+body.has-sheet #festaChip,body:has(#summary:not(.hidden)) #festaChip{display:none}.srow .n{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
 .srow button{border:0;background:none;padding:0;text-align:left;font-weight:600}
 .srow button:hover{text-decoration:underline}
 
@@ -174,6 +179,7 @@ kbd{font:inherit;font-size:11px;font-weight:800;border:1px solid var(--line);bor
 </header>
 
 <button id="sumBtn" class="glass" aria-expanded="false">📊 <span>Resumo</span> <span class="pop" id="popMini"></span></button>
+<button id="festaChip" class="glass hidden" title="Festa na cidade"></button>
 <section id="summary" class="glass hidden" aria-label="Resumo da cidade"></section>
 
 <aside id="cam" class="glass" aria-label="Câmera">
