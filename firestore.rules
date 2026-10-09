@@ -108,6 +108,18 @@ service cloud.firestore {
       allow write: if signedIn() && systemId.size() <= 120;
     }
 
+    // Projeção 3D de cada município (um documento por município com a lista de construções do mapa)
+    match /cidade3d_v1/{cityKey} {
+      allow get: if signedIn() && cityKey.size() <= 80;
+      allow list: if false;
+      allow create, update: if signedIn() && cityKey.size() <= 80 && isMap(request.resource.data)
+        && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy', 'cityKey', 'schemaVersion'])
+        && request.resource.data.items is list && request.resource.data.items.size() <= 2400
+        && optString(request.resource.data, 'updatedAt', 40) && optString(request.resource.data, 'updatedBy', 80)
+        && (resource == null || shrinksAtMost('items', 300));
+      allow delete: if false;
+    }
+
     // Qualquer outra coleção: fechada
     match /{document=**} {
       allow read, write: if false;

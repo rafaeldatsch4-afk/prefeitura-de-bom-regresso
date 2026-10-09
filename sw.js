@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v52';
+const CACHE='bom-regresso-pwa-v53';
 const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/prefeitura/','/prefeitura/index.html','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
@@ -75,7 +75,8 @@ self.addEventListener('fetch',event=>{
         if(res&&res.ok){
           const cache=await caches.open(CACHE);
           await cache.put(req,res.clone());
-          if(url.pathname.startsWith('/prefeitura'))await cache.put('/prefeitura/index.html',res.clone());
+          // Só a página do sistema vira a cópia de reserva da Prefeitura (a projeção 3D também abre por aqui).
+          if(url.pathname==='/prefeitura/'||url.pathname==='/prefeitura/index.html')await cache.put('/prefeitura/index.html',res.clone());
           else if(url.pathname==='/'||url.pathname==='/index.html')await cache.put('/index.html',res.clone());
         }
         return res;
@@ -85,6 +86,17 @@ self.addEventListener('fetch',event=>{
         }
         return (await caches.match(req))||(await caches.match('/index.html'))||Response.error();
       }
+    })());
+    return;
+  }
+
+  // Biblioteca 3D (versão fixa na pasta): usa a cópia guardada e só baixa se não tiver.
+  if(url.pathname.startsWith('/prefeitura/vendor/')){
+    event.respondWith((async()=>{
+      const hit=await caches.match(req);if(hit)return hit;
+      const res=await fetch(req);
+      if(res&&res.ok){const cache=await caches.open(CACHE);await cache.put(req,res.clone())}
+      return res;
     })());
     return;
   }
