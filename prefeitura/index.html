@@ -4203,9 +4203,29 @@ const TILT_TARGETS='.card';
 function animatePage(){const c=document.getElementById('content');if(!c)return;c.classList.remove('page-enter');void c.offsetWidth;c.classList.add('page-enter');clearTimeout(c._animTimer);c._animTimer=setTimeout(()=>c.classList.remove('page-enter'),900)}
 function head(title,desc,right=''){return`<div class="page-head"><div><h2>${title}</h2><p>${desc}</p></div>${right?`<span class="pill">${right}</span>`:''}</div>`}
 // ---- Projeção 3D da cidade: abre por cima do sistema (uma janela só, que não recarrega quando a nuvem atualiza a página)
+// Construir na projeção custa dinheiro: sai do saldo de Finanças como uma despesa "Obras (Projeção 3D)".
+function finSaldo(){let s=0;for(const x of db.finance||[])if(x.status==='Pago')s+=(x.type==='Receita'?1:x.type==='Despesa'?-1:0)*Number(x.value||0);return s}
+function cidade3dCharge(desc,valor){
+  valor=Math.round(Number(valor)||0);
+  if(!isFullAccess())return {ok:false,motivo:'Seu cargo não pode construir na projeção.'};
+  const saldo=finSaldo();if(valor<=0)return {ok:true,id:'',saldo};
+  if(valor>saldo)return {ok:false,motivo:'saldo',saldo,falta:valor-saldo};
+  const x={id:uid(),date:todayBR(),type:'Despesa',category:'Obras (Projeção 3D)',description:String(desc||'Obra').slice(0,120),value:valor,status:'Pago',notes:'',operator:db.currentOperator,createdAt:nowISO()};
+  db.finance.push(x);
+  recordActivity('finance','Obra',`${db.currentOperator} pagou obra — ${x.description} (${money(valor)}).`,[{collection:'finance',id:x.id,before:null,after:x}]);
+  save();return {ok:true,id:x.id,saldo:saldo-valor};
+}
+// Desfazer logo depois de construir devolve o dinheiro (apaga a despesa).
+function cidade3dRefund(id){
+  const i=(db.finance||[]).findIndex(x=>x.id===id&&x.category==='Obras (Projeção 3D)');if(i<0)return {ok:false,saldo:finSaldo()};
+  const x=db.finance[i];db.finance.splice(i,1);
+  recordActivity('finance','Obra desfeita',`${db.currentOperator} desfez obra — ${x.description} (${money(x.value)} voltaram ao saldo).`,[{collection:'finance',id:x.id,before:x,after:null}]);
+  save();return {ok:true,saldo:finSaldo()};
+}
 function cidade3dContext(){
   const p=currentProfile(),css=getComputedStyle(document.documentElement);
-  window.__cidade3dCtx={cityKey:MUNICIPALITY_ID,cityName:cityName(),operatorName:p?.name||db.currentOperator||'',role:currentRole(),canEdit:isFullAccess(),primary:css.getPropertyValue('--navy').trim(),accent:css.getPropertyValue('--gold').trim()};
+  window.__cidade3dCtx={cityKey:MUNICIPALITY_ID,cityName:cityName(),operatorName:p?.name||db.currentOperator||'',role:currentRole(),canEdit:isFullAccess(),primary:css.getPropertyValue('--navy').trim(),accent:css.getPropertyValue('--gold').trim(),
+    saldo:finSaldo,charge:cidade3dCharge,refund:cidade3dRefund};
 }
 function openCidade3d(){
   cidade3dContext();
@@ -4217,7 +4237,7 @@ function openCidade3d(){
 }
 function closeCidade3d(){const o=document.getElementById('c3dOverlay');if(o)o.remove();document.body.classList.remove('c3d-open')}
 function cidade3dPage(c){
-  c.innerHTML=head('🏙️ Projeção 3D',`Mapa 3D de ${esc(cityName())}: prédios, UBS, escolas, ruas e tudo o que a cidade tem.`,isFullAccess()?'Você pode editar':'Só visualização')+`<div class="panel"><p class="muted" style="margin:0 0 12px">A projeção abre em tela cheia por cima do sistema.</p><button class="btn btn-primary" onclick="App.go('cidade3d')">🏙️ Abrir a projeção 3D</button></div>`;
+  c.innerHTML=head('🏙️ Projeção 3D',`Mapa 3D de ${esc(cityName())}: prédios, UBS, escolas, ruas e tudo o que a cidade tem.`,isFullAccess()?'Você pode editar':'Só visualização')+`<div class="panel"><p class="muted" style="margin:0 0 12px">A projeção abre em tela cheia por cima do sistema. Cada construção é paga com o saldo de Finanças (saldo atual: <b>${money(finSaldo())}</b>).</p><button class="btn btn-primary" onclick="App.go('cidade3d')">🏙️ Abrir a projeção 3D</button></div>`;
   openCidade3d();
 }
 function renderPage(){

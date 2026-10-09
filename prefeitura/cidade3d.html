@@ -48,8 +48,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 #summary h3{margin:0 0 2px;font-size:15px}
 #summary .sub{font-size:12px;color:var(--muted);margin-bottom:10px}
 .big{display:flex;gap:8px;margin:8px 0 12px}
+/* .big pode repetir */
+.big+.big{margin-top:-4px}
 .big div{flex:1;background:rgba(127,140,160,.10);border-radius:12px;padding:9px 10px}
-.big b{display:block;font-size:20px}.big span{font-size:11px;color:var(--muted);font-weight:700}
+.big b{display:block;font-size:20px;white-space:nowrap}
+@media (max-width:640px){.big b{font-size:17px}}.big span{font-size:11px;color:var(--muted);font-weight:700}
 .srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
 .srow .ic{width:24px;text-align:center}.srow .n{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
 .srow button{border:0;background:none;padding:0;text-align:left;font-weight:600}
@@ -76,6 +79,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .it .th{width:88px;height:70px;margin:0 auto 3px;display:grid;place-items:center;font-size:34px}
 .it .th img{width:88px;height:70px;object-fit:contain;display:block}
 .it b{display:block;font-size:12px;line-height:1.15}
+.it .pr{display:block;font-size:11.5px;font-weight:800;color:var(--ok);margin-top:1px}
+.it.caro{opacity:.55}.it.caro .pr{color:var(--bad)}
+#catalog .saldo{font-size:12.5px;font-weight:700;padding:0 2px 8px;color:var(--muted)}#catalog .saldo b{color:var(--ink)}
 .it small{font-size:10.5px;color:var(--muted);font-weight:700}
 
 /* Dica do modo construir */
@@ -184,7 +190,7 @@ kbd{font:inherit;font-size:11px;font-weight:800;border:1px solid var(--line);bor
 </aside>
 
 <div id="hint" class="glass hidden"></div>
-<div id="catalog" class="glass hidden" aria-label="Catálogo de construções"><div class="cats" id="cats"></div><div class="items" id="items"></div></div>
+<div id="catalog" class="glass hidden" aria-label="Catálogo de construções"><div class="saldo" id="saldoCat"></div><div class="cats" id="cats"></div><div class="items" id="items"></div></div>
 <div id="card" class="glass hidden" aria-live="polite"></div>
 
 <nav id="tools" class="glass hidden" aria-label="Ferramentas">

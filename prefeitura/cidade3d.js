@@ -32,12 +32,33 @@ const ls={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v)
 // Quem está usando vem do sistema da Prefeitura (a página abre dentro dele ou numa aba aberta por ele).
 function readCtx(){
   const wins=[];try{if(window.parent!==window)wins.push(window.parent)}catch{}try{if(window.opener)wins.push(window.opener)}catch{}
-  for(const w of wins){try{const c=w.__cidade3dCtx;if(c&&c.cityKey===CITY_KEY)return {cityKey:String(c.cityKey),cityName:String(c.cityName||''),operatorName:String(c.operatorName||''),role:String(c.role||''),canEdit:c.canEdit===true,primary:String(c.primary||''),accent:String(c.accent||'')}}catch{}}
+  for(const w of wins){try{const c=w.__cidade3dCtx;if(c&&c.cityKey===CITY_KEY)return {api:typeof c.charge==='function'?c:(c.api||null),cityKey:String(c.cityKey),cityName:String(c.cityName||''),operatorName:String(c.operatorName||''),role:String(c.role||''),canEdit:c.canEdit===true,primary:String(c.primary||''),accent:String(c.accent||'')}}catch{}}
   return null;
 }
 const CTX=readCtx();
 window.__cidade3dCtx=CTX;
 const CAN_EDIT=!!CTX?.canEdit;
+
+// ---------------------------------------------------------------- Preços (pagos com o saldo de Finanças da Prefeitura)
+const PRECO={prefeitura:500000,delegacia:150000,bombeiros:200000,ubs:100000,hospital:1000000,escola:250000,casa:10000,predio:50000,mercado:80000,posto:60000,igreja:120000,praca:40000,campo:80000,arvore:500,lago:30000,lavoura:20000,rua:5000};
+const ANDAR=15000;
+const precoTipo=(t,h)=>PRECO[t]+(t==='predio'?(h||6)*ANDAR:0);
+const price=it=>precoTipo(it.t,it.h);
+function fmtR(v){v=Math.round(Number(v)||0);const a=Math.abs(v),s=v<0?'−':'';
+  if(a>=1e6)return `${s}R$ ${(a/1e6).toLocaleString('pt-BR',{maximumFractionDigits:a>=1e7?0:1})} mi`;
+  if(a>=1000)return `${s}R$ ${(a/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} mil`;return `${s}R$ ${a}`}
+const fmtFull=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(Number(v)||0);
+let saldoAtual=NaN;
+function lerSaldo(){try{const v=Number(CTX?.api?.saldo());saldoAtual=Number.isFinite(v)?v:NaN}catch{saldoAtual=NaN}return saldoAtual}
+const temCaixa=()=>Number.isFinite(saldoAtual);
+function cobrar(desc,valor){
+  if(!CTX?.api)return {ok:false,motivo:'Abra a projeção pela Prefeitura para construir.'};
+  try{const r=CTX.api.charge('Projeção 3D: '+desc,valor);const o={ok:!!r?.ok,id:String(r?.id||''),motivo:String(r?.motivo||''),falta:Number(r?.falta)||0};lerSaldo();atualizaDinheiro();return o}
+  catch{return {ok:false,motivo:'A Prefeitura foi fechada. Abra a projeção de novo pela Prefeitura.'}}
+}
+function devolver(id){if(!id||!CTX?.api)return false;try{const r=CTX.api.refund(id);lerSaldo();atualizaDinheiro();return !!r?.ok}catch{return false}}
+function avisoCobranca(r){toast(r.motivo==='saldo'?`Saldo insuficiente: faltam ${fmtR(r.falta)}. Lance receitas em Finanças.`:r.motivo||'Não deu para pagar a obra')}
+function atualizaDinheiro(){if(tool==='construir')renderCatalog();updHint();updSummary();if(selId)renderCard();if(typeof updGhost==='function'&&ghost?.visible)updGhost()}
 const WHO=(CTX?.operatorName||'').slice(0,60);
 const CITY_NAME=(CTX?.cityName||String(P.get('cityName')||'').trim()).slice(0,60)||(CITY_ID?'Município':'Bom Regresso');
 const EMBED=(()=>{try{return window.parent!==window&&typeof window.parent.App?.systemBack==='function'}catch{return false}})();
@@ -591,8 +612,8 @@ function apply(changes,{record=true,anim=true,intro=false}={}){
   if(record){undoStack.push(changes);if(undoStack.length>100)undoStack.shift();redoStack.length=0}
   updUndo();
 }
-function doUndo(){const g=undoStack.pop();if(!g)return;apply(g.map(c=>({id:c.id,before:c.after,after:c.before})).reverse(),{record:false});redoStack.push(g);updUndo();toast('Desfeito')}
-function doRedo(){const g=redoStack.pop();if(!g)return;apply(g,{record:false});undoStack.push(g);updUndo();toast('Refeito')}
+function doUndo(){const g=undoStack.pop();if(!g)return;const devolveu=g.fin?.id?devolver(g.fin.id):false;if(g.fin)g.fin.id='';apply(g.map(c=>({id:c.id,before:c.after,after:c.before})).reverse(),{record:false});redoStack.push(g);updUndo();toast(devolveu?`Desfeito: ${fmtR(g.fin.valor)} voltaram ao saldo`:'Desfeito')}
+function doRedo(){const g=redoStack.pop();if(!g)return;if(g.fin){const r=cobrar(g.fin.desc,g.fin.valor);if(!r.ok){redoStack.push(g);avisoCobranca(r);return}g.fin.id=r.id}apply(g,{record:false});undoStack.push(g);updUndo();toast('Refeito')}
 function updUndo(){$('#undoBtn').disabled=!undoStack.length;$('#redoBtn').disabled=!redoStack.length}
 
 // ---------------------------------------------------------------- Cena ← estado
@@ -719,7 +740,7 @@ function updGhost(){
   const it=ghostItem();if(!it){ghost.visible=false;updHint();return}
   const mk=modelKey({...it,t:it.t==='rua'?'casa':it.t});
   if(mk!==ghostMk){ghost.clear();ghostMk=mk;const g=modelGeo(mk);for(const l of LAYERS)if(g[l])ghost.add(new THREE.Mesh(g[l],ghostMat));ghost.add(ghostPad)}
-  const ok=fits(it.t,it.x,it.z,it.r,moveId);const col=ok?0x35d07f:0xff4d4d;ghostMat.color.setHex(col);ghostPad.material.color.setHex(col);
+  const cabe=fits(it.t,it.x,it.z,it.r,moveId),pode=tool==='mover'||!temCaixa()||price(it)<=saldoAtual,ok=cabe&&pode;const col=ok?0x35d07f:0xff4d4d;ghostMat.color.setHex(col);ghostPad.material.color.setHex(col);
   const [W,D]=dims(it.t,it.r);const [cx,cz]=center(it);ghost.position.set(cx,0.02,cz);ghost.rotation.y=it.r*Math.PI/2;
   ghostPad.scale.set(it.r%2?D:W,it.r%2?W:D,1);ghost.visible=true;ghost.userData.ok=ok;updHint();
 }
@@ -738,6 +759,7 @@ function setTool(t){
 }
 function pickPlace(t){
   const d=T[t],prev=place?.t===t?place:null;
+  catSel=d.cat;
   place={t,r:prev?.r||0,v:d.rand?Math.floor(Math.random()*(d.vars||1)):prev?.v||0,h:d.floors?(prev?.h||4+Math.floor(Math.random()*6)):undefined};
   ghostMk='';updGhost();renderCatalog();updHint();
 }
@@ -745,10 +767,11 @@ function updHint(){
   const el=$('#hint');let html='';
   const touchNote=lastPointer==='touch';
   if(tool==='construir'&&place){const d=T[place.t];
-    html=`<span class="msg">${d.ic} <b>${esc(d.nome)}</b> · ${touchNote?'toque no mapa':'clique no mapa'}</span><button class="pbtn" data-h="rot" title="Girar (R)">⟳</button>${touchNote?`<button class="pbtn pri" data-h="ok" ${ghost.visible&&ghost.userData.ok?'':'disabled'}>✓ Colocar</button>`:''}<button class="pbtn" data-h="x" title="Cancelar (Esc)">✕</button>`}
+    const pr=precoTipo(place.t,place.h),falta=temCaixa()&&pr>saldoAtual;
+    html=`<span class="msg">${d.ic} <b>${esc(d.nome)}</b> · <b>${fmtR(pr)}</b> · ${falta?'<span style="color:var(--bad)">saldo insuficiente</span>':touchNote?'toque no mapa':'clique no mapa'}</span><button class="pbtn" data-h="rot" title="Girar (R)">⟳</button>${touchNote?`<button class="pbtn pri" data-h="ok" ${ghost.visible&&ghost.userData.ok?'':'disabled'}>✓ Colocar</button>`:''}<button class="pbtn" data-h="x" title="Cancelar (Esc)">✕</button>`}
   else if(tool==='construir')html='<span class="msg">Escolha uma construção no catálogo</span><button class="pbtn" data-h="x">✕</button>';
   else if(tool==='mover'&&place){const it=items.get(moveId);html=`<span class="msg">✥ Movendo <b>${esc(it?typeName(it):'')}</b> · escolha o novo lugar</span><button class="pbtn" data-h="rot">⟳</button>${touchNote?`<button class="pbtn pri" data-h="ok" ${ghost.visible&&ghost.userData.ok?'':'disabled'}>✓ Aqui</button>`:''}<button class="pbtn" data-h="x">✕</button>`}
-  else if(tool==='rua')html='<span class="msg">🛣️ Arraste pelo mapa para traçar ruas</span><button class="pbtn" data-h="x">✕</button>';
+  else if(tool==='rua')html=`<span class="msg">🛣️ Arraste para traçar ruas · <b>${fmtR(PRECO.rua)}</b> por quadra${temCaixa()?` · saldo ${fmtR(saldoAtual)}`:''}</span><button class="pbtn" data-h="x">✕</button>`;
   else if(tool==='demolir')html='<span class="msg">🧹 Toque ou arraste sobre o que quer remover</span><button class="pbtn" data-h="x">✕</button>';
   el.innerHTML=html;el.classList.toggle('hidden',!html);
 }
@@ -759,22 +782,30 @@ function commitPlace(){
   const it=ghostItem();if(!it)return;
   if(!fits(it.t,it.x,it.z,it.r,moveId)){toast('Não cabe aqui: escolha um lugar livre');return}
   if(tool==='mover'){const old=items.get(moveId);if(!old){setTool('ver');return}
-    const after={...old,x:it.x,z:it.z,r:it.r};apply([{id:old.id,before:old,after}]);const id=old.id;setTool('ver');select(id);toast(`${typeName(old)} mudou de lugar`);return}
+    const after={...old,x:it.x,z:it.z,r:it.r};apply([{id:old.id,before:old,after}]);const id=old.id;setTool('ver');select(id);toast(`Mudou de lugar: ${typeName(old)}`);return}
   if(items.size>=MAX_ITEMS){toast('O mapa chegou ao limite de construções');return}
   const d=T[it.t],o={id:newId(),t:it.t,x:it.x,z:it.z,r:it.t==='rua'?0:it.r,by:WHO,at:new Date().toISOString()};
   if(d.vars)o.v=it.v||0;if(d.floors)o.h=it.h||6;
-  apply([{id:o.id,before:null,after:o}]);
+  const valor=price(o),desc=d.floors?`${d.nome} de ${o.h} andares`:d.nome,r=cobrar(desc,valor);
+  if(!r.ok){avisoCobranca(r);updGhost();return}
+  const ch=[{id:o.id,before:null,after:o}];ch.fin={id:r.id,valor,desc};apply(ch);toast(`Obra pronta: ${d.nome} · ${fmtR(valor)}`);
   if(d.rand){place.v=Math.floor(Math.random()*(d.vars||1));if(d.floors)place.h=4+Math.floor(Math.random()*6);ghostMk=''}
   updGhost();
 }
 function tileFromHover(ix,iz){if(!place)return null;const [W,D]=dims(place.t,place.r);return [clamp(ix-Math.floor((W-1)/2),0,N-W),clamp(iz-Math.floor((D-1)/2),0,N-D)]}
 function paintAt(ix,iz){
   if(ix<0||iz<0||ix>=N||iz>=N||!stroke)return;const k=tk(ix,iz);if(stroke.seen.has(k))return;stroke.seen.add(k);
-  if(tool==='rua'){if(occ.has(k)||items.size>=MAX_ITEMS)return;const o={id:newId(),t:'rua',x:ix,z:iz,r:0,by:WHO,at:new Date().toISOString()};stroke.changes.push({id:o.id,before:null,after:o});apply([{id:o.id,before:null,after:o}],{record:false})}
+  if(tool==='rua'){if(occ.has(k)||items.size>=MAX_ITEMS)return;
+    if(stroke.custo+PRECO.rua>stroke.orcamento){if(!stroke.avisou){stroke.avisou=true;toast(temCaixa()?`O saldo acabou: ${fmtR(saldoAtual)}`:'Abra a projeção pela Prefeitura para construir.')}return}
+    stroke.custo+=PRECO.rua;const o={id:newId(),t:'rua',x:ix,z:iz,r:0,by:WHO,at:new Date().toISOString()};stroke.changes.push({id:o.id,before:null,after:o});apply([{id:o.id,before:null,after:o}],{record:false})}
   else if(tool==='demolir'){const id=occ.get(k);if(!id)return;const it=items.get(id);if(!it)return;stroke.changes.push({id,before:it,after:null});apply([{id,before:it,after:null}],{record:false})}
 }
-function endStroke(){if(!stroke)return;const ch=stroke.changes;stroke=null;if(!ch.length)return;undoStack.push(ch);if(undoStack.length>100)undoStack.shift();redoStack.length=0;updUndo();
-  if(tool==='demolir')toast(ch.length===1?`${typeName(ch[0].before)} removido`:`${ch.length} itens removidos`,{undo:true});}
+function endStroke(){if(!stroke)return;const ch=stroke.changes;stroke=null;if(!ch.length)return;
+  if(tool==='rua'){const valor=ch.length*PRECO.rua,desc=ch.length===1?'1 quadra de rua':`${ch.length} quadras de rua`,r=cobrar(desc,valor);
+    if(!r.ok){apply(ch.map(c=>({id:c.id,before:c.after,after:null})),{record:false});avisoCobranca(r);return}
+    ch.fin={id:r.id,valor,desc};toast(`${desc} · ${fmtR(valor)}`)}
+  undoStack.push(ch);if(undoStack.length>100)undoStack.shift();redoStack.length=0;updUndo();
+  if(tool==='demolir')toast(ch.length===1?`Removido: ${typeName(ch[0].before)}`:`${ch.length} itens removidos`,{undo:true});}
 
 // ---------------------------------------------------------------- Ponteiro
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),hitP=new THREE.Vector3();
@@ -790,7 +821,7 @@ canvas.addEventListener('pointerdown',e=>{
   camTween=null;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(lastPointer!==e.pointerType){lastPointer=e.pointerType;updHint()}
   if(ptrs.size>1){endStroke();down=null;return}
   down={x:e.clientX,y:e.clientY,t:performance.now(),button:e.button,type:e.pointerType};
-  if((tool==='rua'||tool==='demolir')&&e.button===0){stroke={changes:[],seen:new Set()};const t=tileAt(e);if(t){paintAt(...t);lastPaint=t}}
+  if((tool==='rua'||tool==='demolir')&&e.button===0){stroke={changes:[],seen:new Set(),custo:0,orcamento:tool==='rua'?(temCaixa()?lerSaldo():0):Infinity};const t=tileAt(e);if(t){paintAt(...t);lastPaint=t}}
 });
 canvas.addEventListener('pointermove',e=>{
   if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -863,11 +894,11 @@ function renderCard(){
   document.body.classList.toggle('has-card',!!it);
   if(!it){el.classList.add('hidden');renaming=false;return}
   const d=T[it.t],[W,D]=dims(it.t,it.r),th=thumbs[it.t]?`<img src="${thumbs[it.t]}" alt="">`:d.ic;
-  const sub=[d.longo||d.nome,W*D>1?`ocupa ${W}×${D}`:'',d.floors?`${it.h||6} andares`:'',d.vars&&d.varNomes&&it.t!=='casa'&&it.t!=='predio'?d.varNomes[it.v|0]:''].filter(Boolean).join(' · ');
+  const sub=[d.longo||d.nome,fmtR(price(it)),W*D>1?`ocupa ${W}×${D}`:'',d.floors?`${it.h||6} andares`:'',d.vars&&d.varNomes&&it.t!=='casa'&&it.t!=='predio'?d.varNomes[it.v|0]:''].filter(Boolean).join(' · ');
   let acts='';
   if(CAN_EDIT){
     acts=`<div class="acts"><button class="pbtn" data-c="nome">✏️ Nome</button>${it.t!=='rua'?'<button class="pbtn" data-c="girar">⟳ Girar</button>':''}<button class="pbtn" data-c="mover">✥ Mover</button><button class="pbtn danger" data-c="remover">🗑️ Remover</button></div>`;
-    if(d.floors)acts+=`<div class="acts"><span class="step"><button data-c="menos" aria-label="Menos andares">−</button><span>${it.h||6} andares</span><button data-c="mais" aria-label="Mais andares">+</button></span><button class="pbtn" data-c="estilo">🎨 Outra cor</button></div>`;
+    if(d.floors)acts+=`<div class="acts"><span class="step"><button data-c="menos" aria-label="Menos andares">−</button><span>${it.h||6} andares</span><button data-c="mais" aria-label="Mais um andar por ${fmtR(ANDAR)}" title="+1 andar: ${fmtR(ANDAR)}">+</button></span><button class="pbtn" data-c="estilo">🎨 Outra cor</button></div>`;
     else if(it.t==='casa')acts+=`<div class="acts"><button class="pbtn" data-c="estilo">🎨 Outra cor e formato</button></div>`;
     else if(d.vars)acts+=`<div class="chips">${d.varNomes.map((n,i)=>`<button data-c="var" data-v="${i}" class="${(it.v|0)===i?'on':''}">${esc(n)}</button>`).join('')}</div>`;
   }
@@ -881,7 +912,7 @@ function saveName(){const it=items.get(selId),i=$('#nmIn');if(!it||!i)return;con
 function rotateSel(){const it=items.get(selId);if(!it||it.t==='rua')return;const r=(it.r+1)%4,[W,D]=dims(it.t,r);
   const x=clamp(it.x,0,N-W),z=clamp(it.z,0,N-D);if(!fits(it.t,x,z,r,it.id)){toast('Não cabe girado aqui');return}
   apply([{id:it.id,before:it,after:{...it,r,x,z}}]);select(it.id)}
-function removeSel(){const it=items.get(selId);if(!it)return;apply([{id:it.id,before:it,after:null}]);select(null);toast(`${typeName(it)} removido`,{undo:true})}
+function removeSel(){const it=items.get(selId);if(!it)return;apply([{id:it.id,before:it,after:null}]);select(null);toast(`Removido: ${typeName(it)}`,{undo:true})}
 $('#card').addEventListener('click',e=>{
   const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.c,it=items.get(selId);if(!it)return;
   if(k==='fechar')return select(null);
@@ -893,7 +924,9 @@ $('#card').addEventListener('click',e=>{
   else if(k==='girar')rotateSel();
   else if(k==='remover')removeSel();
   else if(k==='mover'){moveId=it.id;const id=it.id;select(null);moveId=id;setTool('mover');place={t:it.t,r:it.r,v:it.v,h:it.h};ghostTile=[it.x,it.z];ghostMk='';updGhost()}
-  else if(k==='mais'||k==='menos'){const h=clamp((it.h||6)+(k==='mais'?1:-1),3,16);if(h!==it.h)apply([{id:it.id,before:it,after:{...it,h}}])}
+  else if(k==='mais'||k==='menos'){const h=clamp((it.h||6)+(k==='mais'?1:-1),3,16);if(h===it.h)return;const ch=[{id:it.id,before:it,after:{...it,h}}];
+    if(k==='mais'){const desc=`+1 andar em ${typeName(it)}`,r=cobrar(desc,ANDAR);if(!r.ok)return avisoCobranca(r);ch.fin={id:r.id,valor:ANDAR,desc}}
+    apply(ch)}
   else if(k==='estilo'){const n=T[it.t].vars;apply([{id:it.id,before:it,after:{...it,v:((it.v|0)+1)%n}}])}
   else if(k==='var'){const v=+b.dataset.v;if(v!==(it.v|0))apply([{id:it.id,before:it,after:{...it,v}}])}
 });
@@ -933,6 +966,7 @@ function updLabels(rebuild){
 const GROUPS=[['🏠','Casas',['casa']],['🏢','Prédios',['predio']],['🩺','Saúde',['ubs','hospital']],['🏫','Escolas',['escola']],['🛡️','Segurança',['delegacia','bombeiros']],['🏛️','Prefeitura',['prefeitura']],['🛒','Comércio',['mercado','posto']],['⛪','Igrejas',['igreja']],['⛲','Lazer',['praca','campo','lago']],['🌳','Árvores',['arvore']],['🌾','Lavouras',['lavoura']],['🛣️','Ruas',['rua']]];
 function population(){let p=0;for(const it of items.values()){if(it.t==='casa')p+=3.2;else if(it.t==='predio')p+=(it.h||6)*4*2.8}return Math.round(p)}
 const fmt=n=>new Intl.NumberFormat('pt-BR').format(n);
+function valorCidade(){let v=0;for(const it of items.values())v+=price(it);return v}
 function updSummary(){
   const pop=population();$('#popMini').textContent=items.size?`${fmt(pop)} hab.`:'';
   const el=$('#summary');if(el.classList.contains('hidden'))return;
@@ -941,6 +975,7 @@ function updSummary(){
   const ruas=cnt.rua||0,lav=(cnt.lavoura||0)*9;
   el.innerHTML=`<h3>📊 ${esc(CITY_NAME)}</h3><div class="sub">${meta.updatedAt?`Última mudança ${fmtWhen(meta.updatedAt)}${meta.updatedBy?' por '+esc(meta.updatedBy):''}`:'Mapa ainda não salvo'}</div>
     <div class="big"><div><b>${fmt(pop)}</b><span>habitantes (estimativa)</span></div><div><b>${fmt(items.size-ruas)}</b><span>construções</span></div></div>
+    <div class="big"><div title="${fmtFull(valorCidade())}"><b>${fmtR(valorCidade())}</b><span>valor das construções</span></div>${temCaixa()?`<div title="${fmtFull(saldoAtual)}"><b style="color:${saldoAtual<0?'var(--bad)':'inherit'}">${fmtR(saldoAtual)}</b><span>saldo da prefeitura</span></div>`:''}</div>
     ${rows.map(([ic,n,c,ts])=>`<div class="srow"><span class="ic">${ic}</span><button data-find="${ts.join(',')}" title="Mostrar no mapa">${esc(n)}</button><span class="n">${fmt(c)}${ts[0]==='rua'?` <small>(${(c*0.1).toLocaleString('pt-BR',{maximumFractionDigits:1})} km)</small>`:ts[0]==='lavoura'?` <small>(${fmt(lav)} ha)</small>`:''}</span></div>`).join('')||'<div class="srow">Nada construído ainda.</div>'}
     <div class="srow" style="justify-content:space-between;gap:6px;flex-wrap:wrap;padding-top:10px"><button class="pbtn" data-s="ajuda">❔ Como usar</button>${CAN_EDIT&&items.size?'<button class="pbtn danger" data-s="limpar">Recomeçar do zero</button>':''}</div>`;
 }
@@ -958,9 +993,9 @@ document.addEventListener('pointerdown',e=>{if(!$('#summary').classList.contains
 // ---------------------------------------------------------------- Catálogo
 let catSel='gov';
 function renderCatalog(){
-  if(place&&T[place.t])catSel=T[place.t].cat;
   $('#cats').innerHTML=CATS.map(([k,n])=>`<button class="cat ${k===catSel?'on':''}" data-cat="${k}">${esc(n)}</button>`).join('');
-  $('#items').innerHTML=Object.entries(T).filter(([,d])=>d.cat===catSel).map(([t,d])=>`<button class="it ${place?.t===t?'on':''}" data-t="${t}"><div class="th">${thumbs[t]?`<img src="${thumbs[t]}" alt="">`:d.ic}</div><b>${esc(d.nome)}</b><small>${d.w}×${d.d}</small></button>`).join('');
+  $('#saldoCat').innerHTML=temCaixa()?`💰 Saldo da prefeitura: <b>${fmtR(saldoAtual)}</b>`:'💰 Abra pela Prefeitura para construir';
+  $('#items').innerHTML=Object.entries(T).filter(([,d])=>d.cat===catSel).map(([t,d])=>{const pr=precoTipo(t,6),caro=temCaixa()&&pr>saldoAtual;return `<button class="it ${place?.t===t?'on':''} ${caro?'caro':''}" data-t="${t}"><div class="th">${thumbs[t]?`<img src="${thumbs[t]}" alt="">`:d.ic}</div><b>${esc(d.nome)}</b><span class="pr">${t==='rua'?fmtR(pr)+'/quadra':(d.floors?'a partir de ':'')+fmtR(precoTipo(t,d.floors?3:6))}</span><small>${caro?'sem saldo':`${d.w}×${d.d}`}</small></button>`}).join('');
 }
 $('#cats').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(!b)return;catSel=b.dataset.cat;renderCatalog()});
 $('#items').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;if(b.dataset.t==='rua'){setTool('rua');return}pickPlace(b.dataset.t)});
@@ -995,7 +1030,7 @@ function updEmpty(){
 }
 $('#empty').addEventListener('click',e=>{const b=e.target.closest('[data-e]');if(!b)return;
   if(b.dataset.e==='zero'){$('#empty').classList.add('hidden');setTool('construir');pickPlace('prefeitura')}
-  else{const list=seedTown();apply(list.map(it=>({id:it.id,before:null,after:it})),{intro:true});toast(`Cidade modelo pronta: ${list.length} itens. Mude o que quiser!`,{undo:true})}});
+  else{const list=seedTown();apply(list.map(it=>({id:it.id,before:null,after:it})),{intro:true});toast(`Cidade modelo pronta: ${list.length} itens, sem custo. As próximas obras saem do saldo.`,{undo:true})}});
 function seedTown(){
   const out=[],used=new Set(),r=rng(hash(CITY_KEY)),at=new Date().toISOString();
   const put=(t,x,z,rot=0,extra={})=>{const [W,D]=dims(t,rot);if(x<0||z<0||x+W>N||z+D>N)return false;for(let i=0;i<W;i++)for(let j=0;j<D;j++)if(used.has(tk(x+i,z+j)))return false;
@@ -1066,5 +1101,6 @@ let hadCache=false;
  if(CAN_EDIT){try{const p=JSON.parse(ls.get(PEND_KEY)||'null');if(Array.isArray(p))pending=p.filter(o=>o&&typeof o.id==='string').map(o=>({id:o.id,item:o.item?cleanItem(o.item):null})).filter(o=>o.item!==undefined)}catch{}}}
 if(hadCache){loadedOnce=true;refresh({anim:false})}
 setStatus();initCloud();
+if(CTX?.api){lerSaldo();setInterval(()=>{const a=saldoAtual;lerSaldo();if(a!==saldoAtual&&!(isNaN(a)&&isNaN(saldoAtual)))atualizaDinheiro()},4000)}
 (window.requestIdleCallback||(f=>setTimeout(f,400)))(makeThumbs);
 window.__cidade3d={get items(){return [...items.values()]},get pending(){return pending.length+(inflight?inflight.length:0)},canEdit:CAN_EDIT,select,setTool,pickPlace,commitPlace,focusItem,setGhost:(x,z)=>{ghostTile=[x,z];updGhost()},camera,controls,renderer};
