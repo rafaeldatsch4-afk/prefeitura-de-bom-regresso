@@ -1457,7 +1457,7 @@ function tap(e,type){
 addEventListener('keydown',e=>{
   if(/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName))return;
   const k=e.key.toLowerCase();
-  if(k==='escape'){if(!$('#help').classList.contains('hidden')){$('#help').classList.add('hidden');return}if(tool!=='ver')setTool('ver');else select(null);return}
+  if(k==='escape'){if(!$('#help').classList.contains('hidden')){$('#help').classList.add('hidden');return}if(!$('#summary').classList.contains('hidden')){toggleSummary(false);return}if(tool!=='ver')setTool('ver');else if(selId)select(null);else $('#backBtn').click();return}
   if(!CAN_EDIT)return;
   if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();return}
   if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();doRedo();return}

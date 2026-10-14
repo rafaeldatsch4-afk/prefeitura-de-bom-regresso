@@ -3834,6 +3834,8 @@ function appViewState(){
 function initAppHistory(){
   if(historyReady)return;
   historyReady=true;
+  // Dentro da República quem cuida do voltar do celular é ela; aqui só as telas internas da Prefeitura viram passos.
+  if(window.parent!==window){window.addEventListener('popstate',handleAppPop);return}
   const root={brApp:true,view:'login',guard:false};
   history.replaceState(root,'',location.href);
   history.pushState({brApp:true,view:'login',guard:true},'',location.href);
@@ -3846,6 +3848,12 @@ function pushAppHistory(p,s=''){
   history.pushState(next,'',location.href);
 }
 function handleAppPop(e){
+  if(window.parent!==window){
+    const m=document.getElementById('modalRoot');if(m?.innerHTML.trim())closeModal();
+    if(CHAT_ONLY||!db.currentOperator)return;
+    const st=e.state;if(st?.brApp&&st.view==='system'){page=st.page||'home';sub=st.sub||''}else{page='home';sub=''}
+    render();requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));return;
+  }
   const modal=document.getElementById('modalRoot');
   if(modal?.innerHTML.trim()){
     closeModal();
@@ -3874,6 +3882,12 @@ function handleAppPop(e){
     setTimeout(()=>toast('O Sr. já está na tela inicial.'),80);
   }
 }
+// Esc no computador: fecha a janela aberta ou volta uma tela; no início do sistema, pede para a República voltar.
+document.addEventListener('keydown',e=>{if(e.key!=='Escape'||e.defaultPrevented)return;
+  if(document.getElementById('modalRoot')?.innerHTML.trim()){closeModal();return}
+  if(e.target.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+  if(window.parent!==window){if(!CHAT_ONLY&&page!=='home'&&history.state?.brApp&&history.state.view==='system'){history.back();return}try{window.parent.postMessage({type:'ESC_BACK'},location.origin)}catch{}return}
+  if(db.currentOperator&&page!=='home')history.back()});
 function systemBack(){
   const modal=document.getElementById('modalRoot');
   if(modal?.innerHTML.trim()){closeModal();return}
