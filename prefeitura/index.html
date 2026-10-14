@@ -1974,7 +1974,7 @@ async function initCloud(){
       for(const o of (db.operators||[]))clearLegacyPasswordFields(o);
       persistLocal();
       const after=JSON.stringify(SHARED_KEYS.map(k=>db[k]||[]));
-      if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden')){if(!municipalFormEditing&&!document.activeElement?.closest?.('input,select,textarea,[contenteditable="true"]'))renderPage()}else loginScreen()}
+      if(before!==after){if(document.getElementById('main')&&!document.getElementById('main').classList.contains('hidden')){if(page==='chat'){renderChatMessages(false);renderChatPresence()}else if(!municipalFormEditing&&!document.activeElement?.closest?.('input,select,textarea,[contenteditable="true"]'))renderPage()}else loginScreen()}
     },err=>{console.error('Listener Firestore:',err);toast('Sincronização em tempo real indisponível.')});
     loginScreen()
   }catch(err){console.error('Firebase indisponível:',err);cloudReady=false;loginScreen();setTimeout(()=>toast('Firebase indisponível. Modo local ativado.'),300)}
@@ -3418,7 +3418,7 @@ function chat(c){
             onpointerup="App.chatMicPointerUp(event)" onpointercancel="App.chatMicPointerCancel(event)"
             onkeydown="App.chatMicKeydown(event)" oncontextmenu="return false"
             title="Toque para gravar • segure e solte para enviar">🎙</button>
-          <button type="button" id="chatSendBtn" class="chat-send-btn hidden" onclick="App.sendChatMessage()" title="Enviar">➤</button>
+          <button type="button" id="chatSendBtn" class="chat-send-btn hidden" onpointerdown="event.preventDefault()" onmousedown="event.preventDefault()" onclick="App.sendChatMessage()" title="Enviar">➤</button>
         </div>
       </footer>
     </div>
@@ -3472,7 +3472,10 @@ async function notifyChatMessage(m){
   }catch(err){console.error('Notificação do chat:',err)}
 }
 function chatComposerKey(e){
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage()}
+  // Enter envia (Shift+Enter quebra linha); não envia no meio de uma palavra sendo montada pelo teclado (acentos, correção)
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();sendChatMessage();return}
+  // Esc no computador fecha emoji/menções e solta a caixa; o próximo Esc volta de tela
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();document.getElementById('chatMentionBox')?.classList.add('hidden');toggleChatEmoji(false);toggleChatAttachMenu(false);e.target.blur()}
 }
 function blobToDataURL(blob){
   return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)})
@@ -3639,35 +3642,49 @@ function cancelChatRecording(){
   if(chatRecorder?.state==='recording'){finishChatRecording(true,false);return}
   chatRecordingCancelled=false;resetChatRecordGesture()
 }
+// Envio como num aplicativo de mensagens: a caixa limpa na hora e o teclado continua aberto; as mensagens
+// entram numa fila e sobem em ordem (dá para mandar várias seguidas). Se uma falhar, o texto volta para a caixa.
+const chatSendQueue=[];
 async function sendChatMessage(){
-  if(chatSending)return;
   const p=currentProfile(),input=document.getElementById('chatInput');if(!p)return;
   const text=String(input?.value||'').trim();
   if(!text&&!chatPendingAttachment)return toast('Digite uma mensagem ou adicione um anexo.');
   if(!chatCollection||!cloudReady)return toast('Conecte-se à internet para enviar mensagens.');
   if(chatPendingAttachment?.dataUrl?.length>(chatPendingAttachment?.kind==='audio'?CHAT_AUDIO_MAX_DATAURL:CHAT_FILE_MAX_DATAURL))return toast('O anexo ultrapassa o limite do chat.');
-  const sendBtn=document.querySelector('.chat-send-btn');let mediaId='';
-  chatSending=true;flyChatGhost(text||(chatPendingAttachment?'📎 '+(chatPendingAttachment.name||'Anexo'):''));if(input)input.disabled=true;if(sendBtn){sendBtn.disabled=true;sendBtn.innerHTML='<span class="chat-send-cloud" aria-hidden="true">☁️</span>'}
+  const job={p,text,attachment:chatPendingAttachment?cloneData(chatPendingAttachment):null,reply:chatReplyTarget?cloneData(chatReplyTarget):null};
+  flyChatGhost(text||(job.attachment?'📎 '+(job.attachment.name||'Anexo'):''));
+  if(input){input.value='';input.style.height='40px';if(document.activeElement!==input&&window.innerWidth>760)input.focus({preventScroll:true})}
+  document.getElementById('chatMentionBox')?.classList.add('hidden');
+  chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);chatAutoScroll=true;
+  clearTimeout(chatTypingTimer);chatTypingSentAt=0;touchChatPresence(false);updateChatComposerState();
+  chatSendQueue.push(job);processChatQueue();
+}
+async function processChatQueue(){
+  if(chatSending)return;chatSending=true;
   try{
-    let attachment=null;
-    if(chatPendingAttachment){
-      const stored=await storeChatMedia(cloneData(chatPendingAttachment),p);
-      attachment=stored.attachment;mediaId=stored.mediaId
+    while(chatSendQueue.length){
+      const job=chatSendQueue[0];let mediaId='';
+      try{
+        let attachment=null;
+        if(job.attachment){const stored=await storeChatMedia(job.attachment,job.p);attachment=stored.attachment;mediaId=stored.mediaId}
+        const msg={senderId:job.p.id,senderName:job.p.name,senderRole:job.p.role||'Servidor / Outro',senderEmoji:job.p.avatarEmoji||'',text:job.text.slice(0,2000),attachment,reply:job.reply,createdAt:nowISO()};
+        const mentions=chatMentionsIn(job.text);if(mentions.length)msg.mentions=mentions;if(/(^|[\s(])@todos\b/i.test(job.text))msg.mentionAll=true;
+        const ref=await chatCollection.add(msg);playChatTone('send');
+        sendChatPush({...msg,id:ref.id});
+        chatSendQueue.shift();
+      }catch(err){
+        console.error('Enviar chat:',err);
+        if(mediaId&&chatMediaCollection)chatMediaCollection.doc(mediaId).delete().catch(()=>{});
+        // devolve o que não foi enviado para a caixa (sem apagar o que a pessoa já começou a digitar)
+        const left=chatSendQueue.splice(0),input=document.getElementById('chatInput'),back=left.map(j=>j.text).filter(Boolean).join('\n');
+        if(input&&back){input.value=back+(input.value.trim()?'\n'+input.value:'');chatAutoGrow(input)}
+        if(!chatPendingAttachment&&left[0]?.attachment){chatPendingAttachment=left[0].attachment;renderChatAttachmentPreview()}
+        if(!chatReplyTarget&&left[0]?.reply){chatReplyTarget=left[0].reply;renderChatReplyPreview()}
+        updateChatComposerState();
+        toast(navigator.onLine===false?'Sem internet: a mensagem voltou para a caixa. Envie de novo quando conectar.':'Não foi possível enviar a mensagem. Ela voltou para a caixa; tente de novo.');
+      }
     }
-    const msg={senderId:p.id,senderName:p.name,senderRole:p.role||'Servidor / Outro',senderEmoji:p.avatarEmoji||'',text:text.slice(0,2000),attachment,reply:chatReplyTarget?cloneData(chatReplyTarget):null,createdAt:nowISO()};
-    const mentions=chatMentionsIn(text);if(mentions.length)msg.mentions=mentions;if(/(^|[\s(])@todos\b/i.test(text))msg.mentionAll=true;
-    clearTimeout(chatTypingTimer);chatTypingSentAt=0;touchChatPresence(false);
-    const ref=await chatCollection.add(msg);playChatTone('send');
-    sendChatPush({...msg,id:ref.id});
-    if(input){input.value='';input.style.height='40px';input.focus()}document.getElementById('chatMentionBox')?.classList.add('hidden');
-    chatPendingAttachment=null;chatReplyTarget=null;renderChatAttachmentPreview();renderChatReplyPreview();toggleChatAttachMenu(false);toggleChatEmoji(false);chatAutoScroll=true
-  }catch(err){
-    console.error('Enviar chat:',err);
-    if(mediaId&&chatMediaCollection)chatMediaCollection.doc(mediaId).delete().catch(()=>{});
-    toast('Não foi possível enviar a mensagem. Tente novamente.')
-  }finally{
-    chatSending=false;if(input)input.disabled=false;if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='➤'};updateChatComposerState()
-  }
+  }finally{chatSending=false}
 }
 async function openChatImage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m?.attachment||m.attachment.kind!=='image')return;
