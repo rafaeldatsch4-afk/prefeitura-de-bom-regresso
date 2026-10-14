@@ -1228,14 +1228,17 @@ function activityMatches(e,f,fixedEstado){
   return true
 }
 const dayLabel=iso=>{const d=new Date(iso),t=new Date();t.setHours(0,0,0,0);const diff=Math.round((t-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);return diff===0?'Hoje':diff===1?'Ontem':fmtCache('d',{weekday:'long',day:'numeric',month:'long',year:d.getFullYear()===t.getFullYear()?undefined:'numeric'}).format(d)};
-function activityRow(e){
+// Quando aconteceu: "Hoje às 20:14", "Ontem às 22:22" ou "12/10 às 11:43" (com o ano se for de outro ano)
+const whenLabel=iso=>{const d=new Date(iso);if(isNaN(d))return '';const hora=fmtCache('d',{hour:'2-digit',minute:'2-digit'}).format(d),dl=dayLabel(iso);
+  if(dl==='Hoje'||dl==='Ontem')return dl+' às '+hora;return fmtCache('d',{day:'2-digit',month:'2-digit',year:d.getFullYear()===new Date().getFullYear()?undefined:'numeric'}).format(d)+' às '+hora};
+function activityRow(e,soHora=false){
   const person=data.profiles.find(p=>p.id===e.autorId);
-  return `<div class="act-item${e.desfeito?' is-undone':''}"><div class="act-who">${person?avatar(person):`<span class="avatar act-icon">${ACT_ICON[e.area]||'📌'}</span>`}</div><div class="act-main"><div class="act-line"><b>${esc(e.autor||'Sistema')}</b><span class="act-badge">${esc(e.acao||'Alteração')}</span><small>${ACT_ICON[e.area]||'📌'} ${esc(e.area||'')}</small></div><div class="act-text">${esc(e.texto||'—')}</div><div class="act-meta">${esc(fmtCache('d',{hour:'2-digit',minute:'2-digit'}).format(new Date(e.at)))}${e.cargo?' · '+esc(e.cargo):''} · ${PLACE_ICON[e.nivel]||''} ${esc(placeName(e))}${e.desfeito?' · desfeito':''}</div></div></div>`
+  return `<div class="act-item${e.desfeito?' is-undone':''}"><div class="act-who">${person?avatar(person):`<span class="avatar act-icon">${ACT_ICON[e.area]||'📌'}</span>`}</div><div class="act-main"><div class="act-line"><b>${esc(e.autor||'Sistema')}</b><span class="act-badge">${esc(e.acao||'Alteração')}</span><small>${ACT_ICON[e.area]||'📌'} ${esc(e.area||'')}</small></div><div class="act-text">${esc(e.texto||'—')}</div><div class="act-meta"><time datetime="${esc(e.at||'')}" title="${esc(fmtCache('d',{dateStyle:'full',timeStyle:'short'}).format(new Date(e.at)))}">${esc(soHora?fmtCache('d',{hour:'2-digit',minute:'2-digit'}).format(new Date(e.at)):whenLabel(e.at))}</time>${e.cargo?' · '+esc(e.cargo):''} · ${PLACE_ICON[e.nivel]||''} ${esc(placeName(e))}${e.desfeito?' · desfeito':''}</div></div></div>`
 }
 function activityListHTML(ctx,fixedEstado){
   const f=actFilterFor(ctx),pool=[...(Array.isArray(data.atividades)?data.atividades:[]),...municipalLog.items].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const list=pool.filter(e=>activityMatches(e,f,fixedEstado)),shown=list.slice(0,f.limit);let day='';
-  const rows=shown.map(e=>{const d=dayLabel(e.at),head=d!==day?`<div class="act-day">${esc(d)}</div>`:'';day=d;return head+activityRow(e)}).join('');
+  const rows=shown.map(e=>{const d=dayLabel(e.at),head=d!==day?`<div class="act-day">${esc(d)}</div>`:'';day=d;return head+activityRow(e,true)}).join('');
   const html=`<p class="act-count">${num(list.length)} ${list.length===1?'atividade':'atividades'}${list.length>shown.length?` · mostrando ${num(shown.length)}`:''}</p>${rows||`<p class="gov-empty">${pool.length?'Nenhuma atividade com esses filtros.':'Nenhuma atividade registrada ainda. As próximas alterações aparecem aqui automaticamente.'}</p>`}${list.length>shown.length?'<button type="button" class="btn secondary act-more" data-act-more>Mostrar mais</button>':''}`;
   actLastHTML.set(ctx+'|'+(fixedEstado||''),html);return html
 }
@@ -2076,7 +2079,7 @@ function atividades(){return heading('Atividades','Tudo o que acontece na Repúb
 function govHistorico(st){return govHead('Histórico',`Atividades do governo de ${esc(st.nome)} e dos municípios dele.`)+activityPanel('estado:'+st.id,st.id)}
 function recentActivities(){
   const list=(Array.isArray(data.atividades)?data.atividades:[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,5);
-  return `<section class="panel"><h2>Atividades recentes</h2><p class="muted">O que mudou por último na República.</p>${list.length?`<div class="act-recent">${list.map(activityRow).join('')}</div>`:'<p class="gov-empty">Nenhuma atividade registrada ainda.</p>'}<div class="actions"><button class="btn secondary" type="button" data-page="atividades">📜 Ver todas as atividades</button></div></section>`
+  return `<section class="panel"><h2>Atividades recentes</h2><p class="muted">O que mudou por último na República.</p>${list.length?`<div class="act-recent">${list.map(e=>activityRow(e)).join('')}</div>`:'<p class="gov-empty">Nenhuma atividade registrada ainda.</p>'}<div class="actions"><button class="btn secondary" type="button" data-page="atividades">📜 Ver todas as atividades</button></div></section>`
 }
 document.addEventListener('click',e=>{
   const box=e.target.closest('[data-act-ctx]');if(!box)return;const ctx=box.dataset.actCtx,f=actFilterFor(ctx);
