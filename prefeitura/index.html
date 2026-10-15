@@ -2533,14 +2533,16 @@ function canPage(p){
 function canAction(action){
   const role=currentRole();
   if(isFullAccess(role))return true;
-  if(role==='Secretário da Agricultura')return ['agri.view','agri.appointment','agri.asset','agri.status'].includes(action);
-  if(role==='Motorista')return ['fleet.view','trip.create','trip.edit','trip.complete','truck.create','truck.edit','carrier.create','carrier.edit','carrier.status'].includes(action);
-  return false
+  // Funcionário (Servidor, Secretário da Agricultura, Motorista): trabalha no dia a dia (Agricultura, Frota) e pede licitação.
+  // Dinheiro (Finanças, pagamentos, contratos), RH e usuários continuam só com Prefeito/Vice/Presidência.
+  return STAFF_ACTIONS.includes(action)
 }
+const STAFF_ACTIONS=['agri.view','agri.appointment','agri.asset','agri.status','fleet.view','trip.create','trip.edit','trip.complete','truck.create','truck.edit','carrier.create','carrier.edit','carrier.status','licit.send','licit.cancel'];
 function canEditArea(area){
   if(isFullAccess())return true;
-  if(area==='agri')return currentRole()==='Secretário da Agricultura';
-  if(area==='fleet')return currentRole()==='Motorista';
+  if(area==='agri')return canAction('agri.appointment');
+  if(area==='fleet')return canAction('trip.create');
+  if(area==='licit')return canAction('licit.send');
   return false
 }
 function readOnlyNotice(area){
@@ -4412,26 +4414,25 @@ function saveAsset(type,id){
   save();closeModal();renderPage();toast('Cadastro salvo.')
 }
 function licit(c){
-  let t=sub||(isFullAccess()?'send':'history');
-  const editable=isFullAccess();
+  const editable=canAction('licit.send');let t=sub||(editable?'send':'history');
   const nAguardando=db.licitations.filter(x=>LIC_AGUARDANDO.includes(x.status)).length;
   const tbs=editable?[['send','📨 Enviar'],['confirm',`⏳ Aguardando o estado${nAguardando?` (${nAguardando})`:''}`],['history','📋 Histórico']]:[['history','📋 Histórico']];
   if(!editable&&t!=='history')t='history';
-  c.innerHTML=head('Licitações','A prefeitura envia a licitação e o governo do estado aprova ou nega no sistema dele.')+(editable?'':`<div class="readonly-banner">👁 Este perfil pode consultar licitações. Para enviar, entre com um perfil de Presidente, Vice-presidente, Prefeito, Vice-prefeito ou RH.</div>`)+tabs(tbs,t)+`<div id="subview"></div>`;
+  c.innerHTML=head('Licitações','A prefeitura envia a licitação e o governo do estado aprova ou nega no sistema dele.')+(editable?'':`<div class="readonly-banner">👁 Este perfil pode consultar licitações, mas não enviar.</div>`)+tabs(tbs,t)+`<div id="subview"></div>`;
   const v=document.getElementById('subview');if(t==='confirm')licitConfirm(v);else if(t==='send')licitSend(v);else licitHistory(v)
 }
 const LIC_AGUARDANDO=['Aguardando o estado','Aguardando confirmação'];
 function licitSend(v){v.innerHTML=`<div class="panel"><h3>Enviar licitação ao governo do estado</h3><div class="sub">Ex.: compra de um trator. O governo do estado aprova ou nega; a resposta aparece em Histórico. Só nome e data são obrigatórios.</div><div class="form-grid"><div class="field"><label>Nome da licitação</label><input id="lTitle" placeholder="Ex.: Compra de trator para a agricultura"></div><div class="field"><label>Data</label><input id="lDate" value="${todayBR()}"></div><div class="field"><label>Valor estimado (R$)</label><input id="lValor" inputmode="decimal" placeholder="Ex.: 350.000,00"></div><div class="field wide"><label>Resumo / itens</label><textarea id="lItem" rows="3"></textarea></div><div class="field wide"><label>Observações</label><textarea id="lNotes" rows="3"></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="App.saveLicit()">📨 Enviar ao estado</button></div></div>`}
 function saveLicit(){
-  if(!requireFull())return;
+  if(!requireAction('licit.send'))return;
   const x={id:uid(),title:val('lTitle')||'Licitação sem título',date:val('lDate')||todayBR(),valor:nval('lValor'),item:val('lItem'),notes:val('lNotes'),status:'Aguardando o estado',sentBy:db.currentOperator,confirmedBy:'',confirmedAt:'',createdAt:nowISO()};
   db.licitations.push(x);recordActivity('licit','Envio',`${db.currentOperator} enviou a licitação "${x.title}" ao governo do estado.`,[{collection:'licitations',id:x.id,before:null,after:x}]);
   save();toast('Licitação enviada ao governo do estado.');go('licit','confirm');
   if(window.parent&&window.parent!==window){try{window.parent.postMessage({type:'LICIT_SENT',cityId:CITY_ID,title:x.title,valor:x.valor||0},location.origin)}catch{}}
   postPush({kind:'licitacao',cityId:CITY_ID,licitId:x.id})
 }
-function licitConfirm(v){const rows=db.licitations.filter(x=>LIC_AGUARDANDO.includes(x.status)).slice().reverse();v.innerHTML=`<div class="panel"><h3>Aguardando o governo do estado</h3><div class="sub">O governo do estado aprova ou nega no sistema dele. Assim que decidir, a licitação vai para o Histórico com a resposta.</div><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Nome</th><th>Valor</th><th>Resumo</th><th>Enviado por</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${x.valor?esc(money(x.valor)):'-'}</td><td>${esc(x.item||'-')}</td><td>${esc(x.sentBy)}</td><td><button class="btn btn-secondary" onclick="App.cancelLicit(${jsArg(x.id)})">Cancelar envio</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma licitação aguardando o estado.</td></tr>'}</tbody></table></div></div>`}
-function cancelLicit(id){if(!requireFull())return;const x=db.licitations.find(r=>r.id===id);if(!x||!LIC_AGUARDANDO.includes(x.status))return toast('Esta licitação já foi decidida pelo estado.');if(!confirm(`Cancelar o envio da licitação "${x.title}"?`))return;const before=cloneData(x);x.status='Cancelada pela prefeitura';recordActivity('licit','Cancelamento',`${db.currentOperator} cancelou o envio da licitação "${x.title}".`,[{collection:'licitations',id:x.id,before,after:x}]);save();renderPage();toast('Envio cancelado.')}
+function licitConfirm(v){const rows=db.licitations.filter(x=>LIC_AGUARDANDO.includes(x.status)).slice().reverse();v.innerHTML=`<div class="panel"><h3>Aguardando o governo do estado</h3><div class="sub">O governo do estado aprova ou nega no sistema dele. Assim que decidir, a licitação vai para o Histórico com a resposta.</div><div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Nome</th><th>Valor</th><th>Resumo</th><th>Enviado por</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.title)}</td><td>${x.valor?esc(money(x.valor)):'-'}</td><td>${esc(x.item||'-')}</td><td>${esc(x.sentBy)}</td><td>${isFullAccess()||x.sentBy===db.currentOperator?`<button class="btn btn-secondary" onclick="App.cancelLicit(${jsArg(x.id)})">Cancelar envio</button>`:''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhuma licitação aguardando o estado.</td></tr>'}</tbody></table></div></div>`}
+function cancelLicit(id){if(!requireAction('licit.cancel'))return;const x=db.licitations.find(r=>r.id===id);if(!x||!LIC_AGUARDANDO.includes(x.status))return toast('Esta licitação já foi decidida pelo estado.');if(!isFullAccess()&&x.sentBy!==db.currentOperator)return toast('Você só pode cancelar as licitações que você mesmo enviou.');if(!confirm(`Cancelar o envio da licitação "${x.title}"?`))return;const before=cloneData(x);x.status='Cancelada pela prefeitura';recordActivity('licit','Cancelamento',`${db.currentOperator} cancelou o envio da licitação "${x.title}".`,[{collection:'licitations',id:x.id,before,after:x}]);save();renderPage();toast('Envio cancelado.')}
 function confirmLicit(){
   if(!requireFull())return;
   const id=document.querySelector('input[name=licsel]:checked')?.value;if(!id)return toast('Selecione uma licitação.');

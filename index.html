@@ -529,6 +529,8 @@ scope=p=>(presidencyRoles.includes(p?.role)||p?.role==='Assistente universal')?'
 canPage=k=>{const level=scope(current());if(level==='nacional')return true;if(level==='estadual')return ['inicio','chat','estados','municipios','adminmunicipio','aparencia','perfil','relatorios','lixeira','diario','enquetes','agenda'].includes(k);if(level==='municipal')return ['inicio','chat','municipios','aparencia','perfil','relatorios','lixeira','diario','enquetes','agenda',...(cityManager()?['adminmunicipio','usuarios']:[])].includes(k);return ['inicio','chat','municipios','aparencia','perfil','relatorios','diario','enquetes','agenda'].includes(k)},
 canState=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.id),
 cityManager=()=>scope(current())!=='municipal'||['Prefeito','Vice-prefeito'].includes(current()?.role),
+// Dinheiro da cidade (pedido de verba, lançamentos, renda): só Prefeito/Vice e quem está acima; funcionário só consulta
+cityMoney=x=>canCity(x)&&cityManager(),
 canCity=x=>scope(current())==='nacional'||(scope(current())==='estadual'&&current()?.jurisdictionId===x.estado)||(scope(current())==='municipal'&&current()?.jurisdictionId===x.id),
 jurisdictionFields=(role,selected='')=>{const group=roleDescription(role);if(group==='Atuação nacional'||group==='Administração de pessoal'||group==='Atuação geral')return '';const isState=group==='Atuação estadual',items=isState?data.estados:data.municipios;if(!selected&&items.length===1)selected=items[0].id;return `<label class="field">${isState?'Estado de atuação':'Município de atuação'}<select name="jurisdictionId" id="jurisdictionSelect"><option value="">${items.length?'Vincular depois':'Território ainda não cadastrado'}</option>${items.map(x=>`<option value="${esc(x.id)}" ${x.id===selected?'selected':''}>${esc(x.nome)}${!isState?' · '+esc(data.estados.find(e=>e.id===x.estado)?.sigla||''):''}</option>`).join('')}</select><small>Opcional agora. A Presidência pode vincular depois em Perfis.</small></label>`},tr=(rows,cols)=>{
   // Tabelas longas mostram 60 linhas e um botão "Ver mais" (montar centenas de linhas de uma vez travava a tela).
@@ -1325,7 +1327,7 @@ function cityPedidos(c){
   if(!st)return govHead('Pedidos ao estado','Este município ainda não está ligado a um estado.');
   const mine=(st.pedidos||[]).filter(p=>p.municipio===c.id).sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm))),abertos=mine.filter(p=>p.status==='pendente').length;
   return govHead('Pedidos ao estado',`Peça verba ao governo de ${esc(st.nome)}. O governo aprova (o dinheiro cai no caixa da cidade) ou recusa com uma justificativa.`)+
-  `<div class="gov-grid"><section class="panel"><h2>Novo pedido</h2>${!canCity(c)?'<p class="muted">Só a prefeitura, o governo do estado ou a Presidência fazem pedidos.</p>':abertos>=PEDIDOS_ABERTOS_MAX?`<p class="note">Já há ${num(abertos)} pedidos aguardando resposta. Espere o estado responder antes de pedir mais.</p>`:`<form id="cityPedidoForm" class="form"><label class="field">Valor<input name="valor" type="text" inputmode="decimal" autocomplete="off" data-money="1" required></label><label class="field">Finalidade<select name="categoria">${categoryOptions('Obras')}</select></label><label class="field wide">Para quê?<textarea name="motivo" required maxlength="300" rows="3" placeholder="Ex.: Reforma da escola municipal"></textarea></label><div class="field wide"><button class="btn">📨 Enviar pedido</button></div></form>`}</section>`+
+  `<div class="gov-grid"><section class="panel"><h2>Novo pedido</h2>${!cityMoney(c)?'<p class="muted">Só o prefeito, o vice, o governo do estado ou a Presidência fazem pedidos de verba.</p>':abertos>=PEDIDOS_ABERTOS_MAX?`<p class="note">Já há ${num(abertos)} pedidos aguardando resposta. Espere o estado responder antes de pedir mais.</p>`:`<form id="cityPedidoForm" class="form"><label class="field">Valor<input name="valor" type="text" inputmode="decimal" autocomplete="off" data-money="1" required></label><label class="field">Finalidade<select name="categoria">${categoryOptions('Obras')}</select></label><label class="field wide">Para quê?<textarea name="motivo" required maxlength="300" rows="3" placeholder="Ex.: Reforma da escola municipal"></textarea></label><div class="field wide"><button class="btn">📨 Enviar pedido</button></div></form>`}</section>`+
   `<section class="panel"><h2>Pedidos da cidade</h2>${mine.length?`<div class="ped-list">${mine.map(p=>pedidoRow(p,st,false)).join('')}</div>`:'<p class="gov-empty">Nenhum pedido ainda.</p>'}</section></div>`
 }
 function govPedidoResponder(pid,aprovar){
@@ -1457,7 +1459,7 @@ document.addEventListener('submit',e=>{
   const f=e.target,fid=f.getAttribute('id');if(!['cityPedidoForm','govObraForm','govObraPagForm','govAtoForm','govOrcForm'].includes(fid))return;
   e.preventDefault();const o=Object.fromEntries(new FormData(f).entries()),me=current()?.name||'';
   if(fid==='cityPedidoForm'){
-    const c=govOpenCity();if(!c||!canCity(c))return;const st=data.estados.find(x=>x.id===c.estado);if(!st)return;
+    const c=govOpenCity();if(!c||!cityMoney(c))return;const st=data.estados.find(x=>x.id===c.estado);if(!st)return;
     const valor=Number(o.valor);if(!(valor>0))return alert('Informe um valor válido.');const motivo=String(o.motivo||'').trim().slice(0,300);if(!motivo)return alert('Explique para quê é a verba.');
     if(pedidosAbertos(st).filter(p=>p.municipio===c.id).length>=PEDIDOS_ABERTOS_MAX)return alert('Espere o estado responder os pedidos que já estão aguardando.');
     const list=ensureList(st,'pedidos');list.push({id:id(),municipio:c.id,valor,categoria:o.categoria||'Outros',motivo,status:'pendente',criadoEm:nowISO(),autor:me,autorId:current()?.id||''});govTrimList(list);
@@ -2813,7 +2815,7 @@ function cityDados(c){
 }
 
 // ---- ações
-const govCanMov=m=>{const st=data.estados.find(x=>x.id===m.estado),c=data.municipios.find(x=>x.id===m.municipio);return m.nivel==='municipio'?!!c&&canCity(c):!!st&&canState(st)};
+const govCanMov=m=>{const st=data.estados.find(x=>x.id===m.estado),c=data.municipios.find(x=>x.id===m.municipio);return m.nivel==='municipio'?!!c&&cityMoney(c):!!st&&canState(st)};
 function govCollect(st,cities){
   const month=monthKey(todayISO()),rate=govRate(st),author=current()?.name||'';let count=0;
   for(const c of cities){
@@ -2846,7 +2848,7 @@ document.addEventListener('click',e=>{
   if(t.hasAttribute('data-gov-collect-all')){if(st&&canState(st))govCollect(st,stateCities(st));return}
   if(t.dataset.movDel){const m=data.movimentos.find(x=>x.id===t.dataset.movDel);if(!m||!govCanMov(m))return;if(!confirm('Excluir esta movimentação? Ela fica 30 dias na Lixeira.'))return;toTrash('movimentos',m);data.movimentos=data.movimentos.filter(x=>x.id!==m.id);save();return}
   if(t.hasAttribute('data-city-income')){
-    const c=govOpenCity();if(!c||!canCity(c))return;const renda=Number(c.renda)||0;
+    const c=govOpenCity();if(!c||!cityMoney(c))return;const renda=Number(c.renda)||0;
     if(renda<=0)return alert('Defina a renda mensal do município em Dados.');
     const month=monthKey(todayISO());
     if(data.movimentos.some(m=>m.municipio===c.id&&m.nivel==='municipio'&&m.tipo==='receita'&&m.renda===true&&monthKey(m.data)===month))return alert('A renda deste mês já foi registrada.');
@@ -2859,7 +2861,7 @@ document.addEventListener('submit',e=>{
   e.preventDefault();
   const o=Object.fromEntries(new FormData(f).entries()),author=current()?.name||'',now=new Date().toISOString();
   if(fid==='cityFinForm'){
-    const c=govOpenCity();if(!c||!canCity(c))return;const valor=Number(o.valor);if(!(valor>0))return alert('Informe um valor válido.');
+    const c=govOpenCity();if(!c||!cityMoney(c))return;const valor=Number(o.valor);if(!(valor>0))return alert('Informe um valor válido.');
     data.movimentos.push({id:id(),tipo:o.tipo==='despesa'?'despesa':'receita',nivel:'municipio',municipio:c.id,estado:c.estado,categoria:o.categoria,valor,data:o.data||todayISO(),descricao:String(o.descricao||'').trim(),autor:author,createdAt:now});save();return
   }
   const st=govOpenState();if(!st||!canState(st))return;
