@@ -131,8 +131,8 @@ html[data-theme="dark"] .app-toast{background:#E8BE5B;color:#0B2E59}
 .chat-toast{position:fixed;left:50%;top:calc(74px + env(safe-area-inset-top));transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:10px;width:min(92vw,420px);padding:10px 14px;border:0;border-radius:16px;background:#fff;color:var(--navy);text-align:left;font:inherit;box-shadow:0 12px 30px #0b2e5933;cursor:pointer}
 .chat-toast-icon{font-size:24px}.chat-toast b,.chat-toast small{display:block}.chat-toast small{color:var(--muted);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:330px}.chat-toast.out{opacity:0;transition:opacity .3s}
 html[data-theme="dark"] .chat-toast{background:#1E3348;color:#E6EEF6}
-[data-page="chat"].has-chat-dot{position:relative}[data-page="chat"].has-chat-dot::after{content:'';position:absolute;top:6px;right:calc(50% - 18px);width:10px;height:10px;border-radius:50%;background:#E53935;box-shadow:0 0 0 2px #fff}
-.nav [data-page="chat"].has-chat-dot::after{right:14px;top:50%;margin-top:-5px}
+[data-page="chat"].has-chat-dot{position:relative}[data-page="chat"].has-chat-dot::after{content:attr(data-unread);position:absolute;top:1px;left:calc(50% + 2px);min-width:19px;height:19px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#25D366;color:#fff;font:800 11px/19px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #fff;animation:chatBadgePop .35s cubic-bezier(.2,.9,.3,1.4) both}
+.nav [data-page="chat"].has-chat-dot::after{left:auto;right:14px;top:50%;margin-top:-10px;box-shadow:0 0 0 2px var(--navy,#0B2E59)}@keyframes chatBadgePop{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){[data-page="chat"].has-chat-dot::after{animation:none}}
 @media (prefers-reduced-motion:no-preference){@keyframes chatToastIn{from{opacity:0;transform:translate(-50%,-16px)}to{opacity:1;transform:translate(-50%,0)}}.chat-toast{animation:chatToastIn .3s cubic-bezier(.2,.75,.25,1) both}@keyframes chatDot{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}[data-page="chat"].has-chat-dot::after{animation:chatDot 1.4s ease-in-out infinite}}
 @media (prefers-reduced-motion:no-preference){
 .ui-ripple-wrap{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:0}
@@ -2313,7 +2313,22 @@ function playChatSound(kind='notify'){
 // ---- Aviso de mensagem nova no chat quando a pessoa está em outra tela da República
 let chatWatchUnsub=null,chatWatchLast='',chatUnseen=false;
 const chatNotifyPrefs=()=>{try{return Object.assign({enabled:true,sound:true},JSON.parse(localStorage.getItem('bom_regresso_chat_notify_v5')||'{}'))}catch{return{enabled:true,sound:true}}};
-function updateChatDot(){document.querySelectorAll('[data-page="chat"]:not(body):not(.chat-toast)').forEach(b=>b.classList.toggle('has-chat-dot',chatUnseen&&page!=='chat'))}
+// Número de mensagens não lidas em cima do 💬 (como no WhatsApp): conta o que chegou depois da última vez que o chat foi aberto
+let chatRecent=[],chatUnreadN=0;
+const chatSeenKey=()=>'bom_regresso_rep_chat_seen_'+(current()?.id||'');
+function chatLastSeen(){const me=current();if(!me)return '';const a=localStorage.getItem(chatSeenKey())||'',b=localStorage.getItem('bom_regresso_chat_last_read_v5_'+me.id)||'';return a>b?a:b}
+function recountChat(){
+  const me=current();if(!me){chatUnreadN=0;return}
+  const newest=String(chatRecent[0]?.createdAt||'');
+  if(page==='chat'){if(newest&&newest>(localStorage.getItem(chatSeenKey())||''))localStorage.setItem(chatSeenKey(),newest);chatUnreadN=0;return}
+  let seen=chatLastSeen();if(!seen){seen=newest||new Date().toISOString();localStorage.setItem(chatSeenKey(),seen)} // primeira vez neste aparelho: começa do zero
+  chatUnreadN=chatRecent.filter(m=>m.senderId!==me.id&&m.senderName!==me.name&&String(m.createdAt||'')>seen).length;
+}
+function updateChatDot(){
+  recountChat();const on=chatUnreadN>0&&page!=='chat',txt=chatUnreadN>99?'99+':String(chatUnreadN);
+  document.querySelectorAll('[data-page="chat"]:not(body):not(.chat-toast)').forEach(b=>{b.classList.toggle('has-chat-dot',on);if(on){b.dataset.unread=txt;b.setAttribute('aria-label',`Chat: ${txt} ${chatUnreadN===1?'mensagem nova':'mensagens novas'}`)}else{delete b.dataset.unread;b.removeAttribute('aria-label')}});
+  try{if('setAppBadge' in navigator){if(chatUnreadN)navigator.setAppBadge(chatUnreadN).catch(()=>{});else navigator.clearAppBadge?.().catch(()=>{})}}catch{}
+}
 function showChatToast(name,text){
   document.querySelector('.chat-toast')?.remove();
   const t=document.createElement('button');t.type='button';t.className='chat-toast';t.dataset.page='chat';
@@ -2322,7 +2337,8 @@ function showChatToast(name,text){
 }
 function watchChat(){
   if(chatWatchUnsub||!countryStore)return;let primed=false;
-  chatWatchUnsub=countryStore.collection('chatMessages_v5').orderBy('createdAt','desc').limit(1).onSnapshot(snap=>{
+  chatWatchUnsub=countryStore.collection('chatMessages_v5').orderBy('createdAt','desc').limit(100).onSnapshot(snap=>{
+    chatRecent=snap.docs.map(x=>({id:x.id,...(x.data()||{})}));updateChatDot();
     const d=snap.docs[0];if(!d){primed=true;return}const m=d.data()||{},me=current();
     if(!primed||d.id===chatWatchLast){primed=true;chatWatchLast=d.id;return}
     chatWatchLast=d.id;
