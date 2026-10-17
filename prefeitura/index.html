@@ -4379,7 +4379,15 @@ function filterAgri(){
   const q=(val('agSearch')||'').toLowerCase(),showNote=true,editable=canAction('agri.status');
   const rows=db.appointments.filter(x=>JSON.stringify(x).toLowerCase().includes(q)).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const body=document.getElementById('agBody');if(!body)return;
-  body.innerHTML=rows.map(x=>`<tr><td>${esc(x.date||'-')}</td><td>${esc(x.producer||'-')}</td><td>${esc(x.locality||'-')}</td><td>${esc(x.machine||'-')}</td><td>${esc(x.hours||0)}</td><td>${esc(x.operator||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${editable?`<button class="btn btn-ok" onclick="App.setAgStatus(${jsArg(x.id)},'Concluído')">Concluir</button><button class="btn btn-secondary" onclick="App.setAgStatus(${jsArg(x.id)},'Em andamento')">Andamento</button>`:''}<button class="btn btn-secondary" onclick="App.noteFrom('appointment',${jsArg(x.id)})">Nota</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>'
+  body.innerHTML=rows.map(x=>`<tr><td>${esc(x.date||'-')}</td><td>${esc(x.producer||'-')}</td><td>${esc(x.locality||'-')}</td><td>${esc(x.machine||'-')}</td><td>${esc(x.hours||0)}</td><td>${esc(x.operator||'-')}</td><td class="status ${statusClass(x.status)}">${esc(x.status)}</td><td class="small-actions">${editable&&x.status!=='Concluído'?`<button class="btn btn-ok" onclick="App.setAgStatus(${jsArg(x.id)},'Concluído')">Concluir</button>${x.status==='Em andamento'?'':`<button class="btn btn-secondary" onclick="App.setAgStatus(${jsArg(x.id)},'Em andamento')">Andamento</button>`}`:''}<button class="btn btn-secondary" onclick="App.noteFrom('appointment',${jsArg(x.id)})">Nota</button>${editable?`<button class="btn btn-danger" onclick="App.deleteAppointment(${jsArg(x.id)})">Excluir</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhum agendamento.</td></tr>'
+}
+function deleteAppointment(id){
+  if(!requireAction('agri.appointment'))return;
+  const i=db.appointments.findIndex(r=>r.id===id);if(i<0)return toast('Agendamento não encontrado.');const x=db.appointments[i];
+  if(!confirm(`Excluir o agendamento de ${x.producer||'produtor sem nome'} (${x.date||''})?`))return;
+  const before=cloneData(x);db.appointments.splice(i,1);
+  recordActivity('agri','Exclusão',`${db.currentOperator} excluiu o agendamento de ${x.producer||'produtor sem nome'}.`,[{collection:'appointments',id:x.id,before,after:null}]);
+  save();filterAgri();toast('Agendamento excluído. Dá para desfazer em Histórico de atividades.')
 }
 function setAgStatus(id,s){
   if(!requireAction('agri.status'))return;
@@ -4792,9 +4800,16 @@ function ensurePdfLib(){
   }).catch(err=>{pdfLibPromise=null;throw err});
   return pdfLibPromise;
 }
+// A nota sai em uma folha só: se não couber no espaçamento normal, compacta aos poucos (k de 1 até 0,58).
 function buildNotePdfBlob(){
   if(!window.jspdf?.jsPDF)throw new Error('Biblioteca de PDF não carregou.');
-  const text=currentNoteText(),{jsPDF}=window.jspdf;
+  const text=currentNoteText();
+  const passos=[1,.94,.88,.82,.76,.7,.64,.58];
+  for(const k of passos){const doc=buildNotePdf(text,k);if(doc.getNumberOfPages()===1)return doc.output('blob')}
+  return buildNotePdf(text,.82).output('blob') // nota muito longa: várias folhas, mas legível
+}
+function buildNotePdf(text,k=1){
+  const {jsPDF}=window.jspdf,S=n=>n*k,F=n=>Math.max(6.6,n*(.72+.28*k));
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
   const pageW=210,pageH=297,left=15,right=15,usable=pageW-left-right;
   const navy=[11,46,89],navy2=[18,61,106],gold=[215,169,62],ink=[28,37,48],muted=[88,101,114],line=[211,220,229],soft=[247,249,251],white=[255,255,255];
@@ -4841,9 +4856,9 @@ function buildNotePdfBlob(){
   function newPage(){
     doc.addPage();header();y=42;
     doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...muted);
-    doc.text(title,left,y);doc.text(docNo,pageW-right,y,{align:'right'});y+=8
+    doc.text(title,left,y);doc.text(docNo,pageW-right,y,{align:'right'});y+=S(8)
   }
-  function ensureSpace(h){if(y+h>pageH-24)newPage()}
+  function ensureSpace(h){if(y+h>pageH-20)newPage()}
   function cleanNumber(label,value){
     const key=String(label||'').toLocaleLowerCase('pt-BR');
     const raw=String(value??'-').trim();
@@ -4863,31 +4878,31 @@ function buildNotePdfBlob(){
     const label=String(row.label||''),value=cleanNumber(label,row.value);
     const key=label.toLocaleLowerCase('pt-BR');
     if(!label){
-      const wrapped=doc.splitTextToSize(value,usable-10),h=Math.max(15,wrapped.length*5.1+8);
+      const wrapped=doc.splitTextToSize(value,usable-10),h=Math.max(S(15),wrapped.length*S(5.1)+S(8));
       ensureSpace(h+3);
       doc.setFillColor(...soft);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,h,2,2,'FD');
-      doc.setFont('helvetica','normal');doc.setFontSize(10.6);doc.setTextColor(...ink);doc.text(wrapped,left+5,y+8);
-      y+=h+3;return
+      doc.setFont('helvetica','normal');doc.setFontSize(F(10.6));doc.setTextColor(...ink);doc.text(wrapped,left+5,y+S(8));
+      y+=h+S(3);return
     }
     const longField=['observações','objeto / itens','resumo / itens','carga / motivo','objeto'].includes(key)||value.length>82;
     if(longField){
-      doc.setFont('helvetica','normal');doc.setFontSize(10.8);
-      const wrapped=doc.splitTextToSize(value,usable-10),h=Math.max(19,wrapped.length*5.2+13);
+      doc.setFont('helvetica','normal');doc.setFontSize(F(10.8));
+      const wrapped=doc.splitTextToSize(value,usable-10),h=Math.max(S(19),wrapped.length*S(5.2)+S(13));
       ensureSpace(h+2);
       doc.setFillColor(...soft);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,h,2,2,'FD');
-      doc.setFont('helvetica','bold');doc.setFontSize(7.8);doc.setTextColor(...muted);doc.text(label.toUpperCase(),left+5,y+6.3);
-      doc.setFont('helvetica','normal');doc.setFontSize(10.8);doc.setTextColor(...ink);doc.text(wrapped,left+5,y+12.4);
-      y+=h+2;return
+      doc.setFont('helvetica','bold');doc.setFontSize(F(7.8));doc.setTextColor(...muted);doc.text(label.toUpperCase(),left+5,y+S(6.3));
+      doc.setFont('helvetica','normal');doc.setFontSize(F(10.8));doc.setTextColor(...ink);doc.text(wrapped,left+5,y+S(12.4));
+      y+=h+S(2);return
     }
     const labelW=48,valueW=usable-labelW-9;
-    const wrapped=doc.splitTextToSize(value,valueW),h=Math.max(13,wrapped.length*5.1+7);
+    const wrapped=doc.splitTextToSize(value,valueW),h=Math.max(S(13),wrapped.length*S(5.1)+S(7));
     ensureSpace(h+1.6);
     if(index%2===0){doc.setFillColor(...soft);doc.roundedRect(left,y,usable,h,1.5,1.5,'F')}
     doc.setDrawColor(...line);doc.setLineWidth(.25);doc.line(left,y+h,pageW-right,y+h);
-    doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.setTextColor(...muted);doc.text(label.toUpperCase(),left+4,y+7.3);
+    doc.setFont('helvetica','bold');doc.setFontSize(F(8.3));doc.setTextColor(...muted);doc.text(label.toUpperCase(),left+4,y+S(7.3)-(1-k)*.4);
     const moneyField=/valor|saldo|receita|despesa/i.test(label);
-    doc.setFont('helvetica',moneyField?'bold':'normal');doc.setFontSize(moneyField?11.4:10.8);doc.setTextColor(...ink);
-    doc.text(wrapped,left+labelW+4,y+7.3);y+=h+1.2
+    doc.setFont('helvetica',moneyField?'bold':'normal');doc.setFontSize(F(moneyField?11.4:10.8));doc.setTextColor(...ink);
+    doc.text(wrapped,left+labelW+4,y+S(7.3)-(1-k)*.4);y+=h+S(1.2)
   }
 
   header();y=42;
@@ -4897,24 +4912,24 @@ function buildNotePdfBlob(){
   doc.text(title,left,y);
   doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...muted);
   doc.text('Nº '+docNo,pageW-right,y,{align:'right'});
-  y+=7.5;
-  doc.setDrawColor(...gold);doc.setLineWidth(.9);doc.line(left,y,pageW-right,y);y+=7;
+  y+=S(7.5);
+  doc.setDrawColor(...gold);doc.setLineWidth(.9);doc.line(left,y,pageW-right,y);y+=S(7);
 
   const statusRow=rows.find(r=>String(r.label||'').toLocaleLowerCase('pt-BR')==='status');
-  doc.setFillColor(...soft);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,16,2,2,'FD');
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...muted);
-  doc.text('EMISSÃO',left+5,y+5.5);
-  doc.text('IDENTIFICAÇÃO',left+58,y+5.5);
-  doc.setFontSize(10.2);doc.setTextColor(...ink);
-  doc.text(issued,left+5,y+11.8);
-  doc.text(docNo,left+58,y+11.8);
-  if(statusRow){y+=4;drawStatus(statusRow.value);y-=4}
-  y+=23;
+  doc.setFillColor(...soft);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,S(16),2,2,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(F(7.5));doc.setTextColor(...muted);
+  doc.text('EMISSÃO',left+5,y+S(5.5));
+  doc.text('IDENTIFICAÇÃO',left+58,y+S(5.5));
+  doc.setFontSize(F(10.2));doc.setTextColor(...ink);
+  doc.text(issued,left+5,y+S(11.8));
+  doc.text(docNo,left+58,y+S(11.8));
+  if(statusRow){y+=S(4);drawStatus(statusRow.value);y-=S(4)}
+  y+=S(23);
 
   // Cabeçalho da área de dados.
   doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...navy);
-  doc.text('DADOS DO DOCUMENTO',left,y);y+=4;
-  doc.setDrawColor(...navy2);doc.setLineWidth(.35);doc.line(left,y,pageW-right,y);y+=4;
+  doc.text('DADOS DO DOCUMENTO',left,y);y+=S(4);
+  doc.setDrawColor(...navy2);doc.setLineWidth(.35);doc.line(left,y,pageW-right,y);y+=S(4);
 
   let visibleIndex=0;
   for(const row of rows){
@@ -4922,15 +4937,15 @@ function buildNotePdfBlob(){
     drawRow(row,visibleIndex++)
   }
 
-  y+=6;ensureSpace(24);
-  doc.setFillColor(251,251,251);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,20,2,2,'FD');
-  doc.setFont('helvetica','bold');doc.setFontSize(8.2);doc.setTextColor(...navy);
-  doc.text('REGISTRO DO SISTEMA',left+5,y+6.7);
-  doc.setFont('helvetica','normal');doc.setFontSize(8.7);doc.setTextColor(...muted);
-  doc.text('Gerado eletronicamente. Não necessita assinatura para uso interno fictício.',left+5,y+13);
+  y+=S(6);ensureSpace(S(20)+4);
+  doc.setFillColor(251,251,251);doc.setDrawColor(...line);doc.roundedRect(left,y,usable,S(20),2,2,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(F(8.2));doc.setTextColor(...navy);
+  doc.text('REGISTRO DO SISTEMA',left+5,y+S(6.7));
+  doc.setFont('helvetica','normal');doc.setFontSize(F(8.7));doc.setTextColor(...muted);
+  doc.text('Gerado eletronicamente. Não necessita assinatura para uso interno fictício.',left+5,y+S(13));
 
   footer();
-  return doc.output('blob')
+  return doc
 }
 function triggerBlobDownload(blob,name){
   const url=URL.createObjectURL(blob),a=document.createElement('a');
@@ -5066,7 +5081,7 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault()
 });
 document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
-window.App={setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,cancelLicit,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveLicit,confirmLicit,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveContract,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,deleteAppointment,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
