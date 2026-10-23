@@ -42,10 +42,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Sistema completo da Prefeitura de Bom Regresso e configuração das notificações
+    // Sistema completo da Prefeitura de Bom Regresso, da cópia independente (dados_ind1, em /bom-regresso/)
+    // e configuração das notificações
     match /municipio/{docId} {
-      allow read: if signedIn() && docId in ['dados_v5', 'push_config_v2'];
-      allow create, update: if signedIn() && docId in ['dados_v5', 'push_config_v2'] && isMap(request.resource.data)
+      allow read: if signedIn() && docId in ['dados_v5', 'dados_ind1', 'push_config_v2'];
+      allow create, update: if signedIn() && docId in ['dados_v5', 'dados_ind1', 'push_config_v2'] && isMap(request.resource.data)
         && (resource == null || shrinksAtMost('operators', 3));
       allow delete: if false;
     }
@@ -67,45 +68,49 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if signedIn() && carrierId.size() <= 120;
     }
+    match /carriers_ind1/{carrierId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && carrierId.size() <= 120;
+    }
 
     // Resumo das senhas (PBKDF2): pode ser lido por id, mas a lista inteira não pode ser baixada
-    match /profileSecrets_v5/{profileId} {
-      allow get: if signedIn();
+    // (profileSecrets_ind1 é o da cópia independente, com as mesmas regras)
+    match /{secrets}/{profileId} {
+      allow get: if signedIn() && secrets in ['profileSecrets_v5', 'profileSecrets_ind1'];
       allow list: if false;
       // O aparelho só cria a senha que ainda não existe. Trocar ou redefinir passa pelo servidor (/api/senha),
       // que confere a senha atual ou a de quem tem acesso total. Antes qualquer visitante sobrescrevia a senha de qualquer perfil.
-      allow create: if signedIn() && request.resource.data.hash is string && request.resource.data.salt is string
+      allow create: if signedIn() && secrets in ['profileSecrets_v5', 'profileSecrets_ind1'] && request.resource.data.hash is string && request.resource.data.salt is string
         && request.resource.data.iterations is int && request.resource.data.iterations >= 100000
         && request.resource.data.hash.size() <= 200 && request.resource.data.salt.size() <= 200;
       allow update, delete: if false;
     }
 
-    // Chat da República
-    match /chatMessages_v5/{messageId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && messageId.size() <= 120
+    // Chat da República (v5) e chat da cópia independente (ind1)
+    match /{chat}/{messageId} {
+      allow read, delete: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'];
+      allow create, update: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'] && messageId.size() <= 120
         && optString(request.resource.data, 'text', 4000)
         && optString(request.resource.data, 'senderName', 200)
         && optString(request.resource.data, 'senderId', 200);
-      allow delete: if signedIn();
     }
-    match /chatMedia_v5/{mediaId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && mediaId.size() <= 120;
+    match /{media}/{mediaId} {
+      allow read: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1'];
+      allow write: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1'] && mediaId.size() <= 120;
     }
-    match /chatPresence_v5/{profileId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && profileId.size() <= 120;
+    match /{presence}/{profileId} {
+      allow read: if signedIn() && presence in ['chatPresence_v5', 'chatPresence_ind1'];
+      allow write: if signedIn() && presence in ['chatPresence_v5', 'chatPresence_ind1'] && profileId.size() <= 120;
     }
 
     // Aparelhos que recebem notificação e registro do sistema municipal
-    match /pushTokens_v5/{deviceId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && deviceId.size() <= 200;
+    match /{tokens}/{deviceId} {
+      allow read: if signedIn() && tokens in ['pushTokens_v5', 'pushTokens_ind1'];
+      allow write: if signedIn() && tokens in ['pushTokens_v5', 'pushTokens_ind1'] && deviceId.size() <= 200;
     }
-    match /integrationRegistry_v5/{systemId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && systemId.size() <= 120;
+    match /{registry}/{systemId} {
+      allow read: if signedIn() && registry in ['integrationRegistry_v5', 'integrationRegistry_ind1'];
+      allow write: if signedIn() && registry in ['integrationRegistry_v5', 'integrationRegistry_ind1'] && systemId.size() <= 120;
     }
 
     // Projeção 3D de cada município (um documento por município com a lista de construções do mapa)

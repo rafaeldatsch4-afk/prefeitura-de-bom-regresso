@@ -9,7 +9,7 @@ const stampId=iso=>iso.replace(/[-:.]/g,''); // 20261006T100000123Z
 async function fontes(){
   const rep=await G.fsGet('republica/dados_v1').catch(()=>null);
   const nomes=new Map((rep?.municipios||[]).map(c=>[c.id,c.nome]));
-  const out=[{key:'republica',path:'republica/dados_v1',nome:'República'},{key:'bom-regresso',path:'municipio/dados_v5',nome:'Prefeitura de Bom Regresso'}];
+  const out=[{key:'republica',path:'republica/dados_v1',nome:'República'},{key:'bom-regresso',path:'municipio/dados_v5',nome:'Prefeitura de Bom Regresso'},{key:'bom-regresso-independente',path:'municipio/dados_ind1',nome:'Prefeitura de Bom Regresso (cópia independente)'}];
   for(const d of await G.fsList('prefeituras_v5',['updatedAt']).catch(()=>[]))out.push({key:'cidade-'+d.id,path:'prefeituras_v5/'+d.id,nome:'Prefeitura de '+(nomes.get(d.id)||d.id)});
   return out;
 }
@@ -43,7 +43,7 @@ async function limpar(){
 async function restaurar(id){
   const raw=await G.fsGetRaw('backups_v1/'+id);if(!raw?.fields?._backup)return {status:404,error:'copia_nao_encontrada'};
   const meta=G.decode(raw.fields._backup);
-  if(!/^(republica\/dados_v1|municipio\/dados_v5|prefeituras_v5\/[A-Za-z0-9_-]+)$/.test(meta.path||''))return {status:400,error:'origem'};
+  if(!/^(republica\/dados_v1|municipio\/dados_(v5|ind1)|prefeituras_v5\/[A-Za-z0-9_-]+)$/.test(meta.path||''))return {status:400,error:'origem'};
   const antes=await fazerBackup('antes de restaurar',meta.path);
   const fields={...raw.fields};delete fields._backup;
   // Data nova: os aparelhos abertos recebem a versão restaurada como uma atualização normal.
