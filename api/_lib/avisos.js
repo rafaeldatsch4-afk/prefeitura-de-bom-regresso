@@ -55,7 +55,8 @@ function wantsRepublica(t,cat){
   const on=t.republicaAlerts===true||(t.republicaAlerts==null&&t.notificationsEnabled!==false);
   return on&&!(t.alertTypes&&t.alertTypes[cat]===false);
 }
-async function allTokens(){return (await G.fsList('pushTokens_v5')).map(d=>({id:d.id,...d.data}))}
+// ns: v5 (República e Prefeitura) ou ind1 (cópia independente em /bom-regresso/).
+async function allTokens(ns='v5'){const col='pushTokens_'+ns;return (await G.fsList(col)).map(d=>({id:d.id,...d.data,_col:col}))}
 // Manda para cada aparelho e apaga os que o Google diz que não existem mais.
 async function deliver(rows,data){
   const seen=new Set(),uniq=rows.filter(r=>!seen.has(r.token)&&seen.add(r.token)).slice(0,200);
@@ -64,7 +65,7 @@ async function deliver(rows,data){
     const res=await Promise.all(uniq.slice(i,i+20).map(r=>G.fcmSend(r.token,typeof data==='function'?data(r):data).catch(()=>({ok:false}))));
     res.forEach((x,j)=>{if(x.ok)sent++;else{failed++;if(x.stale)stale.push(uniq[i+j])}});
   }
-  await Promise.all(stale.map(r=>G.fsDelete('pushTokens_v5/'+r.id).catch(()=>{})));
+  await Promise.all(stale.map(r=>G.fsDelete((r._col||'pushTokens_v5')+'/'+r.id).catch(()=>{})));
   return {sent,failed,removidos:stale.length};
 }
 async function sendRepublica({to,title,cat},body,messageId,exclude,url='/?open=atividades'){
