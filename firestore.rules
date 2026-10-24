@@ -86,17 +86,29 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Chat da República (v5) e chat da cópia independente (ind1)
-    match /{chat}/{messageId} {
-      allow read, delete: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'];
-      allow create, update: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'] && messageId.size() <= 120
-        && optString(request.resource.data, 'text', 4000)
-        && optString(request.resource.data, 'senderName', 200)
-        && optString(request.resource.data, 'senderId', 200);
+    // Chat da República (v5) e chat da cópia independente (ind1).
+    // Cada mensagem guarda a sessão que a enviou (senderUid): só ela edita ou apaga. Os outros só mexem em reações
+    // e na mensagem fixada. Quem tem acesso total apaga as dos outros pelo servidor (/api/chat), com a própria senha.
+    function chatFields(d) {
+      return optString(d, 'text', 4000) && optString(d, 'senderName', 200) && optString(d, 'senderId', 200);
     }
+    match /{chat}/{messageId} {
+      allow read: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'];
+      allow create: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'] && messageId.size() <= 120
+        && request.resource.data.get('senderUid', '') == request.auth.uid && chatFields(request.resource.data);
+      allow update: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1'] && chatFields(request.resource.data)
+        && ((resource.data.get('senderUid', '') == request.auth.uid && request.resource.data.get('senderUid', '') == request.auth.uid)
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'pinnedAt', 'pinnedBy']));
+      allow delete: if signedIn() && chat in ['chatMessages_v5', 'chatMessages_ind1']
+        && resource.data.get('senderUid', '') == request.auth.uid;
+    }
+    // Anexos do chat (imagem, áudio, arquivo): mesma regra, pela sessão que enviou (ownerUid). Não mudam depois.
     match /{media}/{mediaId} {
       allow read: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1'];
-      allow write: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1'] && mediaId.size() <= 120;
+      allow create: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1'] && mediaId.size() <= 120
+        && request.resource.data.get('ownerUid', '') == request.auth.uid;
+      allow delete: if signedIn() && media in ['chatMedia_v5', 'chatMedia_ind1']
+        && resource.data.get('ownerUid', '') == request.auth.uid;
     }
     match /{presence}/{profileId} {
       allow read: if signedIn() && presence in ['chatPresence_v5', 'chatPresence_ind1'];

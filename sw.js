@@ -1,4 +1,4 @@
-const CACHE='bom-regresso-pwa-v54';
+const CACHE='bom-regresso-pwa-v55';
 const SHELL=['/index.html','/pais/','/pais/index.html','/pais/brasao.svg','/prefeitura/','/prefeitura/index.html','/bom-regresso/','/bom-regresso/index.html','/bom-regresso/manifest.webmanifest','/manifest.webmanifest','/app-icon.svg','/integration-manifest.json'];
 
 try{
@@ -124,7 +124,10 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     // Só abre páginas deste site, mesmo que a notificação traga outro endereço.
     const target=(()=>{try{const u=new URL(event.notification?.data?.url||'/?open=chat',self.location.origin);return u.origin===self.location.origin?u.pathname+u.search:'/?open=chat'}catch{return '/?open=chat'}})();
-    const list=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    // Prefere a janela do mesmo sistema (República em /, cópia independente em /bom-regresso/).
+    const base=target.startsWith('/bom-regresso/')?'/bom-regresso/':'/';
+    const all=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const list=all.filter(c=>{try{const p=new URL(c.url).pathname;return base==='/'?!p.startsWith('/bom-regresso/'):p.startsWith(base)}catch{return false}});
     for(const client of list){
       try{
         if('navigate' in client)await client.navigate(target);

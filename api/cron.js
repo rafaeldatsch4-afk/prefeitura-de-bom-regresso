@@ -11,6 +11,9 @@ module.exports=async function handler(req,res){
   const auth=String(req.headers?.authorization||''),ua=String(req.headers?.['user-agent']||'');
   if(secret?auth!=='Bearer '+secret:!/vercel-cron/i.test(ua))return res.status(401).json({error:'unauthorized'});
   if(!G.serviceAccount())return res.status(503).json({error:'nao_configurado'});
+  // O site da cópia independente (projeto prefeitura-bom-regresso na Vercel) usa este mesmo vercel.json;
+  // a rotina roda só no projeto principal para não fazer lembretes e cópias de segurança em dobro.
+  if(/^prefeitura-bom-regresso\./.test(process.env.VERCEL_PROJECT_PRODUCTION_URL||''))return res.status(200).json({pulado:'projeto_da_copia'});
   const out={};
   try{out.agenda=await B.lembretesAgenda()}catch(err){console.error('cron agenda',err);out.agenda={erro:true}}
   try{out.lembretes=await L.lembretes()}catch(err){console.error('cron lembretes',err);out.lembretes={erro:true}}
