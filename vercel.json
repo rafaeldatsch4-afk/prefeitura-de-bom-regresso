@@ -19,6 +19,10 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "^prefeitura-bom-regresso(-[a-z0-9-]+)?\\.vercel\\.app$" }], "destination": "/bom-regresso/", "permanent": false },
+    { "source": "/index.html", "has": [{ "type": "host", "value": "^prefeitura-bom-regresso(-[a-z0-9-]+)?\\.vercel\\.app$" }], "destination": "/bom-regresso/", "permanent": false }
+  ],
   "crons": [
     { "path": "/api/cron", "schedule": "0 10 * * *" }
   ]
