@@ -850,9 +850,9 @@ function render(){
 }
 const heading=(title,desc)=>`<h1>${title}</h1><p class="lead muted">${desc}</p>`,card=(label,value,detail)=>`<div class="card"><span class="card-icon" aria-hidden="true">${({'Cofre público':'💰','Estados':'🗺️','Estado':'🗺️','Verba prevista':'💰','Municípios':'🏘️','PIB':'📈','Saldo atual':'💰','Entradas':'↙️','Saídas':'↗️','Saldo inicial':'🏦','Movimentações':'📋','PIB anual':'📈','População cadastrada':'👥','PIB por habitante':'◫'})[label]||'◆'}</span><small>${label}</small><strong${longValue(value)}>${value}</strong><small>${detail}</small></div>`;
 
-// ---- Senha dos cargos protegidos (Prefeito, Vice-prefeito e Assistente universal): pedida aqui na entrada da República.
+// ---- Senha dos cargos protegidos (Presidente, Vice-presidente, Prefeito, Vice-prefeito e Assistente universal): pedida aqui na entrada da República.
 // Usa a mesma senha guardada que o sistema da prefeitura (profileSecrets_v5): PBKDF2-SHA-256 com sal próprio.
-function needsPassword(p){return ['Prefeito','Vice-prefeito','Assistente universal'].includes(p?.role||'')}
+function needsPassword(p){return ['Presidente','Vice-presidente','Prefeito','Vice-prefeito','Assistente universal'].includes(p?.role||'')}
 const PW_SESSION_KEY='bom_regresso_pais_v2_verified',PW_ITERATIONS=600000,PW_MIN=6,PW_SCHEMA=2;
 function pwSet(){if(!pwSet.v){try{pwSet.v=new Set(JSON.parse(sessionStorage.getItem(PW_SESSION_KEY)||'[]'))}catch{pwSet.v=new Set()}}return pwSet.v}
 function pwVerified(id){return pwSet().has(id)}
@@ -1858,9 +1858,10 @@ document.addEventListener('click',async e=>{
   if(br){if(scope(me)!=='nacional')return;const nome=br.dataset.backupName,quando=br.dataset.backupWhen;
     const ok=prompt(`Restaurar "${nome}" como estava em ${quando}?\n\nTudo o que mudou depois disso nele será desfeito (o estado atual é copiado antes, então dá para voltar).\n\nDigite RESTAURAR para confirmar:`,'');
     if(String(ok||'').trim().toUpperCase()!=='RESTAURAR')return;
+    const senha=prompt('Para confirmar, digite a SUA senha:','');if(senha==null)return;
     br.disabled=true;br.textContent='Restaurando…';
-    try{await backupApi('POST',{op:'restaurar',id:br.dataset.backupRestore});showToast('✓ Restaurado: '+nome);loadBackups(true)}
-    catch{alert('Não foi possível restaurar agora.');br.disabled=false;br.textContent='↩ Restaurar'}
+    try{await backupApi('POST',{op:'restaurar',id:br.dataset.backupRestore,adminId:me.id,adminSenha:senha});showToast('✓ Restaurado: '+nome);loadBackups(true)}
+    catch(err){alert(err.status===403?(err.message==='sem_permissao'?'Seu cargo não pode restaurar cópias.':'Senha incorreta.'):err.status===404&&err.message==='sem_senha'?'Crie sua senha (entrando de novo no seu perfil) antes de restaurar.':err.status===429?'Muitas tentativas erradas. Aguarde alguns minutos.':'Não foi possível restaurar agora.');br.disabled=false;br.textContent='↩ Restaurar'}
     return}
 });
 

@@ -2235,6 +2235,8 @@ async function senhaApi(body){
   const r=await fetch('/api/senha',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await fbAuth.currentUser.getIdToken()},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||String(r.status)),{status:r.status,info:j});return j
 }
+// Apaga a senha de quem deixou de ter cargo com senha (o banco não deixa o aparelho apagar; o servidor confere o cargo).
+function limparSenhaAntiga(id){senhaApi({op:'limpar',profileId:id}).catch(err=>console.warn('Apagar senha antiga:',err))}
 async function setRHPasswordForProfile(profile,password,currentPassword){
   if(!profile||!isPasswordProtectedProfile(profile))throw new Error('Este perfil não exige senha.');
   if(!profileSecretsCollection)throw new Error('Banco de credenciais indisponível.');
@@ -2568,7 +2570,7 @@ function chatAttachmentMeta(a){
 async function storeChatMedia(a,owner){
   if(!a?.dataUrl||!chatMediaCollection)return {attachment:a,mediaId:''};
   const ref=chatMediaCollection.doc(),meta=chatAttachmentMeta(a);
-  await ref.set({...meta,dataUrl:a.dataUrl,ownerId:owner?.id||'',ownerName:owner?.name||'',createdAt:nowISO()});
+  await ref.set({...meta,dataUrl:a.dataUrl,ownerId:owner?.id||'',ownerUid:chatUid(),ownerName:owner?.name||'',createdAt:nowISO()});
   return {attachment:{...meta,mediaId:ref.id},mediaId:ref.id}
 }
 async function getChatMedia(mediaId){
@@ -2962,14 +2964,14 @@ function showChatReaders(id){
 }
 function openChatMessageMenu(id){
   const m=chatMessages.find(x=>x.id===id);if(!m)return;
-  const mine=m.senderId===db.currentOperatorId,canDelete=mine||isFullAccess();
+  const mine=m.senderId===db.currentOperatorId,canDelete=chatCanDelete(m);
   showModal('Ações da mensagem',`<div class="chat-message-menu-sheet">
     <div class="chat-menu-message-preview"><b>${esc(m.senderName||'Usuário')}</b><span>${esc((m.text||m.attachment?.name||'Anexo').slice(0,110))}</span></div>
     <div class="chat-react-row">${CHAT_REACTIONS.map(e=>`<button type="button" class="${m.reactions?.[db.currentOperatorId]===e?'on':''}" onclick="App.closeModal();App.reactChat(${jsArg(m.id)},${jsArg(e)})" aria-label="Reagir com ${e}">${e}</button>`).join('')}</div>
     <button class="chat-menu-option" onclick="App.closeModal();App.replyChatMessage(${jsArg(m.id)})"><span>↩</span><b>Responder</b></button>
     ${m.text?`<button class="chat-menu-option" onclick="App.closeModal();App.copyChatMessage(${jsArg(m.id)})"><span>⧉</span><b>Copiar</b></button>`:''}
     ${!mine?`<button class="chat-menu-option" onclick="App.closeModal();App.openUserProfile(${jsArg(m.senderId||'')})"><span>👤</span><b>Ver perfil</b></button>`:''}
-    ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage(${jsArg(m.id)})"><span>✎</span><b>Editar</b></button>`:''}
+    ${chatMine(m)?`<button class="chat-menu-option" onclick="App.closeModal();App.editChatMessage(${jsArg(m.id)})"><span>✎</span><b>Editar</b></button>`:''}
     ${mine?`<button class="chat-menu-option" onclick="App.closeModal();App.showChatReaders(${jsArg(m.id)})"><span>✓✓</span><b>Visto por</b></button>`:''}
     ${isFullAccess()?`<button class="chat-menu-option" onclick="App.closeModal();App.pinChatMessage(${jsArg(m.id)},${m.pinnedAt?'false':'true'})"><span>📌</span><b>${m.pinnedAt?'Desafixar':'Fixar no topo'}</b></button>`:''}
     <button class="chat-menu-option" onclick="App.closeModal();App.startChatSelect(${jsArg(m.id)})"><span>☑</span><b>Selecionar várias</b></button>
@@ -3221,11 +3223,11 @@ function startChatPresence(){
   chatTypingTick=setInterval(()=>{if(chatTypingSeen.size)renderChatPresence()},1000)
 }
 function editChatMessage(id){
-  const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
+  const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();if(!chatMine(m))return toast('Só dá para editar no aparelho de onde a mensagem foi enviada.');
   showModal('Editar mensagem',`<div class="field"><label>Mensagem</label><textarea id="chatEditText" maxlength="2000" rows="5">${esc(m.text||'')}</textarea></div><div class="actions"><button class="btn btn-primary" onclick="App.saveChatMessageEdit(${jsArg(id)})">Salvar alteração</button></div>`,()=>document.getElementById('chatEditText')?.focus())
 }
 async function saveChatMessageEdit(id){
-  const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();
+  const m=chatMessages.find(x=>x.id===id);if(!m||m.senderId!==db.currentOperatorId)return accessDenied();if(!chatMine(m))return toast('Só dá para editar no aparelho de onde a mensagem foi enviada.');
   const text=val('chatEditText');
   if(!text&&!m.attachment)return toast('A mensagem não pode ficar vazia.');
   try{
@@ -3348,12 +3350,12 @@ async function copyChatMessage(id){
 }
 async function deleteChatMessage(id){
   const m=chatMessages.find(x=>x.id===id);if(!m)return;
-  if(m.senderId!==db.currentOperatorId&&!isFullAccess())return accessDenied();
+  if(!chatCanDelete(m))return toast(m.senderId===db.currentOperatorId?'Só dá para apagar no aparelho de onde a mensagem foi enviada.':'Seu cargo não pode apagar esta mensagem.');
   if(!confirm('Excluir esta mensagem do Chat da República?'))return;
   try{
     const mediaId=m.attachment?.mediaId;
-    await chatCollection.doc(id).delete();
-    if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}
+    if(!chatMine(m)){if(!(await chatAdminDelete({ids:[id]})))return;if(mediaId)chatMediaCache.delete(mediaId)}
+    else{await chatCollection.doc(id).delete();if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}}
     if(chatReplyTarget?.id===id)clearChatReply();toast('Mensagem excluída.')
   }catch(err){console.error(err);toast('Não foi possível excluir a mensagem.')}
 }
@@ -3671,7 +3673,7 @@ async function processChatQueue(){
       try{
         let attachment=null;
         if(job.attachment){const stored=await storeChatMedia(job.attachment,job.p);attachment=stored.attachment;mediaId=stored.mediaId}
-        const msg={senderId:job.p.id,senderName:job.p.name,senderRole:job.p.role||'Servidor / Outro',senderEmoji:job.p.avatarEmoji||'',text:job.text.slice(0,2000),attachment,reply:job.reply,createdAt:nowISO()};
+        const msg={senderId:job.p.id,senderUid:chatUid(),senderName:job.p.name,senderRole:job.p.role||'Servidor / Outro',senderEmoji:job.p.avatarEmoji||'',text:job.text.slice(0,2000),attachment,reply:job.reply,createdAt:nowISO()};
         const mentions=chatMentionsIn(job.text);if(mentions.length)msg.mentions=mentions;if(/(^|[\s(])@todos\b/i.test(job.text))msg.mentionAll=true;
         const ref=await chatCollection.add(msg);playChatTone('send');
         sendChatPush({...msg,id:ref.id});
@@ -3972,7 +3974,7 @@ async function saveRenameOperator(id){
   const old=o.name,oldRole=o.role;
   o.name=name;o.role=role;o.avatarImage=avatarDraft.image||'';o.avatarEmoji=avatarDraft.emoji||'';o.updatedAt=nowISO();
   if(isPasswordProtectedProfile({role:oldRole})&&!isPasswordProtectedProfile(o)){
-    try{await profileSecretsCollection?.doc(o.id).delete()}catch(err){console.error('Remover credencial antiga:',err)}
+    setTimeout(()=>limparSenhaAntiga(o.id),0); // depois do save() abaixo
     o.passwordConfigured=false;clearLegacyPasswordFields(o)
   }
   if(db.currentOperatorId===o.id||db.currentOperator===old){db.currentOperator=name;db.currentOperatorId=o.id}
@@ -4011,7 +4013,7 @@ async function removeOperatorProfile(id){
   const linked=db.employees.filter(e=>e.operatorId===id).map(cloneData);
   db.operators=db.operators.filter(x=>x.id!==id);
   db.employees=db.employees.filter(e=>e.operatorId!==id);
-  try{await profileSecretsCollection?.doc(id).delete()}catch(err){console.error('Remover credencial do perfil:',err)}
+  setTimeout(()=>limparSenhaAntiga(id),0); // depois do save() abaixo
   const records=[{collection:'operators',id:o.id,before:opBefore,after:null},...linked.map(e=>({collection:'employees',id:e.id,before:e,after:null}))];
   recordActivity('users','Remoção',`${db.currentOperator} removeu o perfil de ${o.name} do sistema.`,records);
   save();render();toast('Perfil removido. Ele poderá ser cadastrado novamente no futuro.')
@@ -4114,7 +4116,21 @@ function fxNavGlide(snap){
 }
 // ---- Chat: segurar a mensagem abre o menu; selecionar várias e excluir de uma vez; limpar a conversa (administração)
 let chatSelecting=false,chatSuppressClick=0;const chatSelected=new Set();
-const chatCanDelete=m=>!!m&&(m.senderId===db.currentOperatorId||isFullAccess());
+// Cada mensagem guarda o aparelho que a enviou (senderUid): o banco só deixa esse aparelho editar ou apagar.
+// Quem tem acesso total apaga as dos outros pelo servidor (/api/chat), confirmando a própria senha.
+const chatUid=()=>fbAuth?.currentUser?.uid||'';
+const chatMine=m=>!!m&&!!m.senderUid&&m.senderUid===chatUid();
+const chatCanDelete=m=>!!m&&(chatMine(m)||isFullAccess());
+async function chatAdminDelete(body){
+  const senha=prompt('Para apagar mensagens de outras pessoas, digite a SUA senha:','');if(senha==null)return null;
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+await fbAuth.currentUser.getIdToken()},body:JSON.stringify({op:'apagar',ns:DATA_NAMESPACE,adminId:db.currentOperatorId,adminSenha:senha,...body})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok)return j;
+    toast(r.status===403?(j.error==='sem_permissao'?'Seu cargo não pode apagar mensagens de outras pessoas.':'Senha incorreta.'):r.status===404&&j.error==='sem_senha'?'Crie sua senha antes de apagar mensagens de outras pessoas.':r.status===429?'Muitas tentativas erradas. Aguarde alguns minutos.':'Não foi possível apagar agora.')
+  }catch(err){console.error('Apagar pelo servidor:',err);toast('Não foi possível apagar agora.')}
+  return null
+}
 function bindChatLongPress(){
   const root=document.getElementById('chatMessages');if(!root||root._longBound)return;root._longBound=true;
   let lp=null;const stop=()=>{if(lp){clearTimeout(lp.timer);lp=null}};
@@ -4151,8 +4167,13 @@ function applyChatSelection(){
 }
 async function deleteChatIds(ids){
   const list=ids.map(id=>chatMessages.find(m=>m.id===id)).filter(chatCanDelete);if(!list.length||!chatCollection)return 0;
-  for(let i=0;i<list.length;i+=400){
-    const part=list.slice(i,i+400),batch=fbStore.batch();
+  const mine=list.filter(chatMine),others=list.filter(m=>!chatMine(m));
+  if(others.length){
+    if(!(await chatAdminDelete({ids:others.map(m=>m.id)})))return 0;
+    for(const m of others){const mediaId=m.attachment?.mediaId;if(mediaId)chatMediaCache.delete(mediaId);if(chatReplyTarget?.id===m.id)clearChatReply()}
+  }
+  for(let i=0;i<mine.length;i+=400){
+    const part=mine.slice(i,i+400),batch=fbStore.batch();
     for(const m of part)batch.delete(chatCollection.doc(m.id));
     await batch.commit();
     for(const m of part){const mediaId=m.attachment?.mediaId;if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}if(chatReplyTarget?.id===m.id)clearChatReply()}
@@ -4161,9 +4182,9 @@ async function deleteChatIds(ids){
 }
 async function deleteSelectedChat(){
   const ids=[...chatSelected],allowed=ids.filter(id=>chatCanDelete(chatMessages.find(m=>m.id===id)));
-  if(!allowed.length)return toast('Você só pode excluir as suas mensagens.');
+  if(!allowed.length)return toast('Você só pode excluir as mensagens enviadas deste aparelho.');
   const others=ids.length-allowed.length;
-  if(!confirm(`Excluir ${allowed.length} ${allowed.length===1?'mensagem':'mensagens'} do Chat da República para todos?${others?`\n\n${others} ${others===1?'mensagem de outra pessoa fica':'mensagens de outras pessoas ficam'} (só quem administra pode apagar).`:''}`))return;
+  if(!confirm(`Excluir ${allowed.length} ${allowed.length===1?'mensagem':'mensagens'} do Chat da República para todos?${others?`\n\n${others} ${others===1?'mensagem de outra pessoa fica':'mensagens de outras pessoas ficam'} (só quem administra pode apagar, ou quem enviou, no aparelho de onde enviou).`:''}`))return;
   try{const n=await deleteChatIds(allowed);cancelChatSelect();toast(`${n} ${n===1?'mensagem excluída':'mensagens excluídas'}.`)}
   catch(err){console.error(err);toast('Não foi possível excluir agora. Tente de novo.')}
 }
@@ -4173,8 +4194,7 @@ async function clearChatConversation(){
   const word=prompt('Isso apaga TODAS as mensagens do Chat da República, para todo mundo, e não dá para desfazer.\n\nDigite APAGAR para confirmar:');
   if(word==null)return;if(word.trim().toUpperCase()!=='APAGAR')return toast('Nada foi apagado.');
   try{
-    toast('Apagando mensagens…');const snap=await chatCollection.get();const docs=snap.docs||[];let n=0;
-    for(let i=0;i<docs.length;i+=400){const batch=fbStore.batch();for(const d of docs.slice(i,i+400)){batch.delete(chatCollection.doc(d.id));const mediaId=d.data()?.attachment?.mediaId;if(mediaId&&chatMediaCollection){chatMediaCache.delete(mediaId);chatMediaCollection.doc(mediaId).delete().catch(()=>{})}}await batch.commit();n+=Math.min(400,docs.length-i)}
+    const j=await chatAdminDelete({todos:true});if(!j)return;const n=j.apagadas||0;chatMediaCache.clear();
     cancelChatSelect();clearChatReply();toast(n?`Conversa apagada (${n} ${n===1?'mensagem':'mensagens'}).`:'A conversa já estava vazia.')
   }catch(err){console.error(err);toast('Não foi possível apagar a conversa agora.')}
 }

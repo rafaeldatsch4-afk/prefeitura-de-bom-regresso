@@ -1,6 +1,8 @@
 // Cópias de segurança (tela "Cópias de segurança" da Presidência): listar, fazer agora e restaurar.
+// Restaurar desfaz tudo o que mudou depois da cópia: só quem tem acesso total, confirmando a própria senha.
 const G=require('./_lib/google');
 const B=require('./_lib/backup');
+const S=require('./_lib/senhas');
 
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -11,7 +13,9 @@ module.exports=async function handler(req,res){
     if(req.method!=='POST')return res.status(405).json({error:'method_not_allowed'});
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
     if(body.op==='agora')return res.status(200).json(await B.fazerBackup('manual'));
-    if(body.op==='restaurar'){const out=await B.restaurar(String(body.id||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,200));return res.status(out.status||200).json(out)}
+    if(body.op==='restaurar'){
+      const c=await S.confereAdmin(body.adminId,body.adminSenha,'v5');if(!c.ok)return res.status(c.status).json(c);
+      const out=await B.restaurar(String(body.id||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,200));return res.status(out.status||200).json(out)}
     return res.status(400).json({error:'op'});
   }catch(err){
     console.error('backup error',err);
