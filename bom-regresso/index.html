@@ -22,6 +22,18 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 .field{display:flex;flex-direction:column;gap:6px;text-align:left;margin:10px 0}.field label{font-size:12px;font-weight:800;color:var(--navy)}
 .field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--text);outline:none}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--navy3);box-shadow:0 0 0 3px rgba(26,82,141,.1)}
+/* Lista de operadores da entrada: nome com o cargo bem pequeno ao lado (uma lista nativa não deixa estilizar parte do texto) */
+.op-select{position:relative;text-align:left}
+.op-select-btn{width:100%;min-height:46px;display:flex;align-items:center;gap:6px;padding:11px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font:inherit;font-size:16px;text-align:left;cursor:pointer}
+.op-select-btn:focus-visible,.op-select.open .op-select-btn{outline:none;border-color:var(--navy3);box-shadow:0 0 0 3px rgba(26,82,141,.1)}
+.op-select-btn .op-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-select-btn .op-caret{font-size:11px;color:var(--muted);transition:transform .15s}.op-select.open .op-caret{transform:rotate(180deg)}
+.op-role{font-size:11px;font-weight:400;color:var(--danger);margin-left:6px;white-space:nowrap}
+.op-select-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;max-height:260px;overflow:auto;margin:0;padding:4px;list-style:none;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+.op-select-list[hidden]{display:none}
+.op-select-list li{padding:10px 12px;border-radius:8px;cursor:pointer;color:var(--text);font-size:16px}
+.op-select-list li:hover,.op-select-list li.active{background:rgba(26,82,141,.14)}
+.op-select-list li[aria-selected=true]{font-weight:600}
 .row{display:flex;gap:10px;align-items:center}.row.wrap{flex-wrap:wrap}.grow{flex:1}.sep{height:1px;background:var(--border);margin:14px 0}
 .shell{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.sidebar{background:var(--navy);color:#fff;padding:14px 12px;position:sticky;top:0;height:100vh;overflow:auto}
 .brand{text-align:center;padding:4px 8px 12px}.brand img{width:180px;max-height:150px;object-fit:contain}.brand small{display:block;color:var(--gold2);font-weight:800;letter-spacing:.06em}
@@ -3927,6 +3939,38 @@ function closeModal(){
   if(!mb||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){root.innerHTML='';return}
   mb.classList.add('closing');mb.removeAttribute('id');setTimeout(()=>mb.remove(),230)
 }
+// Lista de operadores com o cargo pequeno ao lado do nome. Guarda o escolhido em #loginOp (App.enter() lê dali).
+const opRoleLabel=o=>o?.role?`<span class="op-role">(${esc(String(o.role).toLocaleLowerCase('pt-BR'))})</span>`:'';
+function loginOpHTML(ops){
+  const first=ops[0];
+  return `<div class="op-select" id="loginOpBox"><input type="hidden" id="loginOp" value="${esc(first.id)}">
+    <button type="button" class="op-select-btn" id="loginOpBtn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="loginOpLabel loginOpBtn" onclick="App.loginOpToggle()" onkeydown="App.loginOpKey(event)"><span class="op-name">${esc(first.name)}${opRoleLabel(first)}</span><span class="op-caret" aria-hidden="true">▼</span></button>
+    <ul class="op-select-list" id="loginOpList" role="listbox" aria-labelledby="loginOpLabel" hidden>${ops.map((o,i)=>`<li role="option" id="loginOpItem${i}" data-id="${esc(o.id)}" aria-selected="${i===0}" onclick="App.loginOpPick(${jsArg(o.id)})">${esc(o.name)}${opRoleLabel(o)}</li>`).join('')}</ul></div>`
+}
+function loginOpOpen(on){
+  const box=document.getElementById('loginOpBox'),list=document.getElementById('loginOpList'),btn=document.getElementById('loginOpBtn');if(!box)return;
+  box.classList.toggle('open',on);list.hidden=!on;btn.setAttribute('aria-expanded',String(on));
+  if(on){const sel=list.querySelector('[aria-selected=true]');list.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));sel?.classList.add('active');sel?.scrollIntoView({block:'nearest'})}
+}
+function loginOpToggle(){loginOpOpen(document.getElementById('loginOpList')?.hidden!==false)}
+function loginOpPick(id){
+  const li=[...document.querySelectorAll('#loginOpList li')].find(x=>x.dataset.id===id),btn=document.getElementById('loginOpBtn');if(!li||!btn)return;
+  document.getElementById('loginOp').value=id;
+  document.querySelectorAll('#loginOpList li').forEach(x=>x.setAttribute('aria-selected',String(x===li)));
+  btn.querySelector('.op-name').innerHTML=li.innerHTML;loginOpOpen(false);btn.focus()
+}
+// Teclado: setas movem, Enter/Espaço escolhem ou abrem, Esc fecha.
+function loginOpKey(e){
+  const list=document.getElementById('loginOpList');if(!list)return;
+  const items=[...list.querySelectorAll('li')],open=!list.hidden;let i=items.findIndex(x=>x.classList.contains('active'));if(i<0)i=Math.max(0,items.findIndex(x=>x.getAttribute('aria-selected')==='true'));
+  if(e.key==='Escape'&&open){e.preventDefault();loginOpOpen(false);return}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();if(!open){loginOpOpen(true);return}
+    i=Math.min(items.length-1,Math.max(0,i+(e.key==='ArrowDown'?1:-1)));items.forEach(x=>x.classList.remove('active'));items[i].classList.add('active');items[i].scrollIntoView({block:'nearest'});return
+  }
+  if((e.key==='Enter'||e.key===' ')&&open){e.preventDefault();loginOpPick(items[i].dataset.id)}
+}
+document.addEventListener('click',e=>{if(!e.target.closest?.('#loginOpBox'))loginOpOpen(false)});
 function loginScreen(){closeCidade3d();if(page==='cidade3d')page='home';
   if(FEDERATED_EMBED){
     if(db.currentOperatorId){render();return}
@@ -3937,7 +3981,7 @@ function loginScreen(){closeCidade3d();if(page==='cidade3d')page='home';
   db.currentOperator='';db.currentOperatorId='';persistLocal();
   const root=document.getElementById('login');document.getElementById('main').classList.add('hidden');root.classList.remove('hidden');
   const ops=db.operators.filter(o=>o.active!==false);
-  root.innerHTML=`<div class="login-card">${cityLogoHTML('logo')}<h1>Prefeitura de <span data-city-name>${esc(cityName())}</span></h1><p>Sistema Municipal Integrado • versão para navegador</p>${ops.length?`<div class="field"><label>Operador</label><select id="loginOp">${ops.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}</select></div><button class="btn btn-primary" style="width:100%" onclick="App.enter()">Entrar no sistema →</button><div class="row wrap" style="justify-content:center;margin-top:10px"><button class="btn btn-secondary" onclick="App.addOperator()">＋ Cadastrar operador</button></div>`:`<div class="empty">Nenhum operador cadastrado.</div><button class="btn btn-primary" style="width:100%" onclick="App.addOperator()">＋ Cadastrar operador</button>`}<div class="sep"></div><div class="muted" style="font-size:12px">☁ Os dados municipais são sincronizados pelo Firebase entre os aparelhos conectados.</div></div>`
+  root.innerHTML=`<div class="login-card">${cityLogoHTML('logo')}<h1>Prefeitura de <span data-city-name>${esc(cityName())}</span></h1><p>Sistema Municipal Integrado • versão para navegador</p>${ops.length?`<div class="field"><label id="loginOpLabel">Operador</label>${loginOpHTML(ops)}</div><button class="btn btn-primary" style="width:100%" onclick="App.enter()">Entrar no sistema →</button><div class="row wrap" style="justify-content:center;margin-top:10px"><button class="btn btn-secondary" onclick="App.addOperator()">＋ Cadastrar operador</button></div>`:`<div class="empty">Nenhum operador cadastrado.</div><button class="btn btn-primary" style="width:100%" onclick="App.addOperator()">＋ Cadastrar operador</button>`}<div class="sep"></div><div class="muted" style="font-size:12px">☁ Os dados municipais são sincronizados pelo Firebase entre os aparelhos conectados.</div></div>`
 }
 function addOperator(){
   const loginVisible=!document.getElementById('login')?.classList.contains('hidden');
@@ -5039,7 +5083,7 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault()
 });
 document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
-window.App={setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,deleteAppointment,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={loginOpToggle,loginOpPick,loginOpKey,setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,deleteAppointment,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
