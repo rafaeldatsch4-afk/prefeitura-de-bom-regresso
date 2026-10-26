@@ -3219,7 +3219,7 @@ function chatLetterHop(el,ev){
   if(pill&&typeof pill.animate==='function')pill.animate([{transform:'none'},{transform:'translateY(-1px) scale(1.008)'},{transform:'none'}],{duration:170,easing:'ease-out'})
 }
 function chatInputFocus(){
-  toggleChatEmoji(false);toggleChatAttachMenu(false);
+  if(!chatKeepPanels){toggleChatEmoji(false);toggleChatAttachMenu(false)}
   setTimeout(()=>{syncChatViewportHeight();if(chatAutoScroll)scrollChatBottom()},90)
 }
 
@@ -3264,17 +3264,23 @@ function updateChatComposerState(){
   if(send)send.classList.toggle('hidden',!hasContent);
   if(mic)mic.classList.toggle('hidden',hasContent);
 }
+// Dar foco ao campo fecha os painéis de emoji e anexo (chatInputFocus). Quando o foco vem do próprio painel,
+// ele precisa ficar aberto: antes o painel abria e fechava na hora, e o emoji nunca aparecia.
+let chatKeepPanels=false;
+const chatCoarsePointer=()=>!!window.matchMedia?.('(pointer: coarse)').matches;
+function focusChatInput(){const i=document.getElementById('chatInput');if(!i)return;chatKeepPanels=true;try{i.focus({preventScroll:true})}finally{chatKeepPanels=false}}
 function toggleChatEmoji(force){
   const panel=document.getElementById('chatEmojiPanel');if(!panel)return;
   const show=typeof force==='boolean'?force:panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!show);
-  if(show){toggleChatAttachMenu(false);setTimeout(()=>document.getElementById('chatInput')?.focus(),20)}
+  // No computador o cursor volta ao campo; no celular não, para o teclado não cobrir os emojis.
+  if(show){toggleChatAttachMenu(false);if(!chatCoarsePointer())setTimeout(focusChatInput,20)}
 }
 function insertChatEmoji(emoji){
   const input=document.getElementById('chatInput');if(!input)return;
   const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;
   input.value=input.value.slice(0,start)+emoji+input.value.slice(end);
-  const pos=start+emoji.length;input.setSelectionRange(pos,pos);chatInputChanged(input);input.focus()
+  const pos=start+emoji.length;input.setSelectionRange(pos,pos);chatInputChanged(input);if(!chatCoarsePointer())focusChatInput()
 }
 function toggleChatAttachMenu(force){
   const menu=document.getElementById('chatAttachMenu');if(!menu)return;
