@@ -741,6 +741,7 @@ html[data-appearance="dark"] .tabs button.active{
 .notes-flow{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(0,1.28fr);gap:14px;align-items:start}
 .note-generator-panel{position:sticky;top:82px}
 .note-generate-btn{width:100%;min-height:48px;margin-top:10px}
+.note-generator-panel.is-custom{position:static}.note-generator-panel.is-custom .form-grid{grid-template-columns:1fr}.custom-note{margin-top:2px}.custom-note .field textarea{resize:vertical}
 .note-preview-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
 .note-ready-badge{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;background:#EEF2F6;color:#6B7884;font-size:11px;font-weight:800}
 .note-ready-badge.is-ready{background:#E4F4EC;color:#216746}
@@ -3219,7 +3220,7 @@ function chatLetterHop(el,ev){
   if(pill&&typeof pill.animate==='function')pill.animate([{transform:'none'},{transform:'translateY(-1px) scale(1.008)'},{transform:'none'}],{duration:170,easing:'ease-out'})
 }
 function chatInputFocus(){
-  toggleChatEmoji(false);toggleChatAttachMenu(false);
+  if(!chatKeepPanels){toggleChatEmoji(false);toggleChatAttachMenu(false)}
   setTimeout(()=>{syncChatViewportHeight();if(chatAutoScroll)scrollChatBottom()},90)
 }
 
@@ -3264,17 +3265,23 @@ function updateChatComposerState(){
   if(send)send.classList.toggle('hidden',!hasContent);
   if(mic)mic.classList.toggle('hidden',hasContent);
 }
+// Dar foco ao campo fecha os painéis de emoji e anexo (chatInputFocus). Quando o foco vem do próprio painel,
+// ele precisa ficar aberto: antes o painel abria e fechava na hora, e o emoji nunca aparecia.
+let chatKeepPanels=false;
+const chatCoarsePointer=()=>!!window.matchMedia?.('(pointer: coarse)').matches;
+function focusChatInput(){const i=document.getElementById('chatInput');if(!i)return;chatKeepPanels=true;try{i.focus({preventScroll:true})}finally{chatKeepPanels=false}}
 function toggleChatEmoji(force){
   const panel=document.getElementById('chatEmojiPanel');if(!panel)return;
   const show=typeof force==='boolean'?force:panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!show);
-  if(show){toggleChatAttachMenu(false);setTimeout(()=>document.getElementById('chatInput')?.focus(),20)}
+  // No computador o cursor volta ao campo; no celular não, para o teclado não cobrir os emojis.
+  if(show){toggleChatAttachMenu(false);if(!chatCoarsePointer())setTimeout(focusChatInput,20)}
 }
 function insertChatEmoji(emoji){
   const input=document.getElementById('chatInput');if(!input)return;
   const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;
   input.value=input.value.slice(0,start)+emoji+input.value.slice(end);
-  const pos=start+emoji.length;input.setSelectionRange(pos,pos);chatInputChanged(input);input.focus()
+  const pos=start+emoji.length;input.setSelectionRange(pos,pos);chatInputChanged(input);if(!chatCoarsePointer())focusChatInput()
 }
 function toggleChatAttachMenu(force){
   const menu=document.getElementById('chatAttachMenu');if(!menu)return;
@@ -4662,7 +4669,7 @@ function setTripStatus(id,s){
 function notes(c){
   c.innerHTML=head('Notas e Resumos','Primeiro gere a nota em texto. Depois, se quiser, transforme a prévia em PDF.')+
   `<div class="notes-flow">
-    <div class="panel note-generator-panel">
+    <div class="panel note-generator-panel" id="noteGeneratorPanel">
       <h3>1. Escolher nota</h3>
       <div class="form-grid">
         <div class="field">
@@ -4675,13 +4682,15 @@ function notes(c){
             <option value="payment">Pagamento de servidor</option>
             <option value="refund">Reembolso de pagamento</option>
             <option value="truck">Caminhão</option>
+            <option value="custom">✏️ Nota personalizada</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field" id="noteTargetField">
           <label>Registro</label>
           <select id="noteTarget"><option value="">Não se aplica</option></select>
         </div>
       </div>
+      ${customNoteFormHTML()}
       <button class="btn btn-primary note-generate-btn" onclick="App.generateSelectedNote()">Gerar e visualizar nota</button>
     </div>
 
@@ -4701,6 +4710,11 @@ function notes(c){
 }
 function refreshNoteTargets(){
   const t=val('noteType');let arr=[];
+  const custom=t==='custom';
+  document.getElementById('noteTargetField')?.classList.toggle('hidden',custom);
+  document.getElementById('customNoteBox')?.classList.toggle('hidden',!custom);
+  document.getElementById('noteGeneratorPanel')?.classList.toggle('is-custom',custom);
+  if(custom){noteFormChanged();return}
   if(t==='trip')arr=db.trips.map(x=>[x.id,`${x.date} • ${x.origin||'-'} → ${x.destination||'-'}`]);
   if(t==='appointment')arr=db.appointments.map(x=>[x.id,`${x.date} • ${x.producer}`]);
   if(t==='licitation')arr=db.licitations.map(x=>[x.id,`${x.date} • ${x.title}`]);
@@ -4713,6 +4727,54 @@ function refreshNoteTargets(){
 function noteHeader(title){
   return `PREFEITURA DE ${cityUpper()}\n${title.toUpperCase()}\n\n`
 }
+// ---- Nota personalizada: título, motivo, pessoa cadastrada e, conforme a categoria, origem/destino (viagem) ou item e valor.
+const NOTE_CATEGORIES=['Viagem','Compra','Serviço','Pagamento','Manutenção','Agricultura','Administrativo','Outro'];
+const noteOneLine=v=>String(v||'').replace(/\s*\n\s*/g,' ').trim();
+function customNoteFormHTML(){
+  const people=db.operators.filter(o=>o.active!==false);
+  return `<div id="customNoteBox" class="custom-note hidden" oninput="App.noteFormChanged()" onchange="App.noteFormChanged()">
+    <div class="field"><label>Categoria</label><select id="ncCat">${NOTE_CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+    <div class="field"><label>Título</label><input id="ncTitle" maxlength="80" placeholder="Ex.: Viagem para buscar peças"></div>
+    <div class="field"><label>Motivo</label><textarea id="ncReason" maxlength="400" rows="3" placeholder="Por que esta nota está sendo feita?"></textarea></div>
+    <div class="field"><label>Pessoa</label><select id="ncPerson"><option value="">Ninguém / não se aplica</option>${people.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}${o.role?` — ${esc(o.role)}`:''}</option>`).join('')}</select></div>
+    <div class="field"><label>Data</label><input id="ncDate" value="${todayBR()}" inputmode="numeric"></div>
+    <div id="ncTripBox" class="hidden">
+      <div class="field"><label>Onde começa (origem)</label><input id="ncFrom" maxlength="80" placeholder="Ex.: Prefeitura"></div>
+      <div class="field"><label>Até onde (destino)</label><input id="ncTo" maxlength="80" placeholder="Ex.: Oficina do centro"></div>
+    </div>
+    <div id="ncItemBox">
+      <div class="field"><label>Item</label><input id="ncItem" maxlength="80" placeholder="Ex.: Peças de reposição"></div>
+      <div class="field"><label>Valor (R$)</label><input id="ncValue" inputmode="decimal" placeholder="0,00"></div>
+    </div>
+    <div class="field"><label>Observações (opcional)</label><textarea id="ncNotes" maxlength="300" rows="2"></textarea></div>
+  </div>`
+}
+// Mostra origem/destino na viagem e item/valor nas outras categorias; mexer em qualquer campo invalida a prévia (o PDF sairia com texto velho).
+function noteFormChanged(){
+  const trip=val('ncCat')==='Viagem';
+  document.getElementById('ncTripBox')?.classList.toggle('hidden',!trip);
+  document.getElementById('ncItemBox')?.classList.toggle('hidden',trip);
+  const box=document.getElementById('noteBox');
+  if(box&&box.dataset.ready==='1'){
+    box.dataset.ready='0';box.textContent='A nota aparecerá aqui em forma de texto.';
+    const btn=document.getElementById('notePdfBtn');if(btn)btn.disabled=true;
+    const badge=document.getElementById('noteReadyBadge');if(badge){badge.textContent='Aguardando';badge.classList.remove('is-ready')}
+  }
+}
+function customNoteData(){
+  const op=db.operators.find(o=>o.id===val('ncPerson'));
+  return {cat:val('ncCat')||'Outro',title:noteOneLine(val('ncTitle')),reason:noteOneLine(val('ncReason')),
+    person:op?`${op.name}${op.role?` (${op.role})`:''}`:'',date:val('ncDate')||todayBR(),
+    from:noteOneLine(val('ncFrom')),to:noteOneLine(val('ncTo')),item:noteOneLine(val('ncItem')),
+    value:nval('ncValue'),hasValue:!!val('ncValue'),notes:noteOneLine(val('ncNotes'))}
+}
+function customNoteText(){
+  const d=customNoteData();if(!d.title)return '';
+  let s=noteHeader('Nota Personalizada')+`Título: ${d.title}\nCategoria: ${d.cat}\nData: ${d.date}\nMotivo: ${d.reason||'-'}\nPessoa: ${d.person||'-'}\n`;
+  if(d.cat==='Viagem')s+=`Origem: ${d.from||'-'}\nDestino: ${d.to||'-'}\n`;
+  else s+=`Item: ${d.item||'-'}\nValor: ${d.hasValue?money(d.value):'-'}\n`;
+  return s+`Observações: ${d.notes||'-'}\nEmitido por: ${db.currentOperator}`
+}
 function generateNote(type,id=''){if(!type)type=val('noteType');if(!id)id=val('noteTarget');let s='';if(type==='general'){const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0),exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);s=noteHeader('Resumo Geral')+`Operador: ${db.currentOperator}\nData: ${todayBR()}\n\nServidores: ${db.employees.length}\nAgendamentos: ${db.appointments.length}\nLicitações: ${db.licitations.length}\nContratos: ${db.contracts.length}\nCaminhões: ${db.trucks.length}\nViagens: ${db.trips.length}\n\nReceitas pagas: ${money(rev)}\nDespesas pagas: ${money(exp)}\nSaldo: ${money(rev-exp)}`}
 else if(type==='finance'){const rev=db.finance.filter(x=>x.type==='Receita'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0),exp=db.finance.filter(x=>x.type==='Despesa'&&x.status==='Pago').reduce((a,b)=>a+Number(b.value||0),0);s=noteHeader('Resumo de Saldo')+`Data: ${todayBR()}\nOperador: ${db.currentOperator}\n\nReceitas: ${money(rev)}\nDespesas: ${money(exp)}\nSaldo: ${money(rev-exp)}\n\nLançamentos registrados: ${db.finance.length}`}
 else if(type==='trip'){const x=db.trips.find(r=>r.id===id);if(x)s=noteHeader('Nota de Viagem')+`Data: ${x.date}\nTransportadora: ${carrierName(x.carrierId,x.carrierName)||'-'}\nCaminhão: ${x.truck||'-'}\nMotorista: ${x.driver||'-'}\nOrigem: ${x.origin||'-'}\nDestino: ${x.destination||'-'}\nCarga / motivo: ${x.cargo||'-'}\nKM inicial: ${x.startKm||0}\nKM final: ${x.endKm||0}\nStatus: ${x.status}\nOperador: ${x.operator}\nObservações: ${x.notes||'-'}`}
@@ -4722,8 +4784,13 @@ else if(type==='payment'){const x=db.payments.find(r=>r.id===id);if(x)s=noteHead
 else if(type==='refund'){const x=db.payments.find(r=>r.id===id);if(x&&x.refunded)s=noteHeader('Reembolso de Pagamento')+`Servidor: ${x.employeeName}\nFunção: ${x.role||'-'}\nData do pagamento original: ${x.date}\nReferência: ${x.reference||'-'}\nValor reembolsado: ${money(x.value)}\nReembolsado em: ${x.refundedDate||'-'}\nReembolsado por: ${x.refundedBy||'-'}\nStatus: Reembolsado\n\n${'-'.repeat(58)}\nDocumento fictício para uso no sistema de ${cityName()}.`}
 else if(type==='contract'){const x=db.contracts.find(r=>r.id===id);if(x)s=noteHeader('Resumo de Contrato')+`Número: ${x.number}\nContratado: ${x.contractor}\nObjeto: ${x.object||'-'}\nInício: ${x.start||'-'}\nFim: ${x.end||'-'}\nValor: ${money(x.value)}\nStatus: ${x.status}\nOperador: ${x.operator}\nObservações: ${x.notes||'-'}`}
 else if(type==='truck'){const x=db.trucks.find(r=>r.id===id);if(x)s=noteHeader('Resumo de Caminhão')+`Identificação / placa: ${x.plate}\nModelo: ${x.model||'-'}\nTransportadora: ${carrierName(x.carrierId,x.carrierName)||'-'}\nStatus: ${x.status}\nQuilometragem: ${x.odometer||0}\nObservações: ${x.notes||'-'}`}
+else if(type==='custom')s=customNoteText();
 if(!s)s='Registro não encontrado.';return s}
 function generateSelectedNote(){
+  if(val('noteType')==='custom'){
+    if(!val('ncTitle')){toast('Digite o título da nota.');document.getElementById('ncTitle')?.focus();return}
+    if(!val('ncReason')){toast('Digite o motivo da nota.');document.getElementById('ncReason')?.focus();return}
+  }
   const box=document.getElementById('noteBox'),btn=document.getElementById('notePdfBtn'),badge=document.getElementById('noteReadyBadge');
   const text=generateNote();
   if(box){box.textContent=text;box.dataset.ready=text&&text!=='Registro não encontrado.'?'1':'0'}
@@ -4757,15 +4824,22 @@ function currentNoteText(){
 }
 function noteFileBase(){
   const type=val('noteType')||'documento';
-  const names={general:'resumo-geral',finance:'resumo-saldo',trip:'viagem',appointment:'agendamento-agricultura',licitation:'licitacao',payment:'pagamento-servidor',contract:'contrato',truck:'caminhao'};
-  return `bom-regresso-${names[type]||'documento'}-${new Date().toISOString().slice(0,10)}`;
+  const names={general:'resumo-geral',finance:'resumo-saldo',trip:'viagem',appointment:'agendamento-agricultura',licitation:'licitacao',payment:'pagamento-servidor',contract:'contrato',truck:'caminhao',custom:'nota-personalizada'};
+  // Na nota personalizada o título entra no nome do arquivo.
+  const slug=type==='custom'?String(val('ncTitle')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30):'';
+  return `bom-regresso-${names[type]||'documento'}${slug?'-'+slug:''}-${new Date().toISOString().slice(0,10)}`;
 }
 function cleanPdfText(s){return String(s||'').replace(/\t/g,'    ').replace(/[═━]/g,'=')}
 function noteTypeLabel(type){
-  return ({general:'RESUMO GERAL',finance:'RESUMO DE SALDO',trip:'NOTA DE VIAGEM',appointment:'ORDEM DA AGRICULTURA',licitation:'NOTA DE LICITAÇÃO',payment:'COMPROVANTE DE PAGAMENTO',refund:'COMPROVANTE DE REEMBOLSO',contract:'RESUMO DE CONTRATO',truck:'FICHA DE CAMINHÃO'}[type]||'DOCUMENTO MUNICIPAL')
+  return ({general:'RESUMO GERAL',finance:'RESUMO DE SALDO',trip:'NOTA DE VIAGEM',appointment:'ORDEM DA AGRICULTURA',licitation:'NOTA DE LICITAÇÃO',payment:'COMPROVANTE DE PAGAMENTO',refund:'COMPROVANTE DE REEMBOLSO',contract:'RESUMO DE CONTRATO',truck:'FICHA DE CAMINHÃO',custom:'NOTA PERSONALIZADA'}[type]||'DOCUMENTO MUNICIPAL')
 }
 function noteDocumentNumber(){
   const type=val('noteType')||'general',target=val('noteTarget')||'';
+  if(type==='custom'){ // número estável: o mesmo conteúdo gera sempre o mesmo número
+    const d=customNoteData(),dm=d.date.match(/(\d{2})\/(\d{2})\/(\d{4})/);let h=0;
+    for(const ch of [d.title,d.cat,d.date,d.person,d.from,d.to,d.item,d.value].join('|'))h=(h*31+ch.charCodeAt(0))>>>0;
+    return `PER-${dm?dm[3]+dm[2]+dm[1]:new Date().toISOString().slice(0,10).replace(/-/g,'')}-${h.toString(36).toUpperCase().padStart(4,'0').slice(-4)}`
+  }
   const prefixes={general:'GER',finance:'FIN',trip:'VIA',appointment:'AGR',licitation:'LIC',payment:'PAG',refund:'REE',contract:'CTR',truck:'CAM'};
   let datePart=new Date().toISOString().slice(0,10).replace(/-/g,'');
   const sources={trip:db.trips,appointment:db.appointments,licitation:db.licitations,payment:db.payments,refund:db.payments,contract:db.contracts,truck:db.trucks};
@@ -4889,7 +4963,7 @@ function buildNotePdf(text,k=1){
       doc.setFont('helvetica','normal');doc.setFontSize(F(10.6));doc.setTextColor(...ink);doc.text(wrapped,left+5,y+S(8));
       y+=h+S(3);return
     }
-    const longField=['observações','objeto / itens','resumo / itens','carga / motivo','objeto'].includes(key)||value.length>82;
+    const longField=['observações','objeto / itens','resumo / itens','carga / motivo','objeto','motivo'].includes(key)||value.length>82;
     if(longField){
       doc.setFont('helvetica','normal');doc.setFontSize(F(10.8));
       const wrapped=doc.splitTextToSize(value,usable-10),h=Math.max(S(19),wrapped.length*S(5.2)+S(13));
@@ -5084,7 +5158,7 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault()
 });
 document.addEventListener('dragstart',e=>{if(e.target.closest?.('img,a,svg'))e.preventDefault()});
-window.App={loginOpToggle,loginOpPick,loginOpKey,setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,deleteAppointment,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
+window.App={noteFormChanged,loginOpToggle,loginOpPick,loginOpKey,setChatSearchKind,reactChat,pinChatMessage,openPinnedChat,showChatReaders,pickChatMention,startChatSelect,cancelChatSelect,deleteSelectedChat,clearChatConversation,openSearch,globalSearch,searchOpen,downloadCsv,closeModal,enter,logout,go,systemBack,mobileMore,requestChatNotifications,toggleChatSearch,openChatMessageMenu,showPushDiagnostics,testChatNotification,setChatNotifySetting,savePushConfig,testPushBackend,filterChatMessages,chatScrollChanged,scrollChatBottom,chatAutoGrow,replyChatMessage,clearChatReply,scrollToChatMessage,copyChatMessage,deleteChatMessage,editChatMessage,saveChatMessageEdit,chatComposerKey,chatInputChanged,chatInputFocus,toggleChatEmoji,insertChatEmoji,toggleChatAttachMenu,showChatInfo,chatChooseFile,clearChatAttachment,toggleChatRecording,chatMicPointerDown,chatMicPointerMove,chatMicPointerUp,chatMicPointerCancel,chatMicKeydown,cancelChatRecording,sendChatMessage,openChatImage,loadChatAudio,downloadChatAttachment,openMyProfile,openRepublicProfile,editMyProfile,saveMyProfile,removeAvatarPhoto,cancelAvatarCrop,changeMyRHPassword,saveMyRHPasswordChange,saveRHPassword,verifyRHLogin,resetProtectedProfilePassword,openUserProfile,filterUsers,filterActivity,undoActivity,redoActivity,editMyAvatar,saveMyAvatar,loadAvatarFile,chooseAvatarEmoji,useAvatarInitials,setAvatarZoom,centerAvatarCrop,applyAvatarCrop,openSettings,setThemePreset,previewTheme,saveThemeSettings,resetTheme,installApp,addOperator,saveOperator,manageOperators,renameOperator,saveRenameOperator,toggleOperator,removeOperatorProfile,saveOperatorRoleAndEnter,carrierModal,quickAddCarrier,saveCarrier,toggleCarrier,filterAgri,setAgStatus,addImp,rmImp,saveAppointment,assetForm,saveAsset,saveEmployee,employeeModal,saveEmployeeEdit,paymentForm,savePayment,refundPayment,saveFinance,saveTruck,editTruck,saveTruckEdit,saveTrip,editTrip,saveTripEdit,setTripStatus,deleteTrip,deleteAppointment,refreshNoteTargets,generateSelectedNote,noteFrom,copyNote,downloadNotePdf,shareNotePdf,downloadNoteDoc,dataTools,exportData,importData,resetData};
 applyTheme();
 initAppHistory();
 document.addEventListener('focusin',e=>{
